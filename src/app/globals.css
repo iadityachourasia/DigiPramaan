@@ -133,6 +133,38 @@ body {
 }
 
 /*
+ * 4. Outlined icons are white by default. Upstream bug.
+ *
+ * The package ships this rule:
+ *
+ *   .ux4g-icon-outlined,
+ *   .ux4g-topbar__group .ux4g-topbar__iconbtn .ux4g-icon-outlined,
+ *   .ux4g-topbar__iconbtn .ux4g-icon-outlined,
+ *   .ux4g-topbar__selectbtn .ux4g-icon-outlined {
+ *     color: var(--ux4g-text-neutral-inverse);
+ *   }
+ *
+ * The three companion selectors are all topbar-scoped, where inverse is right
+ * because the topbar is dark. The bare `.ux4g-icon-outlined` in the same group
+ * clearly leaked out of that scope, and it makes EVERY outlined icon in the
+ * product #fafafa in light mode — invisible on any light surface. It appears
+ * after the generic icon rules, so it wins at equal specificity.
+ *
+ * The symptom is easy to miss precisely because the icons render: correct glyph,
+ * correct size, no error, just painted the same colour as the page. It made the
+ * sidebar navigation, the header actions and the landing page's service icons
+ * effectively blank.
+ *
+ * Repointed to `currentColor`, which is what an icon beside a label should do.
+ * Specificity is deliberately equal to the package's own and this sheet loads
+ * afterwards, so the genuinely topbar-scoped rules still win where inverse is
+ * correct. Remove this if the package fixes the leak.
+ */
+.ux4g-icon-outlined {
+  color: currentColor;
+}
+
+/*
  * Text link. The web package ships --ux4g-text-link-* tokens but no link class,
  * despite COMPONENT_SPEC.md §2 listing Link as available. This is the gap filled,
  * using only those tokens.

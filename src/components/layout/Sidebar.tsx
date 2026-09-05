@@ -1,45 +1,82 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import { useEffect, useMemo } from "react";
 
 import { Link, usePathname } from "@/i18n/navigation";
 import { SIDEBAR_NAV } from "@/lib/constants";
+import { useAuth } from "@/lib/hooks";
+import { can } from "@/types";
 
 /**
- * Sidebar — the primary navigation panel for authenticated pages.
+ * Sidebar — primary navigation for authenticated pages.
  *
- * Built during the Dashboard page (page 2 in build order), reused by all
- * subsequent authenticated pages via the (auth) route group layout.
+ * Items are filtered against the Role Permission Matrix. See `SIDEBAR_NAV` in
+ * `src/lib/constants/routes.ts` for the gate on each entry and the reasoning.
  *
- * Navigation items come from SIDEBAR_NAV in constants/routes.ts so paths
- * are defined once. The active item is highlighted by comparing the current
- * pathname against each href.
+ * Filtering uses the pure `can(role, permission)` rather than the `usePermission`
+ * hook. `usePermission` calls `useAuth` internally, so calling it once per nav
+ * item would be a hook inside a loop — a rules-of-hooks violation that would
+ * fail lint at `--max-warnings=0`. `usePermission` remains the right tool for a
+ * single element's gate; this is a list.
  *
- * On mobile (<1024 px) the sidebar collapses to a slide-out drawer triggered
- * by the Header's menu button.
+ * On viewports below 1024px the sidebar is a slide-out drawer opened from the
+ * Header's menu button.
  */
 
 export interface SidebarProps {
-  /** Whether the mobile drawer is open. Controlled by the Header. */
+  /** Whether the mobile drawer is open. Controlled by AppShell. */
   mobileOpen: boolean;
-  /** Close the mobile drawer (e.g. after a link click). */
+  /** Close the mobile drawer (after a link click, Escape, or overlay click). */
   onClose: () => void;
 }
 
 export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
   const t = useTranslations();
   const pathname = usePathname();
+  const { user } = useAuth();
+
+  const items = useMemo(
+    () =>
+      SIDEBAR_NAV.filter(
+        (item) =>
+          !item.permission || (user != null && can(user.role, item.permission))
+      ),
+    [user]
+  );
+
+  /*
+   * Escape closes the drawer.
+   *
+   * The previous implementation put `onKeyDown` on the overlay div. That never
+   * fired: a plain div is not focusable, so it never receives key events. A
+   * document-level listener is what actually works, and it is scoped to only
+   * exist while the drawer is open.
+   */
+  useEffect(() => {
+    if (!mobileOpen) return;
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [mobileOpen, onClose]);
 
   return (
     <>
-      {/* Overlay for mobile drawer */}
       {mobileOpen ? (
+        /*
+         * Presentational: it dims the page and swallows clicks. Escape is
+         * handled above and every destination is reachable from the nav itself,
+         * so this needs no keyboard affordance of its own.
+         */
         <div
           className="lmcs-sidebar-overlay"
           onClick={onClose}
-          onKeyDown={(e) => {
-            if (e.key === "Escape") onClose();
-          }}
           role="presentation"
         />
       ) : null}
@@ -56,15 +93,17 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
         </div>
 
         <ul className="lmcs-sidebar-nav">
-          {SIDEBAR_NAV.map((item) => {
-            const isActive = pathname === item.href
-              || pathname.startsWith(`${item.href}/`);
+          {items.map((item) => {
+            const isActive =
+              pathname === item.href || pathname.startsWith(`${item.href}/`);
 
             return (
               <li key={item.href}>
                 <Link
                   href={item.href}
-                  className={`lmcs-sidebar-link${isActive ? " lmcs-sidebar-link-active" : ""}`}
+                  className={`lmcs-sidebar-link${
+                    isActive ? " lmcs-sidebar-link-active" : ""
+                  }`}
                   aria-current={isActive ? "page" : undefined}
                   onClick={onClose}
                 >
