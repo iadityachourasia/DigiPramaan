@@ -2,14 +2,13 @@
   "_meta": {
     "note": "Scaffolded locale. Values still identical to en.json are untranslated.",
     "generatedBy": "scripts/sync-locales.mjs",
-    "untranslatedCount": 151,
+    "untranslatedCount": 152,
     "untranslated": [
       "app.descriptor",
       "app.department",
       "app.ministry",
       "app.government",
       "app.tagline",
-      "app.emblemAlt",
       "vocabulary.complianceStatus.Pending",
       "vocabulary.complianceStatus.Compliant",
       "vocabulary.complianceStatus.Non-Compliant",
@@ -125,6 +124,7 @@
       "footer.help",
       "footer.contentOwnership",
       "footer.lastUpdated",
+      "footer.navigationLabel",
       "session.expiredTitle",
       "session.expiredBody",
       "session.warningTitle",
@@ -154,7 +154,8 @@
       "errors.notFoundBody",
       "errors.offlineTitle",
       "errors.offlineBody",
-      "errors.returnToDashboard"
+      "errors.returnToDashboard",
+      "errors.returnHome"
     ]
   },
   "app": {
@@ -333,7 +334,8 @@
     "termsOfUse": "Terms of use",
     "help": "Help",
     "contentOwnership": "This site is owned and maintained by the Department of Consumer Affairs.",
-    "lastUpdated": "Last updated on {date}"
+    "lastUpdated": "Last updated on {date}",
+    "navigationLabel": "Statutory information"
   },
   "session": {
     "expiredTitle": "Your session expired",
@@ -371,7 +373,8 @@
     "notFoundBody": "The page you asked for does not exist, or has moved.",
     "offlineTitle": "You are offline",
     "offlineBody": "Your work is saved on this device and will sync when you reconnect.",
-    "returnToDashboard": "Return to dashboard"
+    "returnToDashboard": "Return to dashboard",
+    "returnHome": "Go to the home page"
   },
   "metadata": {
     "defaultTitle": "Legal Metrology Compliance System",

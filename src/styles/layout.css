@@ -1,28 +1,56 @@
 /*
- * layout.css — styles for Sidebar, Header, Footer, and the app shell.
+ * layout.css — app shell, public shell, and shared page patterns.
  *
- * All colour and spacing values use UX4G tokens. Nothing is hard-coded.
- * This file is imported by globals.css at the end of the cascade so it
- * inherits all token values from the UX4G base stylesheet.
+ * Every colour, spacing, radius, elevation, timing and z-index value here comes
+ * from a confirmed UX4G semantic token. The few remaining literals are geometry
+ * constants that UX4G ships no token for; they are hoisted into the :root block
+ * below so each one is named and defined once rather than scattered inline.
+ *
+ * TOKEN AXIS DISCIPLINE (DESIGN_SYSTEM.md §5). Four axes, not interchangeable,
+ * chosen by structural role and never by matching a pixel value:
+ *   --ux4g-padding-*      a container's own interior
+ *   --ux4g-gap-row-*      vertical rhythm between stacked children
+ *   --ux4g-gap-column-*   horizontal rhythm between inline siblings
+ *   --ux4g-section-*      between major page regions
+ *
+ * Note --ux4g-gap-column-* stops at `l`; there is no `xl` on that axis. Only
+ * --ux4g-gap-row-* has one.
  */
+
+:root {
+  /*
+   * Geometry constants. UX4G has no token for any of these, so they are defined
+   * once here instead of being repeated as inline literals.
+   */
+  --lmcs-sidebar-width: 260px;
+  --lmcs-header-height: 56px;
+  --lmcs-touch-target: 44px; /* A-09 / WCAG 2.5.5 floor */
+  --lmcs-emblem-header: 40px;
+  --lmcs-emblem-login: 64px;
+  --lmcs-emblem-grievance: 56px;
+  --lmcs-login-card-width: 420px;
+  --lmcs-state-min-height: 40vh;
+  --lmcs-state-icon-lg: 3rem;
+  --lmcs-state-icon-xl: 4rem;
+  --lmcs-desktop-breakpoint: 1024px; /* DESIGN_SYSTEM §8: Tablet grid starts here */
+}
 
 /* ─── App Shell ─── */
 
 .lmcs-app-shell {
   display: flex;
-  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 .lmcs-app-main {
   display: flex;
   flex-direction: column;
   flex: 1;
-  min-width: 0; /* prevent flex overflow */
+  min-width: 0; /* prevents flex children from forcing horizontal overflow */
 }
 
 .lmcs-app-content {
   flex: 1;
-  overflow-y: auto;
 }
 
 /* ─── Sidebar ─── */
@@ -32,14 +60,15 @@
   top: 0;
   left: 0;
   bottom: 0;
-  width: 260px;
+  width: var(--lmcs-sidebar-width);
   display: flex;
   flex-direction: column;
   background-color: var(--ux4g-bg-neutral);
-  border-right: 1px solid var(--ux4g-border-neutral-subtle);
-  z-index: 40;
+  border-right: var(--ux4g-border-thin) solid var(--ux4g-border-color-neutral-subtle);
+  z-index: var(--ux4g-z-index-40);
   transform: translateX(-100%);
-  transition: transform 0.2s ease;
+  transition: transform var(--ux4g-transition-duration-base)
+    var(--ux4g-transition-timing-ease);
 }
 
 .lmcs-sidebar-open {
@@ -51,17 +80,13 @@
     position: sticky;
     transform: translateX(0);
   }
-
-  .lmcs-app-main {
-    margin-left: 0; /* sidebar is in flow on desktop */
-  }
 }
 
 .lmcs-sidebar-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.4);
-  z-index: 39;
+  background-color: var(--ux4g-bg-overlay);
+  z-index: var(--ux4g-z-index-30);
 }
 
 @media (min-width: 1024px) {
@@ -73,14 +98,14 @@
 .lmcs-sidebar-brand {
   display: flex;
   flex-direction: column;
-  gap: var(--ux4g-spacing-2xs);
-  border-bottom: 1px solid var(--ux4g-border-neutral-subtle);
+  gap: var(--ux4g-gap-row-2xs);
+  border-bottom: var(--ux4g-border-thin) solid var(--ux4g-border-color-neutral-subtle);
 }
 
 .lmcs-sidebar-nav {
   flex: 1;
   list-style: none;
-  padding: var(--ux4g-spacing-s) 0;
+  padding: var(--ux4g-padding-s) var(--ux4g-padding-none);
   margin: 0;
   overflow-y: auto;
 }
@@ -88,26 +113,33 @@
 .lmcs-sidebar-link {
   display: flex;
   align-items: center;
-  gap: var(--ux4g-spacing-s);
-  padding: var(--ux4g-spacing-s) var(--ux4g-spacing-m);
+  gap: var(--ux4g-gap-column-s);
+  padding: var(--ux4g-padding-s) var(--ux4g-padding-m);
+  min-height: var(--lmcs-touch-target);
   color: var(--ux4g-text-neutral-primary);
   text-decoration: none;
-  border-radius: 0;
-  transition: background-color 0.15s ease;
+  /*
+   * The active item carries a left rule. Reserving the same width as a
+   * transparent border on the resting state stops the label shifting by that
+   * width when an item becomes active.
+   */
+  border-left: var(--ux4g-border-thicker) solid transparent;
+  transition: background-color var(--ux4g-transition-duration-fast)
+    var(--ux4g-transition-timing-ease);
 }
 
 .lmcs-sidebar-link:hover {
-  background-color: var(--ux4g-bg-neutral-hover);
+  background-color: var(--ux4g-bg-neutral-soft);
 }
 
 .lmcs-sidebar-link-active {
   background-color: var(--ux4g-bg-primary-subtle);
-  color: var(--ux4g-text-primary);
-  border-left: 3px solid var(--ux4g-color-primary-600);
+  color: var(--ux4g-text-brand-primary-default);
+  border-left-color: var(--ux4g-border-color-primary-default);
 }
 
 .lmcs-sidebar-footer {
-  border-top: 1px solid var(--ux4g-border-neutral-subtle);
+  border-top: var(--ux4g-border-thin) solid var(--ux4g-border-color-neutral-subtle);
 }
 
 /* ─── Header ─── */
@@ -116,22 +148,23 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--ux4g-spacing-s) var(--ux4g-spacing-m);
-  background-color: var(--ux4g-bg-neutral);
-  border-bottom: 1px solid var(--ux4g-border-neutral-subtle);
-  min-height: 56px;
+  gap: var(--ux4g-gap-column-s);
+  padding: var(--ux4g-padding-s) var(--ux4g-padding-m);
+  background-color: var(--ux4g-bg-neutral-elevated);
+  border-bottom: var(--ux4g-border-thin) solid var(--ux4g-border-color-neutral-subtle);
+  min-height: var(--lmcs-header-height);
 }
 
 .lmcs-header-left,
 .lmcs-header-right {
   display: flex;
   align-items: center;
-  gap: var(--ux4g-spacing-s);
+  gap: var(--ux4g-gap-column-s);
 }
 
 .lmcs-header-menu-btn {
-  min-width: 44px;
-  min-height: 44px;
+  min-width: var(--lmcs-touch-target);
+  min-height: var(--lmcs-touch-target);
 }
 
 @media (min-width: 1024px) {
@@ -143,11 +176,11 @@
 .lmcs-header-brand {
   display: flex;
   align-items: center;
-  gap: var(--ux4g-spacing-s);
+  gap: var(--ux4g-gap-column-s);
 }
 
 .lmcs-header-emblem {
-  height: 40px;
+  height: var(--lmcs-emblem-header);
   width: auto;
 }
 
@@ -163,34 +196,34 @@
 }
 
 .lmcs-header-action {
-  min-width: 44px;
-  min-height: 44px;
+  min-width: var(--lmcs-touch-target);
+  min-height: var(--lmcs-touch-target);
 }
 
 /* ─── Footer ─── */
 
 .lmcs-footer {
-  padding: var(--ux4g-spacing-l) var(--ux4g-spacing-m);
+  padding: var(--ux4g-padding-l) var(--ux4g-padding-m);
   background-color: var(--ux4g-bg-neutral);
-  border-top: 1px solid var(--ux4g-border-neutral-subtle);
+  border-top: var(--ux4g-border-thin) solid var(--ux4g-border-color-neutral-subtle);
 }
 
 .lmcs-footer-inner {
   display: flex;
   flex-direction: column;
-  gap: var(--ux4g-spacing-s);
+  gap: var(--ux4g-gap-row-s);
 }
 
 .lmcs-footer-links {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--ux4g-spacing-m);
+  gap: var(--ux4g-gap-row-xs) var(--ux4g-gap-column-m);
 }
 
 .lmcs-footer-meta {
   display: flex;
   flex-direction: column;
-  gap: var(--ux4g-spacing-2xs);
+  gap: var(--ux4g-gap-row-2xs);
 }
 
 /* ─── Public Shell ─── */
@@ -198,11 +231,17 @@
 .lmcs-public-shell {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  min-height: 100dvh;
 }
 
+/*
+ * flex:1 keeps the footer at the bottom of the viewport on short pages such as
+ * Login, rather than floating it directly under the card.
+ */
 .lmcs-public-content {
   flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 /* ─── Shared Page Patterns ─── */
@@ -211,14 +250,14 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: var(--ux4g-spacing-m);
+  gap: var(--ux4g-gap-column-m);
   flex-wrap: wrap;
 }
 
 .lmcs-page-header-text {
   display: flex;
   flex-direction: column;
-  gap: var(--ux4g-spacing-2xs);
+  gap: var(--ux4g-gap-row-2xs);
 }
 
 /* ─── Status Badge ─── */
@@ -226,14 +265,14 @@
 .lmcs-status-badge {
   display: inline-flex;
   align-items: center;
-  gap: var(--ux4g-spacing-2xs);
-  padding: var(--ux4g-spacing-2xs) var(--ux4g-spacing-s);
+  gap: var(--ux4g-gap-column-2xs);
+  padding: var(--ux4g-padding-2xs) var(--ux4g-padding-s);
   border-radius: var(--ux4g-radius-full);
   white-space: nowrap;
 }
 
 .lmcs-status-badge-row {
-  border-radius: var(--ux4g-radius-m);
+  border-radius: var(--ux4g-radius-md);
   width: 100%;
   justify-content: center;
 }
@@ -245,17 +284,17 @@
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding: var(--ux4g-spacing-2xl) var(--ux4g-spacing-l);
-  gap: var(--ux4g-spacing-s);
+  padding: var(--ux4g-padding-3xl) var(--ux4g-padding-l);
+  gap: var(--ux4g-gap-row-s);
 }
 
 .lmcs-empty-state-icon {
-  font-size: 3rem;
+  font-size: var(--lmcs-state-icon-lg);
   color: var(--ux4g-text-neutral-secondary);
 }
 
 .lmcs-error-state {
-  padding: var(--ux4g-spacing-l);
+  padding: var(--ux4g-padding-l);
 }
 
 .lmcs-error-page {
@@ -263,12 +302,12 @@
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding: var(--ux4g-spacing-2xl);
-  gap: var(--ux4g-spacing-m);
+  padding: var(--ux4g-padding-3xl);
+  gap: var(--ux4g-gap-row-m);
 }
 
 .lmcs-error-page-icon {
-  font-size: 4rem;
+  font-size: var(--lmcs-state-icon-xl);
   color: var(--ux4g-text-neutral-secondary);
 }
 
@@ -277,20 +316,20 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 40vh;
-  gap: var(--ux4g-spacing-m);
+  min-height: var(--lmcs-state-min-height);
+  gap: var(--ux4g-gap-row-m);
 }
 
 .lmcs-loading-spinner {
   display: flex;
   align-items: center;
-  gap: var(--ux4g-spacing-s);
+  gap: var(--ux4g-gap-column-s);
 }
 
 .lmcs-loading-spinner-page {
   flex-direction: column;
   justify-content: center;
-  min-height: 40vh;
+  min-height: var(--lmcs-state-min-height);
 }
 
 /* ─── Login Page ─── */
@@ -299,16 +338,16 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 100vh;
-  padding: var(--ux4g-spacing-l);
+  flex: 1;
+  padding: var(--ux4g-padding-l);
 }
 
 .lmcs-login-card {
-  max-width: 420px;
+  max-width: var(--lmcs-login-card-width);
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: var(--ux4g-spacing-l);
+  gap: var(--ux4g-gap-row-l);
 }
 
 .lmcs-login-header {
@@ -316,12 +355,28 @@
   flex-direction: column;
   align-items: center;
   text-align: center;
-  gap: var(--ux4g-spacing-s);
+  gap: var(--ux4g-gap-row-s);
 }
 
 .lmcs-login-emblem {
-  height: 64px;
+  height: var(--lmcs-emblem-login);
   width: auto;
+}
+
+/*
+ * The form's own stack. Referenced by the login markup and previously undefined,
+ * so the fields sat flush against each other.
+ */
+.lmcs-login-form-area {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-m);
+}
+
+.lmcs-login-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-s);
 }
 
 .lmcs-login-footer {
@@ -333,7 +388,7 @@
 .lmcs-extraction-layout {
   display: grid;
   grid-template-columns: 1fr;
-  gap: var(--ux4g-spacing-l);
+  gap: var(--ux4g-gap-row-l) var(--ux4g-gap-column-l);
 }
 
 @media (min-width: 1024px) {
@@ -345,19 +400,14 @@
 /* ─── Grievance Portal ─── */
 
 .lmcs-grievance-emblem {
-  height: 56px;
+  height: var(--lmcs-emblem-grievance);
   width: auto;
-  margin-bottom: var(--ux4g-spacing-m);
+  margin-bottom: var(--ux4g-margin-m);
 }
 
-/* ─── Utility: link resets ─── */
-
-.lmcs-link {
-  color: var(--ux4g-text-primary);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-.lmcs-link:hover {
-  color: var(--ux4g-color-primary-700);
-}
+/*
+ * .lmcs-link is deliberately NOT defined here. It lives in globals.css, built on
+ * the --ux4g-text-link-* tokens. A duplicate previously sat at the end of this
+ * file using a token that does not exist; because @import hoists this sheet above
+ * globals.css's own rules, that copy was dead as well as wrong.
+ */

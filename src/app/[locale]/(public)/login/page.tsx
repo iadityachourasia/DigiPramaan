@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import type { Metadata } from "next";
 
@@ -29,12 +30,13 @@ export default async function LoginPage({
     <main id="main-content" className="lmcs-login-page">
       <div className="lmcs-login-card ux4g-container">
         <div className="lmcs-login-header">
-          <img
+          <Image
             src="/images/emblem.svg"
             alt={t("app.emblemAlt")}
             className="lmcs-login-emblem"
-            width={56}
+            width={64}
             height={64}
+            unoptimized
           />
           <h1 className="ux4g-heading-l-strong">{t("login.title")}</h1>
           <p className="ux4g-body-m-default ux4g-text-neutral-secondary">

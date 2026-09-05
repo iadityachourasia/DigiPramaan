@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 
 /**
  * useMediaQuery — subscribe to a CSS media query.
@@ -11,25 +11,36 @@ import { useEffect, useState } from "react";
  *   Desktop   1440 px +
  *
  * Use the helpers below rather than writing the query inline.
+ *
+ * Implemented with `useSyncExternalStore` rather than `useState` plus an effect.
+ * A `MediaQueryList` is an external store, and reading one by calling `setState`
+ * inside an effect causes a cascading render on every mount — which is what the
+ * `react-hooks/set-state-in-effect` rule is pointing at. This version reads the
+ * store during render instead, so the first paint already has the right answer
+ * on the client and there is no second render.
+ *
+ * `getServerSnapshot` returns false so server output matches the pre-hydration
+ * client. Any layout that must differ by viewport should be driven by CSS media
+ * queries, not by this hook, precisely because the server cannot know the width.
  */
 export function useMediaQuery(query: string): boolean {
-  const [matches, setMatches] = useState(false);
+  const subscribe = useCallback(
+    (onStoreChange: () => void) => {
+      const media = window.matchMedia(query);
+      media.addEventListener("change", onStoreChange);
+      return () => {
+        media.removeEventListener("change", onStoreChange);
+      };
+    },
+    [query]
+  );
 
-  useEffect(() => {
-    const media = window.matchMedia(query);
-    setMatches(media.matches);
+  const getSnapshot = useCallback(
+    () => window.matchMedia(query).matches,
+    [query]
+  );
 
-    function onChange(event: MediaQueryListEvent) {
-      setMatches(event.matches);
-    }
-
-    media.addEventListener("change", onChange);
-    return () => {
-      media.removeEventListener("change", onChange);
-    };
-  }, [query]);
-
-  return matches;
+  return useSyncExternalStore(subscribe, getSnapshot, () => false);
 }
 
 /** True on viewports at or above the tablet breakpoint (1024 px). */

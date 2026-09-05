@@ -52,6 +52,17 @@ const config = [
         ])
       ),
 
+      /*
+       * `label-has-for` is deprecated upstream and superseded by
+       * `label-has-associated-control`, which is enabled at error above via the
+       * recommended set. Its default demands BOTH nesting and an htmlFor/id
+       * pair; UX4G's Input composition puts the label as a sibling of the
+       * bordered box, so satisfying it would mean restructuring correct,
+       * accessible markup to please a retired rule. The modern rule still
+       * enforces the association that actually matters.
+       */
+      "jsx-a11y/label-has-for": "off",
+
       /* No console in committed code (round 4). Warnings and errors stay allowed. */
       "no-console": ["error", { allow: ["warn", "error"] }],
 

@@ -1,5 +1,7 @@
 import { getTranslations } from "next-intl/server";
 
+import { Link } from "@/i18n/navigation";
+
 /**
  * not-found.tsx — the 404 page for the [locale] segment.
  *
@@ -26,12 +28,16 @@ export default async function NotFoundPage() {
           {t("notFoundBody")}
         </p>
 
-        <a
+        {/*
+          Links to the site root, which is the public landing page — not the
+          dashboard, which requires a session this visitor may not have.
+        */}
+        <Link
           href="/"
-          className="ux4g-btn ux4g-btn-secondary ux4g-mt-m"
+          className="ux4g-btn ux4g-btn-outline-primary ux4g-mt-m"
         >
-          {t("returnToDashboard")}
-        </a>
+          {t("returnHome")}
+        </Link>
       </div>
     </main>
   );

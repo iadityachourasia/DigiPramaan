@@ -6,7 +6,7 @@
     "ministry": "Ministry of Consumer Affairs, Food & Public Distribution",
     "government": "Government of India",
     "tagline": "Check packaged commodity labels against the Legal Metrology (Packaged Commodities) Rules, 2011.",
-    "emblemAlt": "State Emblem of India"
+    "emblemAlt": "Ashoka Chakra, emblem of the Government of India"
   },
   "vocabulary": {
     "complianceStatus": {
@@ -175,7 +175,8 @@
     "termsOfUse": "Terms of use",
     "help": "Help",
     "contentOwnership": "This site is owned and maintained by the Department of Consumer Affairs.",
-    "lastUpdated": "Last updated on {date}"
+    "lastUpdated": "Last updated on {date}",
+    "navigationLabel": "Statutory information"
   },
   "session": {
     "expiredTitle": "Your session expired",
@@ -213,7 +214,8 @@
     "notFoundBody": "The page you asked for does not exist, or has moved.",
     "offlineTitle": "You are offline",
     "offlineBody": "Your work is saved on this device and will sync when you reconnect.",
-    "returnToDashboard": "Return to dashboard"
+    "returnToDashboard": "Return to dashboard",
+    "returnHome": "Go to the home page"
   },
   "metadata": {
     "defaultTitle": "Digi-Pramaan",
