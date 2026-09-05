@@ -22,6 +22,7 @@ import type {
   KpiMetric,
   RegionBreakdownEntry,
   SourceBreakdownEntry,
+  TrendPeriod,
   TrendPoint,
   ViolationBreakdownEntry,
 } from "@/types";
@@ -90,6 +91,37 @@ export const MOCK_TREND: readonly TrendPoint[] = [
   { date: "2026-08-24", compliant: 63, nonCompliant: 31, totalScans: 101 },
   { date: "2026-08-31", compliant: 69, nonCompliant: 38, totalScans: 114 },
 ];
+
+/**
+ * Illustrative monthly series, same shape as MOCK_TREND, wider buckets.
+ *
+ * Added rather than reshaping MOCK_TREND or AnalyticsData.trend, which would
+ * be a breaking change to every existing consumer of AnalyticsData for a
+ * feature (the weekly/monthly toggle) that only the Dashboard's trend chart
+ * needs today. Spans 12 months so the monthly view has enough points to read
+ * as a trend rather than three dots — the weekly series' ~2-month span would
+ * look sparse stretched across a monthly axis.
+ *
+ * Same caveat as MOCK_TREND applies: illustrative, not measured (BRD §15 Q-07).
+ */
+export const MOCK_TREND_MONTHLY: readonly TrendPoint[] = [
+  { date: "2025-10-01", compliant: 140, nonCompliant: 62, totalScans: 224 },
+  { date: "2025-11-01", compliant: 158, nonCompliant: 71, totalScans: 251 },
+  { date: "2025-12-01", compliant: 151, nonCompliant: 84, totalScans: 259 },
+  { date: "2026-01-01", compliant: 172, nonCompliant: 79, totalScans: 276 },
+  { date: "2026-02-01", compliant: 180, nonCompliant: 88, totalScans: 293 },
+  { date: "2026-03-01", compliant: 196, nonCompliant: 91, totalScans: 312 },
+  { date: "2026-04-01", compliant: 203, nonCompliant: 97, totalScans: 327 },
+  { date: "2026-05-01", compliant: 211, nonCompliant: 104, totalScans: 342 },
+  { date: "2026-06-01", compliant: 224, nonCompliant: 112, totalScans: 361 },
+  { date: "2026-07-01", compliant: 231, nonCompliant: 119, totalScans: 378 },
+  { date: "2026-08-01", compliant: 248, nonCompliant: 126, totalScans: 401 },
+];
+
+/** Selects the illustrative trend series for a given granularity. */
+export function getTrendForPeriod(period: TrendPeriod): readonly TrendPoint[] {
+  return period === "monthly" ? MOCK_TREND_MONTHLY : MOCK_TREND;
+}
 
 export const MOCK_VIOLATION_BREAKDOWN: readonly ViolationBreakdownEntry[] =
   VIOLATION_CATEGORY_IDS.map((categoryId) => ({

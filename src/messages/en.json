@@ -350,5 +350,63 @@
         }
       }
     }
+  },
+  "dashboard": {
+    "meta": {
+      "title": "Dashboard"
+    },
+    "kpis": {
+      "heading": "Key metrics",
+      "productsScanned": "Products Scanned",
+      "compliant": "Compliant",
+      "nonCompliant": "Non-Compliant",
+      "pending": "Pending",
+      "pendingCaption": "Awaiting verification",
+      "deltaVsLastPeriod": "{sign} vs last week"
+    },
+    "trend": {
+      "heading": "Compliance trend",
+      "weekly": "Weekly",
+      "monthly": "Monthly",
+      "compliantSeries": "Compliant",
+      "nonCompliantSeries": "Non-Compliant",
+      "totalScansSeries": "Total scans",
+      "notEnoughData": "Not enough data yet for this view.",
+      "loading": "Loading compliance trend",
+      "errorTitle": "Could not load the trend chart",
+      "errorBody": "Try again. The rest of the dashboard is unaffected."
+    },
+    "recentScans": {
+      "heading": "Recent Scans",
+      "viewAll": "View all",
+      "columnProduct": "Product",
+      "columnDate": "Scan date",
+      "columnStatus": "Status",
+      "columnSource": "Source",
+      "columnAction": "Action",
+      "caption": "Most recently scanned products",
+      "emptyTitle": "No scans yet",
+      "emptyBody": "Start your first scan to see it appear here.",
+      "emptyAction": "Scan new product",
+      "loading": "Loading recent scans",
+      "errorTitle": "Could not load recent scans",
+      "errorBody": "Try again. The rest of the dashboard is unaffected."
+    },
+    "alerts": {
+      "heading": "Alerts",
+      "emptyTitle": "No active alerts",
+      "emptyBody": "You are all caught up.",
+      "loading": "Loading alerts",
+      "errorTitle": "Could not load alerts",
+      "errorBody": "Try again. The rest of the dashboard is unaffected.",
+      "viewAction": "View"
+    },
+    "quickActions": {
+      "heading": "Quick actions",
+      "scanNewProduct": "Scan New Product",
+      "scanEcommerceListing": "Scan E-commerce Listing",
+      "viewRecords": "View Records",
+      "generateReport": "Generate Report"
+    }
   }
 }
