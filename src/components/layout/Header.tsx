@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useTranslations } from "next-intl";
 
 import { useAuth } from "@/lib/hooks";
@@ -35,7 +36,7 @@ export function Header({ onMenuToggle }: HeaderProps) {
       <div className="lmcs-header-left">
         <button
           type="button"
-          className="lmcs-header-menu-btn ux4g-btn ux4g-btn-ghost"
+          className="lmcs-header-menu-btn ux4g-btn ux4g-btn-text-neutral"
           onClick={onMenuToggle}
           aria-label={t("accessibility.openMenu")}
         >
@@ -45,12 +46,13 @@ export function Header({ onMenuToggle }: HeaderProps) {
         </button>
 
         <div className="lmcs-header-brand">
-          <img
+          <Image
             src="/images/emblem.svg"
             alt={t("app.emblemAlt")}
             className="lmcs-header-emblem"
-            width={36}
+            width={40}
             height={40}
+            unoptimized
           />
           <div className="lmcs-header-titles">
             <span className="ux4g-title-s-strong">{t("app.name")}</span>
@@ -64,7 +66,7 @@ export function Header({ onMenuToggle }: HeaderProps) {
       <div className="lmcs-header-right">
         <button
           type="button"
-          className="ux4g-btn ux4g-btn-ghost lmcs-header-action"
+          className="ux4g-btn ux4g-btn-text-neutral lmcs-header-action"
           aria-label={t("navigation.notifications")}
         >
           <span className="ux4g-icon-outlined" aria-hidden="true">
@@ -83,7 +85,7 @@ export function Header({ onMenuToggle }: HeaderProps) {
 
         <button
           type="button"
-          className="ux4g-btn ux4g-btn-ghost lmcs-header-action"
+          className="ux4g-btn ux4g-btn-text-neutral lmcs-header-action"
           onClick={signOut}
           aria-label={t("navigation.logout")}
         >

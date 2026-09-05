@@ -55,7 +55,29 @@ export const ROUTES = {
 
   /** Citizen Grievance Portal — USP, public, no shell (page 11). */
   grievance: "/grievance",
+
+  /**
+   * Statutory footer pages required of every Government of India site by
+   * BRD §9.4 and GIGW 3.0. The routes are declared here so the Footer links
+   * through `Link` and stays locale-aware; the pages themselves are not built
+   * yet and are tracked as outstanding work.
+   */
+  accessibilityStatement: "/accessibility",
+  privacy: "/privacy",
+  terms: "/terms",
+  rti: "/rti",
+  help: "/help",
 } as const;
+
+/**
+ * Date the site's content was last reviewed, shown in the footer per BRD §9.4
+ * and GIGW 3.0.
+ *
+ * Deliberately a constant rather than `new Date()`. Rendering today's date would
+ * claim the content was reviewed today on every single page load, which is a
+ * false statement on a statutory notice. Bump this when content actually changes.
+ */
+export const SITE_LAST_UPDATED = "2026-09-05";
 
 /**
  * Navigation items shown in the authenticated sidebar.

@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import type { Metadata } from "next";
 
@@ -32,13 +33,14 @@ export default async function GrievancePage({
   return (
     <main id="main-content" className="ux4g-container ux4g-py-xl">
       <header className="ux4g-mb-xl">
-        <img
-          src="/images/emblem.svg"
-          alt={t("app.emblemAlt")}
-          className="lmcs-grievance-emblem"
-          width={48}
-          height={56}
-        />
+        <Image
+            src="/images/emblem.svg"
+            alt={t("app.emblemAlt")}
+            className="lmcs-grievance-emblem"
+            width={56}
+            height={56}
+            unoptimized
+          />
         <h1 className="ux4g-heading-xl-strong">
           Report a Packaging Concern
         </h1>

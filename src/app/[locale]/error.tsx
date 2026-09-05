@@ -20,6 +20,7 @@ interface ErrorPageProps {
 
 export default function ErrorPage({ error, reset }: ErrorPageProps) {
   const t = useTranslations("errors");
+  const tCommon = useTranslations("common");
 
   /* Log for monitoring; never expose the stack to the user. */
   console.error("[LMCS] Unhandled error:", error.message, error.digest);
@@ -41,10 +42,10 @@ export default function ErrorPage({ error, reset }: ErrorPageProps) {
           actions={
             <button
               type="button"
-              className="ux4g-btn ux4g-btn-secondary"
+              className="ux4g-btn ux4g-btn-outline-primary"
               onClick={reset}
             >
-              {t("genericBody")}
+              {tCommon("actions.retry")}
             </button>
           }
         >
