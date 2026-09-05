@@ -63,8 +63,24 @@ export function TextField({
    */
   const describedBy = error ? errorId : hint ? hintId : undefined;
 
+  /*
+   * The state class belongs on the CONTAINER, not on the bordered box.
+   *
+   * The package hides helper and error text unconditionally:
+   *   .ux4g-input-helper { display: none !important }
+   * and re-shows it only through a descendant selector rooted on the container:
+   *   .ux4g-input-default .ux4g-input-helper,
+   *   .ux4g-input-error   .ux4g-input-helper { display: flex !important }
+   *
+   * The helper is a sibling of the bordered box, so with the state class on the
+   * box it is not a descendant and the rule never matches. That silently hid
+   * every hint AND every validation error — the field went red with no message
+   * explaining what to fix, which defeats A-07.
+   */
+  const stateClass = error ? "ux4g-input-error" : "ux4g-input-default";
+
   return (
-    <div className={`ux4g-input-container ux4g-input-${size}`}>
+    <div className={`ux4g-input-container ux4g-input-${size} ${stateClass}`}>
       <label className="ux4g-label-m-default" htmlFor={id}>
         {label}
       </label>

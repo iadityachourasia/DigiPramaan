@@ -205,7 +205,13 @@
       "usernameFormat": "Enter a valid email address, or the username issued by your department.",
       "invalidCredentials": "Invalid username or password.",
       "serverUnavailable": "We could not reach the sign-in service. Check your connection, then try again."
-    }
+    },
+    "errorTitle": "Could not sign you in",
+    "serverErrorTitle": "Sign-in service unavailable",
+    "successTitle": "Signed in",
+    "successBody": "Taking you to your dashboard.",
+    "demoHint": "Demonstration accounts",
+    "demoBody": "This build has no live directory. Sign in as r.deshmukh (Enforcement Officer), s.iyer (Admin) or a.banerjee (Reviewer), password Demo@2026."
   },
   "errors": {
     "genericTitle": "Something went wrong",
