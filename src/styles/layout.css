@@ -162,6 +162,23 @@
   gap: var(--ux4g-gap-column-s);
 }
 
+/*
+ * Below 480px, "Enforcement Officer" in the role badge alone is wide enough
+ * that the notifications button, the name/role block and the logout button
+ * no longer fit on one line — measured at 16px of real overflow, not
+ * estimated. Wrapping preserves every required piece of content (the user's
+ * name and the role badge in full — 00-README.md §C is explicit that role
+ * names are never shortened) rather than hiding any of it; the header simply
+ * grows by one row on narrow phones instead.
+ */
+@media (max-width: 480px) {
+  .lmcs-header-right {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    row-gap: var(--ux4g-gap-row-2xs);
+  }
+}
+
 .lmcs-header-menu-btn {
   min-width: var(--lmcs-touch-target);
   min-height: var(--lmcs-touch-target);
@@ -411,3 +428,210 @@
  * file using a token that does not exist; because @import hoists this sheet above
  * globals.css's own rules, that copy was dead as well as wrong.
  */
+
+/* ─── Skeleton (src/components/shared/Skeleton.tsx) ───
+ * UX4G's own .ux4g-skeleton-* classes are scoped under a
+ * .ux4g-application-submission ancestor and render nothing standalone —
+ * confirmed against the compiled stylesheet. This composes the same fill and
+ * radius tokens those classes use instead of inventing a new one.
+ */
+
+.lmcs-skeleton {
+  display: inline-block;
+  background-color: var(--ux4g-bg-neutral-subtle);
+  animation: lmcs-skeleton-pulse var(--ux4g-transition-duration-slow) ease-in-out
+    infinite alternate;
+}
+
+@keyframes lmcs-skeleton-pulse {
+  from {
+    opacity: var(--ux4g-opacity-60);
+  }
+  to {
+    opacity: var(--ux4g-opacity-40);
+  }
+}
+
+/* prefers-reduced-motion is handled globally in globals.css, which zeroes every
+   animation-duration — no widget-specific override needed here. */
+
+/* ─── MetricCard (src/components/shared/MetricCard.tsx) ─── */
+
+.lmcs-metric-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-2xs);
+  text-decoration: none;
+  color: inherit;
+  height: 100%;
+}
+
+/* Clickable cards get a visible affordance on hover/focus without relying on
+   colour alone — the whole card is one Link, so its own focus ring already
+   satisfies A-05; this is a supporting visual cue only. */
+.lmcs-metric-card-link:hover,
+.lmcs-metric-card-link:focus-visible {
+  border-color: var(--ux4g-border-color-primary-default);
+}
+
+.lmcs-metric-card-delta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ux4g-gap-column-2xs);
+}
+
+/* ─── Dashboard page layout ─── */
+
+.lmcs-kpi-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--ux4g-gap-row-m) var(--ux4g-gap-column-m);
+}
+
+@media (min-width: 640px) {
+  .lmcs-kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .lmcs-kpi-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.lmcs-dashboard-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-m);
+}
+
+.lmcs-dashboard-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ux4g-gap-column-m);
+  flex-wrap: wrap;
+}
+
+.lmcs-trend-toggle {
+  display: inline-flex;
+  gap: var(--ux4g-gap-column-2xs);
+}
+
+.lmcs-chart-container {
+  width: 100%;
+  height: 320px;
+}
+
+.lmcs-chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ux4g-gap-row-xs) var(--ux4g-gap-column-m);
+}
+
+.lmcs-chart-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ux4g-gap-column-2xs);
+}
+
+.lmcs-chart-legend-swatch {
+  display: inline-block;
+  width: var(--ux4g-sz-16);
+  height: var(--ux4g-sz-16);
+  border-radius: var(--ux4g-radius-sm);
+  flex-shrink: 0;
+}
+
+.lmcs-quick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ux4g-gap-row-s) var(--ux4g-gap-column-s);
+}
+
+.lmcs-alerts-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-s);
+}
+
+.lmcs-recent-scans-thumb {
+  display: flex;
+  align-items: center;
+  gap: var(--ux4g-gap-column-s);
+  min-width: 0;
+}
+
+.lmcs-recent-scans-thumb-img {
+  width: var(--ux4g-sz-40);
+  height: var(--ux4g-sz-40);
+  border-radius: var(--ux4g-radius-sm);
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.lmcs-recent-scans-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ─── DataTable responsive split (src/components/shared/DataTable.tsx) ───
+ * Exactly one of these two renders at a time, split at 1024px — the bottom of
+ * DESIGN_SYSTEM §8's Mobile range and top of Tablet. Below it: card-per-row,
+ * per PAGE_COMPOSITION §5's explicit "never a horizontally-scrolled dense
+ * table on mobile." At or above it: the real table, which is free to scroll
+ * horizontally within its own .ux4g-table-responsive wrapper if a caller ever
+ * adds enough columns to need it.
+ */
+
+.lmcs-datatable-table {
+  display: none;
+}
+
+.lmcs-datatable-cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-s);
+}
+
+@media (min-width: 1024px) {
+  .lmcs-datatable-table {
+    display: block;
+  }
+
+  .lmcs-datatable-cards {
+    display: none;
+  }
+}
+
+.lmcs-datatable-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-s);
+}
+
+.lmcs-datatable-card-details {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-xs);
+  margin: 0;
+}
+
+.lmcs-datatable-card-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--ux4g-gap-column-m);
+}
+
+.lmcs-datatable-card-row dd {
+  margin: 0;
+  text-align: right;
+}
+
+.lmcs-datatable-card-footer {
+  padding-top: var(--ux4g-padding-2xs);
+  border-top: var(--ux4g-border-thin) solid var(--ux4g-border-color-neutral-subtle);
+}

@@ -2,7 +2,7 @@
   "_meta": {
     "note": "Scaffolded locale. Values still identical to en.json are untranslated.",
     "generatedBy": "scripts/sync-locales.mjs",
-    "untranslatedCount": 224,
+    "untranslatedCount": 268,
     "untranslated": [
       "app.descriptor",
       "app.department",
@@ -227,7 +227,51 @@
       "home.citizens.steps.review.title",
       "home.citizens.steps.review.body",
       "home.citizens.steps.outcome.title",
-      "home.citizens.steps.outcome.body"
+      "home.citizens.steps.outcome.body",
+      "dashboard.meta.title",
+      "dashboard.kpis.heading",
+      "dashboard.kpis.productsScanned",
+      "dashboard.kpis.compliant",
+      "dashboard.kpis.nonCompliant",
+      "dashboard.kpis.pending",
+      "dashboard.kpis.pendingCaption",
+      "dashboard.kpis.deltaVsLastPeriod",
+      "dashboard.trend.heading",
+      "dashboard.trend.weekly",
+      "dashboard.trend.monthly",
+      "dashboard.trend.compliantSeries",
+      "dashboard.trend.nonCompliantSeries",
+      "dashboard.trend.totalScansSeries",
+      "dashboard.trend.notEnoughData",
+      "dashboard.trend.loading",
+      "dashboard.trend.errorTitle",
+      "dashboard.trend.errorBody",
+      "dashboard.recentScans.heading",
+      "dashboard.recentScans.viewAll",
+      "dashboard.recentScans.columnProduct",
+      "dashboard.recentScans.columnDate",
+      "dashboard.recentScans.columnStatus",
+      "dashboard.recentScans.columnSource",
+      "dashboard.recentScans.columnAction",
+      "dashboard.recentScans.caption",
+      "dashboard.recentScans.emptyTitle",
+      "dashboard.recentScans.emptyBody",
+      "dashboard.recentScans.emptyAction",
+      "dashboard.recentScans.loading",
+      "dashboard.recentScans.errorTitle",
+      "dashboard.recentScans.errorBody",
+      "dashboard.alerts.heading",
+      "dashboard.alerts.emptyTitle",
+      "dashboard.alerts.emptyBody",
+      "dashboard.alerts.loading",
+      "dashboard.alerts.errorTitle",
+      "dashboard.alerts.errorBody",
+      "dashboard.alerts.viewAction",
+      "dashboard.quickActions.heading",
+      "dashboard.quickActions.scanNewProduct",
+      "dashboard.quickActions.scanEcommerceListing",
+      "dashboard.quickActions.viewRecords",
+      "dashboard.quickActions.generateReport"
     ]
   },
   "app": {
@@ -580,6 +624,64 @@
           "body": "You get a reference number to check the status later."
         }
       }
+    }
+  },
+  "dashboard": {
+    "meta": {
+      "title": "Dashboard"
+    },
+    "kpis": {
+      "heading": "Key metrics",
+      "productsScanned": "Products Scanned",
+      "compliant": "Compliant",
+      "nonCompliant": "Non-Compliant",
+      "pending": "Pending",
+      "pendingCaption": "Awaiting verification",
+      "deltaVsLastPeriod": "{sign} vs last week"
+    },
+    "trend": {
+      "heading": "Compliance trend",
+      "weekly": "Weekly",
+      "monthly": "Monthly",
+      "compliantSeries": "Compliant",
+      "nonCompliantSeries": "Non-Compliant",
+      "totalScansSeries": "Total scans",
+      "notEnoughData": "Not enough data yet for this view.",
+      "loading": "Loading compliance trend",
+      "errorTitle": "Could not load the trend chart",
+      "errorBody": "Try again. The rest of the dashboard is unaffected."
+    },
+    "recentScans": {
+      "heading": "Recent Scans",
+      "viewAll": "View all",
+      "columnProduct": "Product",
+      "columnDate": "Scan date",
+      "columnStatus": "Status",
+      "columnSource": "Source",
+      "columnAction": "Action",
+      "caption": "Most recently scanned products",
+      "emptyTitle": "No scans yet",
+      "emptyBody": "Start your first scan to see it appear here.",
+      "emptyAction": "Scan new product",
+      "loading": "Loading recent scans",
+      "errorTitle": "Could not load recent scans",
+      "errorBody": "Try again. The rest of the dashboard is unaffected."
+    },
+    "alerts": {
+      "heading": "Alerts",
+      "emptyTitle": "No active alerts",
+      "emptyBody": "You are all caught up.",
+      "loading": "Loading alerts",
+      "errorTitle": "Could not load alerts",
+      "errorBody": "Try again. The rest of the dashboard is unaffected.",
+      "viewAction": "View"
+    },
+    "quickActions": {
+      "heading": "Quick actions",
+      "scanNewProduct": "Scan New Product",
+      "scanEcommerceListing": "Scan E-commerce Listing",
+      "viewRecords": "View Records",
+      "generateReport": "Generate Report"
     }
   }
 }
