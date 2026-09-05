@@ -1,53 +1,37 @@
-"use client";
+import { setRequestLocale } from "next-intl/server";
+import type { ReactNode } from "react";
 
-import { useState, type ReactNode } from "react";
-
-import { Header } from "@/components/layout/Header";
-import { Sidebar } from "@/components/layout/Sidebar";
-import { Footer } from "@/components/layout/Footer";
-import { AuthProvider } from "@/providers/AuthProvider";
+import { AppShell } from "@/components/layout/AppShell";
+import { RequireAuth } from "@/components/shared/RequireAuth";
 
 /**
- * Authenticated layout — wraps every page behind login.
+ * Authenticated layout — the app shell, behind a sign-in check.
  *
- * This is the "app shell" built during the Dashboard page (page 2 in build
- * order). It provides:
- *   - AuthProvider for session state
- *   - Header with skip link, emblem, user info
- *   - Sidebar navigation
- *   - Main content area with #main-content target
- *   - Footer with GIGW-mandatory links
+ * A Server Component. `AuthProvider` now lives in `[locale]/layout.tsx` so it
+ * also covers the `(public)` group, where the login form needs it; the mobile
+ * drawer's state lives in `AppShell`. That leaves nothing here that requires a
+ * client boundary, which is what lets this file stay `async` and call
+ * `setRequestLocale`.
  *
- * On mobile the sidebar is a slide-out drawer; on desktop it's always visible.
+ * `RequireAuth` is a routing convenience, not a security boundary — see its
+ * own documentation.
  */
 
 interface AuthLayoutProps {
   children: ReactNode;
+  params: Promise<{ locale: string }>;
 }
 
-export default function AuthLayout({ children }: AuthLayoutProps) {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+export default async function AuthLayout({
+  children,
+  params,
+}: AuthLayoutProps) {
+  const { locale } = await params;
+  setRequestLocale(locale);
 
   return (
-    <AuthProvider>
-      <div className="lmcs-app-shell">
-        <Sidebar
-          mobileOpen={sidebarOpen}
-          onClose={() => { setSidebarOpen(false); }}
-        />
-
-        <div className="lmcs-app-main">
-          <Header
-            onMenuToggle={() => { setSidebarOpen((prev) => !prev); }}
-          />
-
-          <div className="lmcs-app-content">
-            {children}
-          </div>
-
-          <Footer />
-        </div>
-      </div>
-    </AuthProvider>
+    <RequireAuth>
+      <AppShell>{children}</AppShell>
+    </RequireAuth>
   );
 }

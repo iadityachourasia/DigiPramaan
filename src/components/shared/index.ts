@@ -7,3 +7,4 @@ export { EmptyState, type EmptyStateProps } from "./EmptyState";
 export { ErrorState, type ErrorStateProps } from "./ErrorState";
 export { LoadingSpinner, type LoadingSpinnerProps } from "./LoadingSpinner";
 export { PageHeader, type PageHeaderProps } from "./PageHeader";
+export { RequireAuth } from "./RequireAuth";

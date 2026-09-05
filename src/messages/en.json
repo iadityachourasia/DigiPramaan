@@ -221,5 +221,128 @@
     "defaultTitle": "Digi-Pramaan",
     "titleTemplate": "{page} | Digi-Pramaan",
     "description": "Digi-Pramaan scans packaged commodity labels and checks mandatory declarations against the Legal Metrology (Packaged Commodities) Rules, 2011. Department of Consumer Affairs, Government of India."
+  },
+  "home": {
+    "meta": {
+      "title": "Digi-Pramaan",
+      "description": "Check packaged commodity labels against the Legal Metrology (Packaged Commodities) Rules, 2011. A compliance system for the Department of Consumer Affairs, Government of India."
+    },
+    "nav": {
+      "label": "Site sections",
+      "howItWorks": "How it works",
+      "categories": "What we check",
+      "citizens": "For citizens",
+      "signIn": "Officer sign in"
+    },
+    "hero": {
+      "eyebrow": "Legal Metrology (Packaged Commodities) Rules, 2011",
+      "title": "Check a label against the Rules in seconds, not hours",
+      "body": "Digi-Pramaan reads the mandatory declarations off a packaged commodity, checks each one against the Rules, and produces a citable compliance record. Built for the officers who do this work in the field.",
+      "ctaPrimary": "Officer sign in",
+      "ctaSecondary": "Report a label",
+      "trustLine": "A service of the Department of Consumer Affairs, Ministry of Consumer Affairs, Food & Public Distribution",
+      "demoCaption": "Extraction result, sample record",
+      "demoScoreLabel": "Declarations passed",
+      "demoVerdictPass": "Present",
+      "demoVerdictFail": "Missing"
+    },
+    "services": {
+      "heading": "Three ways a product reaches the system",
+      "body": "Every route produces the same compliance record, so a case is handled the same way however it arrived.",
+      "inspection": {
+        "title": "Field inspection",
+        "body": "An officer photographs the front, back and principal display panel. Each image is quality-checked before it costs anything to process.",
+        "cta": "Sign in to scan"
+      },
+      "ecommerce": {
+        "title": "E-commerce listing",
+        "body": "Paste a product listing URL, or a whole category page, and the system pulls the listing images through the same checks. No physical pack needed.",
+        "cta": "Sign in to scan"
+      },
+      "grievance": {
+        "title": "Citizen report",
+        "body": "A shopper photographs a label that looks wrong. The report enters an officer's queue with no account and no form-filling.",
+        "cta": "Report a label"
+      }
+    },
+    "pipeline": {
+      "heading": "How a scan becomes a compliance record",
+      "body": "Seven stages, each one visible while it runs. A failed stage can be retried on its own rather than restarting the scan.",
+      "branchLabel": "Only if confidence is low",
+      "steps": {
+        "capture": {
+          "title": "Capture",
+          "body": "Front, back and principal display panel."
+        },
+        "quality": {
+          "title": "Quality gate",
+          "body": "Blur, skew, curvature and text visibility, per image."
+        },
+        "ocr": {
+          "title": "Text extraction",
+          "body": "Primary OCR pass across all three images."
+        },
+        "fallback": {
+          "title": "Second opinion",
+          "body": "Low-confidence fields re-read by a second engine."
+        },
+        "structuring": {
+          "title": "Structuring",
+          "body": "Readings reconciled into one record, each field traced to its image."
+        },
+        "rules": {
+          "title": "Rule engine",
+          "body": "Rules 6, 7 and 8 evaluated against the structured record."
+        },
+        "score": {
+          "title": "Compliance record",
+          "body": "Violations cited by rule, ready for an officer to verify."
+        }
+      }
+    },
+    "stats": {
+      "heading": "What the Rules require",
+      "categories": {
+        "value": "10",
+        "label": "Violation categories checked"
+      },
+      "declarations": {
+        "value": "7",
+        "label": "Mandatory declarations read"
+      },
+      "roles": {
+        "value": "3",
+        "label": "Levels of access"
+      },
+      "rules": {
+        "value": "2011",
+        "label": "Rules enforced"
+      }
+    },
+    "taxonomy": {
+      "heading": "What we check for",
+      "body": "Every finding is reported as one of ten categories, each tied to the rule it comes from. A report cites the rule, not a generic verdict.",
+      "provenanceTitle": "Why the wording is fixed",
+      "provenanceBody": "The same ten categories appear on the verification screen, the compliance record, the analytics breakdown and the manufacturer scorecard. An enforcement action has to survive scrutiny, so the language cannot drift between the screen an officer saw and the report they filed."
+    },
+    "citizens": {
+      "heading": "Seen a label that looks wrong?",
+      "body": "If a price is missing, a manufacturer is not named, or the text is too small to read, you can report it. No account, no sign-in, and your contact details are optional.",
+      "cta": "Report a label",
+      "steps": {
+        "submit": {
+          "title": "Photograph it",
+          "body": "One photo of the label is all that is required."
+        },
+        "review": {
+          "title": "An officer reviews it",
+          "body": "Your report joins the same queue as an officer's own scan."
+        },
+        "outcome": {
+          "title": "Track it",
+          "body": "You get a reference number to check the status later."
+        }
+      }
+    }
   }
 }
