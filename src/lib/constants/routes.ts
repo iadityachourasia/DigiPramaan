@@ -1,3 +1,5 @@
+import type { Permission } from "@/types";
+
 /**
  * routes.ts — every route path in the application, defined once.
  *
@@ -88,14 +90,75 @@ export interface NavItem {
   readonly labelKey: string;
   readonly href: string;
   readonly icon: string;
+  /**
+   * Permission required to see this item. Omitted means every authenticated
+   * role sees it.
+   *
+   * Gating on a `Permission` rather than a role list keeps the Role Permission
+   * Matrix in `00-README.md` §C the single source of truth: adding a role later
+   * means editing `ROLE_PERMISSIONS`, not hunting through nav definitions.
+   */
+  readonly permission?: Permission;
 }
 
+/**
+ * Sidebar navigation, gated per the Role Permission Matrix.
+ *
+ * Resulting visibility — Enforcement Officer 7, Admin 7, Reviewer 5:
+ *
+ *   Dashboard              everyone      not a matrix row; the landing surface
+ *   Scan / Upload          scan.create   Reviewer cannot create scans
+ *   Compliance Records     everyone      Reviewer has full read access
+ *   Analytics              analytics.view
+ *   E-commerce Scanner     scan.create   see the note below
+ *   Manufacturer Scorecard analytics.view
+ *   Reports & Profile      report.generate
+ *
+ * Reviewer therefore loses exactly the two entries that create scans, which is
+ * precisely the boundary §C draws: full read access and reporting, plus the
+ * ability to escalate, but no scanning and no verification authority.
+ *
+ * NOTE (inference, not a matrix row): the E-commerce Listing Scanner is gated
+ * on `scan.create` because it creates compliance records, exactly as a physical
+ * scan does — `00-README.md` §E describes the two as different intake routes
+ * into one pipeline. The matrix does not name the page directly.
+ *
+ * The `analytics.view` and `report.generate` gates are satisfied by all three
+ * roles today, so they hide nothing. They are declared anyway: they are the
+ * correct statement of the requirement, and they cost nothing until a role
+ * exists that lacks them.
+ */
 export const SIDEBAR_NAV: readonly NavItem[] = [
   { labelKey: "navigation.dashboard", href: ROUTES.dashboard, icon: "dashboard" },
-  { labelKey: "navigation.scanUpload", href: ROUTES.scan, icon: "document_scanner" },
+  {
+    labelKey: "navigation.scanUpload",
+    href: ROUTES.scan,
+    icon: "document_scanner",
+    permission: "scan.create",
+  },
   { labelKey: "navigation.complianceRecords", href: ROUTES.records, icon: "fact_check" },
-  { labelKey: "navigation.analytics", href: ROUTES.analytics, icon: "monitoring" },
-  { labelKey: "navigation.ecommerceScanner", href: ROUTES.ecommerce, icon: "shopping_cart" },
-  { labelKey: "navigation.manufacturerScorecard", href: ROUTES.manufacturers, icon: "business" },
-  { labelKey: "navigation.reportsProfile", href: ROUTES.reports, icon: "summarize" },
+  {
+    labelKey: "navigation.analytics",
+    href: ROUTES.analytics,
+    icon: "bar_chart",
+    permission: "analytics.view",
+  },
+  {
+    labelKey: "navigation.ecommerceScanner",
+    href: ROUTES.ecommerce,
+    icon: "shopping_cart",
+    permission: "scan.create",
+  },
+  {
+    labelKey: "navigation.manufacturerScorecard",
+    href: ROUTES.manufacturers,
+    icon: "business",
+    permission: "analytics.view",
+  },
+  {
+    labelKey: "navigation.reportsProfile",
+    href: ROUTES.reports,
+    icon: "summarize",
+    permission: "report.generate",
+  },
 ] as const;

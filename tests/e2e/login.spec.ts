@@ -11,9 +11,19 @@ import { expect, test } from "@playwright/test";
 
 const OFFICER = { username: "r.deshmukh", password: "Demo@2026" };
 
+/**
+ * The form is a client island behind a Suspense boundary, so it is not in the
+ * DOM on first paint. Waiting for a field rather than asserting immediately
+ * keeps these tests from racing hydration under parallel load.
+ */
+async function awaitForm(page: import("@playwright/test").Page): Promise<void> {
+  await expect(page.getByLabel("Password", { exact: true })).toBeVisible();
+}
+
 test.describe("Login", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/login");
+    await awaitForm(page);
   });
 
   test("state 1: submit is gated until both fields have content", async ({
@@ -79,6 +89,7 @@ test.describe("Login", () => {
     page,
   }) => {
     await page.goto("/login?reason=expired");
+    await awaitForm(page);
 
     const notice = page.locator(".ux4g-alert.ux4g-alert-warning");
     await expect(notice).toBeVisible();
