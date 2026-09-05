@@ -1,0 +1,10 @@
+{
+  "_pinning_note": "Pinned to 0.0.80 (current published version as of this edit) instead of @latest, per MCP_AND_TOOLING_SETUP.md's rule to never run @latest unattended. IMPORTANT: microsoft/playwright-mcp's maintainers have stated they don't yet have a story for reproducible/interoperable version pinning (see microsoft/playwright-mcp#917) — the package's own docs default to @latest everywhere. Treat this pinned version as needing periodic manual review, not a set-once fix; re-check the published version before bumping rather than switching back to @latest.",
+  "mcpServers": {
+    "playwright": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@0.0.80"]
+    }
+  }
+}

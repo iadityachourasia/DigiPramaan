@@ -1,0 +1,15 @@
+<!-- @dsCard group="Brand" viewport="700x220" name="Theme modes" subtitle="Light, dark, high contrast — set on :root" -->
+<!DOCTYPE html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../styles.css">
+<style>body{margin:0;padding:16px;background:var(--background-neutral-elevated);font-family:var(--ux4g-font-sans)}
+.sw{display:flex;gap:0;border-radius:6px;overflow:hidden}
+.sw i{flex:1;height:56px;display:flex;align-items:flex-end;justify-content:center;padding-bottom:4px;font-size:10px;font-family:var(--ux4g-font-mono)}
+.lbl{font-size:11px;color:var(--text-neutral-tertiary);margin:6px 0 2px}
+.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.tok{font-family:var(--ux4g-font-mono);font-size:10px;color:var(--text-neutral-tertiary)}
+</style></head><body>
+<div class="row" style="align-items:stretch">
+<div style="flex:1;background:var(--background-neutral-default);border:1px solid var(--border-neutral-subtle);border-radius:8px;padding:12px"><p class="ux4g-label-l">Light</p><p class="tok">data-theme="light"</p><div class="ux4g-elevation-1" style="margin-top:8px;height:36px;background:var(--background-neutral-elevated);border-radius:6px"></div></div>
+<div class="dark" style="flex:1;background:var(--background-neutral-default);border:1px solid var(--border-neutral-subtle);border-radius:8px;padding:12px;color:var(--text-neutral-primary)"><p class="ux4g-label-l">Dark</p><p class="tok">data-theme="dark"</p><div class="ux4g-elevation-1" style="margin-top:8px;height:36px;background:var(--background-neutral-elevated);border-radius:6px"></div></div>
+</div>
+<p class="lbl">In dark mode, layer separation must come from Background/Neutral/Elevated — Soft and Subtle collapse to the same value.</p>
+</body></html>

@@ -1,0 +1,21 @@
+/* Elevation — every level is a two-part key + ambient shadow pair, exactly as the
+   Shadow variable collection defines it. Never write a single hardcoded box-shadow.
+   The shadow colour flips from black (light) to white (dark) through the theme scopes
+   in fig-tokens.css, so these composites stay correct in both modes. */
+:root{
+  --elevation-0:0 calc(var(--level-0-key-shadow-y) * 1px) calc(var(--level-0-key-shadow-blur) * 1px) calc(var(--level-0-key-shadow-spread) * 1px) var(--level-0-key-shadow-color), 0 calc(var(--level-0-ambient-shadow-y) * 1px) calc(var(--level-0-ambient-shadow-blur) * 1px) calc(var(--level-0-ambient-shadow-spread) * 1px) var(--level-0-ambient-shadow-color);
+  --elevation-1:0 calc(var(--level-1-key-shadow-y) * 1px) calc(var(--level-1-key-shadow-blur) * 1px) calc(var(--level-1-key-shadow-spread) * 1px) var(--level-1-key-shadow-color), 0 calc(var(--level-1-ambient-shadow-y) * 1px) calc(var(--level-1-ambient-shadow-blur) * 1px) calc(var(--level-1-ambient-shadow-spread) * 1px) var(--level-1-ambient-shadow-color);
+  --elevation-2:0 calc(var(--level-2-key-shadow-y) * 1px) calc(var(--level-2-key-shadow-blur) * 1px) calc(var(--level-2-key-shadow-spread) * 1px) var(--level-2-key-shadow-color), 0 calc(var(--level-2-ambient-shadow-y) * 1px) calc(var(--level-2-ambient-shadow-blur) * 1px) calc(var(--level-2-ambient-shadow-spread) * 1px) var(--level-2-ambient-shadow-color);
+  --elevation-3:0 calc(var(--level-3-key-shadow-y) * 1px) calc(var(--level-3-key-shadow-blur) * 1px) calc(var(--level-3-key-shadow-spread) * 1px) var(--level-3-key-shadow-color), 0 calc(var(--level-3-ambient-shadow-y) * 1px) calc(var(--level-3-ambient-shadow-blur) * 1px) calc(var(--level-3-ambient-shadow-spread) * 1px) var(--level-3-ambient-shadow-color);
+  --elevation-4:0 calc(var(--level-4-key-shadow-y) * 1px) calc(var(--level-4-key-shadow-blur) * 1px) calc(var(--level-4-key-shadow-spread) * 1px) var(--level-4-key-shadow-color), 0 calc(var(--level-4-ambient-shadow-y) * 1px) calc(var(--level-4-ambient-shadow-blur) * 1px) calc(var(--level-4-ambient-shadow-spread) * 1px) var(--level-4-ambient-shadow-color);
+  --elevation-flat:var(--elevation-0);
+  --elevation-card:var(--elevation-1);
+  --elevation-raised:var(--elevation-2);
+  --elevation-overlay:var(--elevation-3);
+  --elevation-modal:var(--elevation-4);
+}
+.ux4g-elevation-0{box-shadow:var(--elevation-0)}
+.ux4g-elevation-1{box-shadow:var(--elevation-1)}
+.ux4g-elevation-2{box-shadow:var(--elevation-2)}
+.ux4g-elevation-3{box-shadow:var(--elevation-3)}
+.ux4g-elevation-4{box-shadow:var(--elevation-4)}

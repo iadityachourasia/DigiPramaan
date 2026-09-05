@@ -1,0 +1,7 @@
+node_modules/
+.next/
+design_system/
+src/styles/tokens.css
+src/messages/hi.json
+qa-screenshots/
+package-lock.json

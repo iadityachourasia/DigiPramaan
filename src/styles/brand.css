@@ -1,0 +1,41 @@
+/*
+ * brand.css — this product's root token overrides.
+ *
+ * STATUS: intentionally empty. Do not add declarations here without a BRD change.
+ *
+ * BRD §11.3 (Colour) is answered, and the answer is "UX4G default" for every role:
+ * primary, secondary, tertiary, page background, card surface, primary text, and
+ * link colour. Neither the problem statement (SIH26034) nor the 11-page functional
+ * spec names a DoCA or NeGD palette, and §15 Q-02 is pre-answered with the default
+ * rather than left open.
+ *
+ * SKILL.md and DESIGN_SYSTEM.md §7 both say the same thing about this case: when the
+ * default theme is chosen, add no override block at all. A block that restates the
+ * distributed default value is noise, and it would also be the only sanctioned use of
+ * !important in the codebase spent on a no-op.
+ *
+ * IF DoCA LATER SUPPLIES A REAL PALETTE, this is where it goes, and nowhere else:
+ *
+ *   :root {
+ *     --ux4g-color-primary-600: <approved default>  !important;
+ *     --ux4g-color-primary-700: <approved hover>    !important;
+ *     --ux4g-color-primary-800: <approved active>   !important;
+ *   }
+ *
+ * Three rules govern that edit:
+ *   1. Override the primitive ramp steps above, not the semantic tokens and never a
+ *      component selector. Every button, link, focus ring, active nav state and
+ *      status accent resolves through the semantic cascade, so those three lines
+ *      re-theme the whole product. Web package 2.0.1 wraps button dimensions in
+ *      :where() at zero specificity, so no per-component override is needed.
+ *   2. Re-run the contrast checks before committing. The current default,
+ *      --ux4g-color-primary-600 (#4a2bc2), measures 8.33:1 against
+ *      --ux4g-bg-neutral (#fafafa). A replacement that drops below 4.5:1 is not a
+ *      valid override; send it back to whoever approved it.
+ *   3. Add the matching dark-theme values under :root[data-theme="dark"]. The
+ *      package redefines 114 properties there, and a light-only override leaves
+ *      dark mode on the stock purple.
+ *
+ * Confirmed token names live in src/styles/tokens.css (generated). Never write a
+ * --ux4g-* name that is not in that file.
+ */

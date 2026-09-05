@@ -1,0 +1,22 @@
+# Digi-Pramaan — Legal Metrology Compliance System
+# Department of Consumer Affairs, Government of India
+
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /_next/
+Disallow: /login
+Disallow: /dashboard
+Disallow: /scan
+Disallow: /extraction/
+Disallow: /records
+Disallow: /analytics
+Disallow: /ecommerce
+Disallow: /manufacturers
+Disallow: /reports
+Disallow: /profile
+
+# Only the Citizen Grievance Portal is public
+Allow: /grievance
+
+Sitemap: https://digipramaan.gov.in/sitemap.xml

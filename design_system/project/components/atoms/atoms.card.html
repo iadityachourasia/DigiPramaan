@@ -1,0 +1,65 @@
+<!-- @dsCard group="Components" viewport="700x460" name="Atoms — status, records, identity" subtitle="Status banner and indicator, notification row, reference ID, checklists, provider and service cards" -->
+<!DOCTYPE html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="../../styles.css">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<style>body{padding:16px;background:var(--background-neutral-default)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+.stack{display:flex;flex-direction:column;gap:12px}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}</style>
+</head><body><div id="root"></div>
+<script type="text/babel">
+const D = window.UX4GDesignSystem30_91c311;
+const { StatusBanner, StatusIndicator, NotificationItem, ReferenceId, AutosaveIndicator, AttemptCounter,
+        PasswordStrength, DocumentChecklistRow, InfoList, ServiceCard, CategoryTile, ProviderCard,
+        DeviceReadiness, ImportanceTag, PoweredBy, Button, Tag } = D;
+const App = () => (
+  <div className="stack">
+    <StatusBanner status="inreview" title="Under review by the district office"
+      detail="Your submission has passed automated label checks and is queued for officer review."
+      referenceId="INS/2026/00841" since="2 Sept 2026" nextStep="Decision expected by 17 Sept"
+      actions={<Button type="outlined" size="S">Track</Button>} />
+    <div className="row">
+      <StatusIndicator state="success" />
+      <StatusIndicator state="warning" label="Awaiting lab report" />
+      <StatusIndicator state="error" />
+      <StatusIndicator state="info" />
+      <StatusIndicator state="disabled" />
+      <ImportanceTag importance="high" />
+      <AutosaveIndicator state="saved" savedAt="2 minutes ago" />
+    </div>
+    <div className="row"><ReferenceId value="INS/2026/00841" onCopy={()=>{}} /><AttemptCounter remaining={1} total={3} lockoutNote="Locks for 30 minutes after this attempt." /></div>
+    <div className="two">
+      <div className="stack">
+        <InfoList layout="columns" items={[
+          {label:'Product', value:'Packaged drinking water'},
+          {label:'Batch', value:'A-2201'},
+          {label:'Region', value:'Pune'},
+          {label:'Officer', value:'R Iyer'}
+        ]} />
+        <ul className="ux4g-doccheck-list">
+          <DocumentChecklistRow label="Lab test report" tone="accepted" meta="lab-report.pdf · 3.4 MB" />
+          <DocumentChecklistRow label="Licence copy" tone="rejected" hint="Illegible — re-upload at 300 dpi" action={<Button size="S" type="outlined">Re-upload</Button>} />
+          <DocumentChecklistRow label="Photograph of shelf" tone="pending" required={false} />
+        </ul>
+        <PasswordStrength strength="medium" rules={[{label:'At least 12 characters',met:true},{label:'One number',met:true},{label:'One symbol',met:false}]} />
+      </div>
+      <div className="stack">
+        <ul className="ux4g-notif-list">
+          <NotificationItem unread status="error" icon="report" title="New violation flagged" message="Batch B-1189, Nagpur" time="12 minutes ago" action={<Button size="S" type="outlined">Open case</Button>} onDismiss={()=>{}} />
+          <NotificationItem status="success" icon="verified" title="Inspection approved" message="INS/2026/00812" time="3 hours ago" />
+        </ul>
+        <ServiceCard icon="qr_code_scanner" title="Scan a product" description="Record a field scan and check label compliance" meta="Average 2 minutes" tag={<Tag color="brand" size="S">New</Tag>} />
+        <div className="row"><CategoryTile icon="label_off" label="Labelling" count={64} /><CategoryTile icon="scale" label="Net weight" count={22} selected /></div>
+        <ProviderCard name="Aadhaar OTP" description="Verify with a one-time password to your registered mobile" recommended />
+        <ProviderCard name="Fingerprint" icon="fingerprint" disabled unavailableNote="No scanner detected on this device" />
+        <DeviceReadiness checks={[{label:'Scanner connected',status:'ok'},{label:'Driver version 2.4+',status:'fail',note:'Update required'}]} />
+        <PoweredBy href="#" />
+      </div>
+    </div>
+  </div>
+);
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script></body></html>
