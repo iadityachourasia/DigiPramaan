@@ -4,18 +4,26 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import type { Metadata } from "next";
 
 import { routing } from "@/i18n/routing";
+import { AuthProvider } from "@/providers/AuthProvider";
+import { UX4GRuntime } from "@/providers/UX4GRuntime";
 
 import "../globals.css";
 
 /**
- * PHASE 1 SCOPE NOTE.
+ * Root layout for the locale segment: the document, the providers and the
+ * stylesheet. No visual chrome — the public shell lives in `(public)/layout.tsx`
+ * and the authenticated shell in `(auth)/layout.tsx`.
  *
- * This layout wires the document, the locale provider and the stylesheet, and
- * nothing else. The Navbar, Footer, Accessibility Bar, Sidebar and Breadcrumb are
- * Phase 2 work per IMPLEMENTATION_GUIDE.md's build order, and per
- * Pages_Userflow/00-README.md the authenticated shell is built with the Dashboard,
- * which is the second page in the page build order. Nothing shell-shaped belongs
- * here yet.
+ * WHY `AuthProvider` IS HERE AND NOT IN `(auth)`
+ * ----------------------------------------------
+ * The Login page sits in the `(public)` group and needs `signIn`. A provider
+ * mounted only in `(auth)` would leave it outside the context, and `useAuth()`
+ * throws on a null context — so the form would crash on submit. Mounting it
+ * here wraps both route groups.
+ *
+ * This layout stays a Server Component. It renders client providers as
+ * children, which is a boundary, not a conversion: every page below remains a
+ * Server Component unless it opts in itself.
  */
 
 export function generateStaticParams() {
@@ -63,7 +71,10 @@ export default async function LocaleLayout({
      */
     <html lang={locale}>
       <body>
-        <NextIntlClientProvider>{children}</NextIntlClientProvider>
+        <NextIntlClientProvider>
+          <UX4GRuntime />
+          <AuthProvider>{children}</AuthProvider>
+        </NextIntlClientProvider>
       </body>
     </html>
   );

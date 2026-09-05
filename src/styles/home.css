@@ -1,0 +1,552 @@
+/*
+ * home.css — layout for the public landing page and the public masthead/navbar.
+ *
+ * UX4G ships no hero, banner or jumbotron class, so the page-level composition
+ * here is application-specific layout, which SKILL.md rule 5 permits. Every
+ * colour, space, radius, shadow and timing value still comes from a token; only
+ * grid structure and a handful of named geometry constants are local.
+ *
+ * Composition follows PAGE_COMPOSITION.md §1: hero text on columns 1–6 with the
+ * visual on 7–12, service cards 3-up, stats 4-up, a fixed section rhythm, and a
+ * background that alternates Default/Elevated so section boundaries read without
+ * a rule between every one.
+ */
+
+:root {
+  --lmcs-hero-visual-min: 420px;
+  --lmcs-pipeline-node: 44px;
+  --lmcs-masthead-emblem: 28px;
+  --lmcs-navbar-emblem: 32px;
+}
+
+/* ─── Section rhythm ───
+ * One class per gap size so the rhythm is declared in markup and stays visible
+ * in review, rather than being re-decided per section.
+ */
+
+.lmcs-section {
+  padding-block: var(--ux4g-section-l);
+}
+
+.lmcs-section-xl {
+  padding-block: var(--ux4g-section-xl);
+}
+
+.lmcs-section-elevated {
+  background-color: var(--ux4g-bg-neutral-elevated);
+}
+
+.lmcs-section-default {
+  background-color: var(--ux4g-bg-neutral);
+}
+
+.lmcs-section-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-xs);
+  margin-bottom: var(--ux4g-margin-xl);
+  max-width: 60ch;
+}
+
+/* ─── Public masthead ─── */
+
+.lmcs-masthead {
+  background-color: var(--ux4g-bg-neutral-subtle);
+  border-bottom: var(--ux4g-border-thin) solid var(--ux4g-border-color-neutral-subtle);
+}
+
+.lmcs-masthead-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ux4g-gap-column-m);
+  flex-wrap: wrap;
+  padding-block: var(--ux4g-padding-2xs);
+}
+
+.lmcs-masthead-identity {
+  display: flex;
+  align-items: center;
+  gap: var(--ux4g-gap-column-xs);
+  color: var(--ux4g-text-neutral-secondary);
+}
+
+.lmcs-masthead-emblem {
+  height: var(--lmcs-masthead-emblem);
+  width: auto;
+  flex-shrink: 0;
+}
+
+.lmcs-masthead-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--ux4g-gap-column-s);
+}
+
+/* ─── Public navbar ─── */
+
+.lmcs-navbar {
+  position: sticky;
+  top: 0;
+  z-index: var(--ux4g-z-index-30);
+  background-color: var(--ux4g-bg-neutral-elevated);
+  border-bottom: var(--ux4g-border-thin) solid var(--ux4g-border-color-neutral-subtle);
+}
+
+.lmcs-navbar-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ux4g-gap-column-m);
+  padding-block: var(--ux4g-padding-xs);
+}
+
+.lmcs-navbar-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--ux4g-gap-column-s);
+  text-decoration: none;
+  color: var(--ux4g-text-neutral-primary);
+}
+
+.lmcs-navbar-emblem {
+  height: var(--lmcs-navbar-emblem);
+  width: auto;
+  flex-shrink: 0;
+}
+
+.lmcs-navbar-wordmark {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+
+.lmcs-navbar-links {
+  display: none;
+  align-items: center;
+  gap: var(--ux4g-gap-column-l);
+}
+
+/* In-page anchors are hidden on narrow widths rather than collapsed into a
+   drawer: there are only three, and the sign-in action stays visible. */
+@media (min-width: 1024px) {
+  .lmcs-navbar-links {
+    display: flex;
+  }
+}
+
+.lmcs-navbar-link {
+  color: var(--ux4g-text-neutral-secondary);
+  text-decoration: none;
+  padding-block: var(--ux4g-padding-2xs);
+}
+
+.lmcs-navbar-link:hover {
+  color: var(--ux4g-text-brand-primary-default);
+}
+
+/* ─── Hero ─── */
+
+.lmcs-hero-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--ux4g-gap-row-xl) var(--ux4g-gap-column-l);
+  align-items: center;
+}
+
+@media (min-width: 1024px) {
+  .lmcs-hero-grid {
+    /* Text 1–6, visual 7–12 of the 12-column grid. */
+    grid-template-columns: repeat(12, 1fr);
+  }
+
+  .lmcs-hero-text {
+    grid-column: 1 / span 6;
+  }
+
+  .lmcs-hero-visual {
+    grid-column: 7 / span 6;
+    min-height: var(--lmcs-hero-visual-min);
+  }
+}
+
+.lmcs-hero-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--ux4g-gap-row-m);
+  /*
+   * Grid items default to `min-width: auto` and refuse to shrink below their
+   * content's min-content width. Without this, a single non-wrapping string
+   * anywhere inside can widen the track past the viewport — which is exactly
+   * what the demo panel's field names did.
+   */
+  min-width: 0;
+}
+
+.lmcs-hero-visual {
+  min-width: 0;
+}
+
+/*
+ * Hero heading. One DOM node, stepped by media query rather than two nodes with
+ * one hidden — a duplicated <h1> would put two page titles in the a11y tree.
+ * Display sizes wrap badly at mobile widths, hence the step down.
+ */
+.lmcs-hero-title {
+  margin: 0;
+  max-width: 18ch;
+}
+
+/*
+ * The heading carries `ux4g-heading-2xl-strong` in markup, which is the mobile
+ * size PAGE_COMPOSITION §1 asks for. At desktop it steps up to the Display/XS
+ * scale (36/44) via its tokens, rather than by rendering a second heading node
+ * and hiding one — a duplicated <h1> would put two page titles in the
+ * accessibility tree.
+ */
+@media (min-width: 1024px) {
+  .lmcs-hero-title {
+    font-size: var(--ux4g-fs-36);
+    line-height: var(--ux4g-lh-44);
+  }
+}
+
+.lmcs-hero-body {
+  max-width: 52ch;
+}
+
+.lmcs-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ux4g-gap-row-s) var(--ux4g-gap-column-s);
+}
+
+.lmcs-hero-trust {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ux4g-gap-column-xs);
+  padding-top: var(--ux4g-padding-s);
+  border-top: var(--ux4g-border-thin) solid var(--ux4g-border-color-neutral-subtle);
+  max-width: 46ch;
+}
+
+/* ─── Hero visual: a sample extraction result ─── */
+
+.lmcs-demo {
+  border-radius: var(--ux4g-radius-lg);
+  border: var(--ux4g-border-thin) solid var(--ux4g-border-color-neutral-subtle);
+  background-color: var(--ux4g-bg-neutral-elevated);
+  box-shadow: var(--ux4g-shadow-l3);
+  overflow: hidden;
+}
+
+.lmcs-demo-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ux4g-gap-column-s);
+  padding: var(--ux4g-padding-s) var(--ux4g-padding-m);
+  border-bottom: var(--ux4g-border-thin) solid var(--ux4g-border-color-neutral-subtle);
+  background-color: var(--ux4g-bg-neutral-subtle);
+}
+
+.lmcs-demo-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-2xs);
+  padding: var(--ux4g-padding-m);
+}
+
+.lmcs-demo-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ux4g-gap-column-s);
+  padding-block: var(--ux4g-padding-2xs);
+}
+
+.lmcs-demo-row + .lmcs-demo-row {
+  border-top: var(--ux4g-border-thin) solid var(--ux4g-border-color-neutral-subtle);
+}
+
+.lmcs-demo-field {
+  display: flex;
+  align-items: center;
+  gap: var(--ux4g-gap-column-xs);
+  min-width: 0;
+}
+
+.lmcs-demo-field-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lmcs-demo-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--ux4g-gap-column-s);
+  padding: var(--ux4g-padding-m);
+  border-top: var(--ux4g-border-thin) solid var(--ux4g-border-color-neutral-subtle);
+  background-color: var(--ux4g-bg-neutral);
+}
+
+/* ─── Pipeline ─── */
+
+/*
+ * Mobile: a vertical list, each stage's connector running down from its node to
+ * the next. Desktop: seven equal columns with the connector running right.
+ *
+ * The connector is a pseudo-element on the marker rather than a sibling
+ * element. As a real element with `flex: 1` it competed with the stages for
+ * width, which squeezed the labels to nothing.
+ */
+
+.lmcs-pipeline {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--ux4g-gap-row-m);
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+@media (min-width: 1024px) {
+  .lmcs-pipeline {
+    grid-template-columns: repeat(7, 1fr);
+    gap: var(--ux4g-gap-column-2xs);
+    align-items: start;
+  }
+}
+
+.lmcs-pipeline-step {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ux4g-gap-column-s);
+  min-width: 0;
+}
+
+@media (min-width: 1024px) {
+  .lmcs-pipeline-step {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--ux4g-gap-row-s);
+  }
+}
+
+.lmcs-pipeline-marker {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  position: relative;
+}
+
+/* Vertical connector, mobile. Hidden on the last stage. */
+.lmcs-pipeline-step:not(:last-child) .lmcs-pipeline-marker::after {
+  content: "";
+  position: absolute;
+  left: calc(var(--lmcs-pipeline-node) / 2);
+  top: var(--lmcs-pipeline-node);
+  width: var(--ux4g-border-thick);
+  height: 100vh;
+  max-height: var(--ux4g-section-l);
+  background-color: var(--ux4g-border-color-neutral-default);
+}
+
+@media (min-width: 1024px) {
+  /* Horizontal connector, desktop: from the node's right edge across the gap. */
+  .lmcs-pipeline-step:not(:last-child) .lmcs-pipeline-marker::after {
+    left: var(--lmcs-pipeline-node);
+    top: calc(var(--lmcs-pipeline-node) / 2);
+    width: 100vw;
+    max-width: 100%;
+    height: var(--ux4g-border-thick);
+    max-height: none;
+  }
+
+  .lmcs-pipeline-marker {
+    /* Lets the connector span the full column so it reaches the next node. */
+    width: 100%;
+  }
+}
+
+.lmcs-pipeline-node {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--lmcs-pipeline-node);
+  height: var(--lmcs-pipeline-node);
+  flex-shrink: 0;
+  border-radius: var(--ux4g-radius-full);
+  border: var(--ux4g-border-thick) solid var(--ux4g-border-color-neutral-strong);
+  background-color: var(--ux4g-bg-neutral-elevated);
+  color: var(--ux4g-text-neutral-secondary);
+  /* Sits above the connector so the line does not cross the glyph. */
+  position: relative;
+  z-index: var(--ux4g-z-index-10);
+}
+
+/*
+ * Only the branch node carries brand fill. Colouring every node would push the
+ * section past the 10% brand budget in PAGE_COMPOSITION §0 and would stop the
+ * branch reading as the exceptional path it is.
+ */
+.lmcs-pipeline-node-branch {
+  border-color: var(--ux4g-border-color-primary-default);
+  background-color: var(--ux4g-bg-primary-subtle);
+  color: var(--ux4g-text-brand-primary-default);
+}
+
+.lmcs-pipeline-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--ux4g-gap-row-2xs);
+  min-width: 0;
+}
+
+@media (min-width: 1024px) {
+  .lmcs-pipeline-text {
+    padding-inline-end: var(--ux4g-padding-m);
+  }
+}
+
+/* ─── Stats ─── */
+
+.lmcs-stats-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--ux4g-gap-row-m) var(--ux4g-gap-column-m);
+}
+
+@media (min-width: 640px) {
+  .lmcs-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .lmcs-stats-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.lmcs-stats-grid dd {
+  margin: 0; /* the browser default indents definition descriptions */
+}
+
+.lmcs-stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-2xs);
+  padding-inline-start: var(--ux4g-padding-m);
+  border-inline-start: var(--ux4g-border-thick) solid
+    var(--ux4g-border-color-neutral-subtle);
+}
+
+/* ─── Cards grid, used by services and citizens ─── */
+
+.lmcs-cards-3 {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--ux4g-gap-row-m) var(--ux4g-gap-column-m);
+}
+
+@media (min-width: 640px) {
+  .lmcs-cards-3 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .lmcs-cards-3 {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.lmcs-feature-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-s);
+  align-items: flex-start;
+  height: 100%;
+}
+
+.lmcs-feature-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--lmcs-pipeline-node);
+  height: var(--lmcs-pipeline-node);
+  border-radius: var(--ux4g-radius-md);
+  background-color: var(--ux4g-bg-primary-subtle);
+  color: var(--ux4g-text-brand-primary-default);
+}
+
+/* ─── Split sections: taxonomy and citizens ─── */
+
+.lmcs-split {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--ux4g-gap-row-xl) var(--ux4g-gap-column-l);
+  align-items: start;
+}
+
+@media (min-width: 1024px) {
+  .lmcs-split {
+    grid-template-columns: repeat(12, 1fr);
+  }
+
+  .lmcs-split-main {
+    grid-column: 1 / span 7;
+    min-width: 0;
+  }
+
+  .lmcs-split-aside {
+    grid-column: 9 / span 4;
+    min-width: 0;
+  }
+}
+
+.lmcs-tag-cloud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ux4g-gap-row-xs) var(--ux4g-gap-column-xs);
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.lmcs-steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-m);
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.lmcs-step {
+  display: flex;
+  gap: var(--ux4g-gap-column-s);
+  align-items: flex-start;
+}
+
+.lmcs-step-index {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--ux4g-size-32, 2rem);
+  height: var(--ux4g-size-32, 2rem);
+  flex-shrink: 0;
+  border-radius: var(--ux4g-radius-full);
+  background-color: var(--ux4g-bg-primary-subtle);
+  color: var(--ux4g-text-brand-primary-default);
+}
+
+.lmcs-step-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-2xs);
+}
