@@ -1,0 +1,223 @@
+{
+  "app": {
+    "name": "Digi-Pramaan",
+    "descriptor": "Legal Metrology Compliance System",
+    "department": "Department of Consumer Affairs",
+    "ministry": "Ministry of Consumer Affairs, Food & Public Distribution",
+    "government": "Government of India",
+    "tagline": "Check packaged commodity labels against the Legal Metrology (Packaged Commodities) Rules, 2011.",
+    "emblemAlt": "State Emblem of India"
+  },
+  "vocabulary": {
+    "complianceStatus": {
+      "Pending": "Pending",
+      "Compliant": "Compliant",
+      "Non-Compliant": "Non-Compliant",
+      "Needs Review": "Needs Review"
+    },
+    "complianceStatusHint": {
+      "Pending": "Awaiting verification. Compliance has not been determined yet.",
+      "Compliant": "Verified, with no failed declarations.",
+      "Non-Compliant": "Verified, with one or more failed declarations.",
+      "Needs Review": "Escalated by a user for a supervisor's judgement."
+    },
+    "verificationStatus": {
+      "Extracted": "Extracted",
+      "Verified": "Verified"
+    },
+    "sourceTag": {
+      "Officer-Scanned": "Officer-Scanned",
+      "Citizen-Reported": "Citizen-Reported",
+      "E-commerce-Sourced": "E-commerce-Sourced"
+    },
+    "role": {
+      "Enforcement Officer": "Enforcement Officer",
+      "Admin": "Admin",
+      "Reviewer": "Reviewer"
+    },
+    "processingStatus": {
+      "Queued": "Queued",
+      "Processing": "Processing",
+      "Completed": "Completed",
+      "Failed": "Failed"
+    },
+    "uploadStatus": {
+      "Queued": "Queued",
+      "Uploading": "Uploading",
+      "Processing": "Processing",
+      "Completed": "Completed",
+      "Failed": "Failed"
+    },
+    "confidenceBand": {
+      "High": "High",
+      "Medium": "Medium",
+      "Low": "Low"
+    },
+    "publicGrievanceStatus": {
+      "Received": "Received",
+      "Under Review": "Under Review",
+      "Resolved": "Resolved"
+    }
+  },
+  "violationTaxonomy": {
+    "manufacturer-details-missing": {
+      "category": "Manufacturer/Packer/Importer Details Missing",
+      "legalBasis": "Rule 6(a)",
+      "shortLabel": "Manufacturer details"
+    },
+    "generic-name-missing-or-incorrect": {
+      "category": "Generic Name Missing or Incorrect",
+      "legalBasis": "Rule 6(b)",
+      "shortLabel": "Generic name"
+    },
+    "net-quantity-missing-or-incorrect": {
+      "category": "Net Quantity Missing or Incorrect",
+      "legalBasis": "Rule 6(c)",
+      "shortLabel": "Net quantity"
+    },
+    "manufacture-import-date-missing": {
+      "category": "Manufacture/Import Date Missing",
+      "legalBasis": "Rule 6(d)",
+      "shortLabel": "Mfg/import date"
+    },
+    "mrp-non-compliance": {
+      "category": "MRP Non-Compliance",
+      "legalBasis": "Rule 6(e)",
+      "shortLabel": "MRP"
+    },
+    "country-of-origin-missing": {
+      "category": "Country of Origin Missing",
+      "legalBasis": "Rule 6 (imports only)",
+      "shortLabel": "Country of origin"
+    },
+    "consumer-care-details-missing": {
+      "category": "Consumer Care Details Missing",
+      "legalBasis": "Rule 6",
+      "shortLabel": "Consumer care"
+    },
+    "font-size-readability-failure": {
+      "category": "Font Size / Readability Failure",
+      "legalBasis": "Rule 7",
+      "shortLabel": "Font size"
+    },
+    "non-standard-or-misleading-format": {
+      "category": "Non-Standard or Misleading Format",
+      "legalBasis": "Rule 8/9",
+      "shortLabel": "Format"
+    },
+    "other": {
+      "category": "Other",
+      "legalBasis": "—",
+      "shortLabel": "Other"
+    }
+  },
+  "declarationField": {
+    "manufacturerDetails": "Manufacturer, packer or importer name and address",
+    "genericName": "Generic or common name of commodity",
+    "netQuantity": "Net quantity",
+    "manufactureDate": "Month and year of manufacture or import",
+    "retailSalePrice": "Retail sale price (MRP), inclusive of all taxes",
+    "countryOfOrigin": "Country of origin",
+    "consumerCareDetails": "Consumer care details",
+    "fontSize": "Font size and readability"
+  },
+  "common": {
+    "actions": {
+      "save": "Save",
+      "cancel": "Cancel",
+      "retry": "Try again",
+      "clear": "Clear",
+      "back": "Back",
+      "close": "Close",
+      "view": "View",
+      "search": "Search",
+      "filter": "Filter",
+      "clearFilters": "Clear filters",
+      "export": "Export",
+      "download": "Download",
+      "generateReport": "Generate report"
+    },
+    "loading": "Loading",
+    "optional": "Optional",
+    "required": "Required",
+    "showingResults": "Showing {from}–{to} of {total}",
+    "noResults": "No results",
+    "lastUpdated": "Last updated {date}"
+  },
+  "navigation": {
+    "dashboard": "Dashboard",
+    "scanUpload": "Scan / Upload Product",
+    "complianceRecords": "Compliance Records",
+    "analytics": "Analytics & Violation Trends",
+    "ecommerceScanner": "E-commerce Listing Scanner",
+    "manufacturerScorecard": "Manufacturer Scorecard",
+    "reportsProfile": "Reports & Profile",
+    "primaryLandmark": "Main navigation",
+    "userMenu": "Account menu",
+    "notifications": "Notifications",
+    "notificationsUnread": "{count} unread notifications",
+    "logout": "Log out"
+  },
+  "accessibility": {
+    "skipToMain": "Skip to main content",
+    "screenReaderAccess": "Screen reader access",
+    "languageSwitcher": "Choose a language",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu",
+    "sortedAscending": "sorted ascending",
+    "sortedDescending": "sorted descending"
+  },
+  "footer": {
+    "copyright": "© {year} Department of Consumer Affairs, Government of India. All rights reserved.",
+    "accessibilityStatement": "Accessibility statement",
+    "privacyPolicy": "Privacy policy",
+    "rti": "Right to Information",
+    "termsOfUse": "Terms of use",
+    "help": "Help",
+    "contentOwnership": "This site is owned and maintained by the Department of Consumer Affairs.",
+    "lastUpdated": "Last updated on {date}"
+  },
+  "session": {
+    "expiredTitle": "Your session expired",
+    "expiredBody": "Please sign in again to continue.",
+    "warningTitle": "You will be signed out soon",
+    "warningBody": "Your session ends in {minutes} minutes. Choose Stay signed in to continue working.",
+    "staySignedIn": "Stay signed in",
+    "signOutNow": "Sign out now"
+  },
+  "login": {
+    "title": "Sign in",
+    "subtitle": "Sign in with the account issued by your department.",
+    "usernameLabel": "Username or email",
+    "usernameHint": "The username issued to you by your department.",
+    "passwordLabel": "Password",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
+    "rememberMe": "Remember me on this device",
+    "submit": "Sign in",
+    "submitting": "Signing in…",
+    "forgotPassword": "Forgot your password?",
+    "roleCaption": "Your access level is set by your account. You do not choose a role here.",
+    "errors": {
+      "usernameRequired": "Enter your username or email.",
+      "passwordRequired": "Enter your password.",
+      "usernameFormat": "Enter a valid email address, or the username issued by your department.",
+      "invalidCredentials": "Invalid username or password.",
+      "serverUnavailable": "We could not reach the sign-in service. Check your connection, then try again."
+    }
+  },
+  "errors": {
+    "genericTitle": "Something went wrong",
+    "genericBody": "Try again. If the problem continues, contact your system administrator.",
+    "notFoundTitle": "Page not found",
+    "notFoundBody": "The page you asked for does not exist, or has moved.",
+    "offlineTitle": "You are offline",
+    "offlineBody": "Your work is saved on this device and will sync when you reconnect.",
+    "returnToDashboard": "Return to dashboard"
+  },
+  "metadata": {
+    "defaultTitle": "Digi-Pramaan",
+    "titleTemplate": "{page} | Digi-Pramaan",
+    "description": "Digi-Pramaan scans packaged commodity labels and checks mandatory declarations against the Legal Metrology (Packaged Commodities) Rules, 2011. Department of Consumer Affairs, Government of India."
+  }
+}

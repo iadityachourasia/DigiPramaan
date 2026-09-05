@@ -1,0 +1,171 @@
+/*
+ * globals.css — the only stylesheet the app imports.
+ *
+ * Import order matters:
+ *   1. the UX4G package  — every --ux4g-* token and every ux4g-* component class
+ *   2. brand.css         — this product's root overrides (currently none; see file)
+ *   3. typography.css    — font policy note plus the one measure utility
+ *
+ * src/styles/tokens.css is generated from the installed package and is a reference
+ * dictionary, not part of the cascade. See its header for why.
+ */
+@import "ux4g-web-components/styles.css";
+@import "../styles/brand.css";
+@import "../styles/typography.css";
+@import "../styles/layout.css";
+
+/*
+ * Page ground. The package styles components but does not paint the document, so
+ * these two declarations are the app's own. Both resolve to semantic tokens, never
+ * a primitive: --ux4g-bg-neutral is #fafafa light / #171717 dark, and
+ * --ux4g-text-neutral-primary is its 17.18:1 partner in both themes.
+ */
+html {
+  background-color: var(--ux4g-bg-neutral);
+}
+
+body {
+  margin: 0;
+  background-color: var(--ux4g-bg-neutral);
+  color: var(--ux4g-text-neutral-primary);
+}
+
+/*
+ * Skip link (A-08 / WCAG 2.4.1). Off-screen until focused, then anchored top-left
+ * above everything. UX4G ships .ux4g-a11ybar__skip, but that class is bound to the
+ * Accessibility Bar's own layout; this product needs a standalone skip target on
+ * pages that do not render the bar, so the positioning is ours and the colours are
+ * the package's.
+ */
+.lmcs-skip-link {
+  position: absolute;
+  left: var(--ux4g-padding-s);
+  top: var(--ux4g-padding-s);
+  z-index: var(--ux4g-z-layout-top);
+  transform: translateY(-200%);
+  transition: transform var(--ux4g-transition-duration-base) var(--ux4g-transition-timing-ease);
+}
+
+.lmcs-skip-link:focus-visible {
+  transform: translateY(0);
+}
+
+/* ------------------------------------------------------------------ *
+ * SANCTIONED ACCESSIBILITY OVERRIDES
+ *
+ * DESIGN_SYSTEM.md §11 forbids overriding component internals. §9 simultaneously
+ * requires fixing the known-failing control borders and treats them as release
+ * blockers rather than backlog. Where those two collide, §9 wins: an inaccessible
+ * government form is not shippable, and IMPLEMENTATION_GUIDE.md's Level 4 rule says
+ * to implement the compliant version, document it, and flag it.
+ *
+ * These are the only component-internal overrides in the codebase. Each one is
+ * scoped to a single property, uses only confirmed semantic tokens, and exists
+ * because the failing value is hard-coded inside the package rule rather than
+ * routed through a token this project could repoint at :root.
+ * ------------------------------------------------------------------ */
+
+/*
+ * 1. Input and textarea resting border.
+ *
+ * The package sets .ux4g-input's border to --ux4g-border-color-neutral-subtle
+ * (#e5e5e5). Against --ux4g-bg-neutral-elevated (#ffffff) that measures about
+ * 1.2:1, where WCAG 1.4.11 requires 3:1 for a boundary that is the only thing
+ * indicating a control's extent. Hover moves to -neutral-default, also failing.
+ *
+ * Repointed to --ux4g-border-color-neutral-strong, which is the substitution
+ * ACCESSIBILITY_AND_QA.md §1 names. Measured: 4.74:1 in light (#737373 on #ffffff)
+ * and 7.66:1 in dark (#a1a1a1 on #0a0a0a). Both pass.
+ *
+ * Overriding the token itself at :root was not an option. The same token draws
+ * decorative dividers elsewhere, where the low-contrast value is correct.
+ */
+.ux4g-input,
+.ux4g-textarea {
+  border-color: var(--ux4g-border-color-neutral-strong);
+}
+
+.ux4g-input:hover,
+.ux4g-textarea:hover {
+  border-color: var(--ux4g-text-neutral-secondary);
+}
+
+/*
+ * 2. Touch targets on in-field controls.
+ *
+ * .ux4g-input-action-btn ships with 2px by 4px padding, and .ux4g-checkbox-control
+ * is a fixed 20px square. Both are well under the 44px minimum in A-09 / WCAG 2.5.5.
+ * The password reveal toggle on Login and the checkbox are named specifically in the
+ * page spec as needing a 44px target.
+ *
+ * The visual size of the checkbox is deliberately left alone; only its hit area
+ * grows, via a pseudo-element, so the control still looks like a UX4G checkbox.
+ */
+.ux4g-input-action-btn {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.ux4g-checkbox-control {
+  position: relative;
+}
+
+.ux4g-checkbox-control::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
+}
+
+/*
+ * 3. In-field button hover, dark mode.
+ *
+ * The package hard-codes rgba(0,0,0,.05) for this hover, which is invisible on a
+ * dark surface. Repointed to a token so it inverts with the theme. This is an
+ * upstream bug, reported here rather than worked around silently.
+ */
+.ux4g-input-action-btn:hover {
+  background-color: var(--ux4g-bg-neutral-subtle);
+}
+
+/*
+ * Text link. The web package ships --ux4g-text-link-* tokens but no link class,
+ * despite COMPONENT_SPEC.md §2 listing Link as available. This is the gap filled,
+ * using only those tokens.
+ */
+.lmcs-link {
+  color: var(--ux4g-text-link-default-default);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.lmcs-link:hover {
+  color: var(--ux4g-text-link-default-hover);
+}
+
+.lmcs-link:active {
+  color: var(--ux4g-text-link-default-active);
+}
+
+.lmcs-link:visited {
+  color: var(--ux4g-text-link-default-visited);
+}
+
+/*
+ * Motion. BRD §11.8 sets motion personality to Subtle/functional, which means
+ * state-change transitions only. A-03 and WCAG 2.3.3 require honouring the user's
+ * own setting regardless of that choice.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

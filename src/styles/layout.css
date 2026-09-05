@@ -1,0 +1,363 @@
+/*
+ * layout.css — styles for Sidebar, Header, Footer, and the app shell.
+ *
+ * All colour and spacing values use UX4G tokens. Nothing is hard-coded.
+ * This file is imported by globals.css at the end of the cascade so it
+ * inherits all token values from the UX4G base stylesheet.
+ */
+
+/* ─── App Shell ─── */
+
+.lmcs-app-shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+.lmcs-app-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0; /* prevent flex overflow */
+}
+
+.lmcs-app-content {
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* ─── Sidebar ─── */
+
+.lmcs-sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 260px;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--ux4g-bg-neutral);
+  border-right: 1px solid var(--ux4g-border-neutral-subtle);
+  z-index: 40;
+  transform: translateX(-100%);
+  transition: transform 0.2s ease;
+}
+
+.lmcs-sidebar-open {
+  transform: translateX(0);
+}
+
+@media (min-width: 1024px) {
+  .lmcs-sidebar {
+    position: sticky;
+    transform: translateX(0);
+  }
+
+  .lmcs-app-main {
+    margin-left: 0; /* sidebar is in flow on desktop */
+  }
+}
+
+.lmcs-sidebar-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 39;
+}
+
+@media (min-width: 1024px) {
+  .lmcs-sidebar-overlay {
+    display: none;
+  }
+}
+
+.lmcs-sidebar-brand {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-spacing-2xs);
+  border-bottom: 1px solid var(--ux4g-border-neutral-subtle);
+}
+
+.lmcs-sidebar-nav {
+  flex: 1;
+  list-style: none;
+  padding: var(--ux4g-spacing-s) 0;
+  margin: 0;
+  overflow-y: auto;
+}
+
+.lmcs-sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: var(--ux4g-spacing-s);
+  padding: var(--ux4g-spacing-s) var(--ux4g-spacing-m);
+  color: var(--ux4g-text-neutral-primary);
+  text-decoration: none;
+  border-radius: 0;
+  transition: background-color 0.15s ease;
+}
+
+.lmcs-sidebar-link:hover {
+  background-color: var(--ux4g-bg-neutral-hover);
+}
+
+.lmcs-sidebar-link-active {
+  background-color: var(--ux4g-bg-primary-subtle);
+  color: var(--ux4g-text-primary);
+  border-left: 3px solid var(--ux4g-color-primary-600);
+}
+
+.lmcs-sidebar-footer {
+  border-top: 1px solid var(--ux4g-border-neutral-subtle);
+}
+
+/* ─── Header ─── */
+
+.lmcs-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--ux4g-spacing-s) var(--ux4g-spacing-m);
+  background-color: var(--ux4g-bg-neutral);
+  border-bottom: 1px solid var(--ux4g-border-neutral-subtle);
+  min-height: 56px;
+}
+
+.lmcs-header-left,
+.lmcs-header-right {
+  display: flex;
+  align-items: center;
+  gap: var(--ux4g-spacing-s);
+}
+
+.lmcs-header-menu-btn {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+@media (min-width: 1024px) {
+  .lmcs-header-menu-btn {
+    display: none;
+  }
+}
+
+.lmcs-header-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--ux4g-spacing-s);
+}
+
+.lmcs-header-emblem {
+  height: 40px;
+  width: auto;
+}
+
+.lmcs-header-titles {
+  display: flex;
+  flex-direction: column;
+}
+
+.lmcs-header-user {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.lmcs-header-action {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+/* ─── Footer ─── */
+
+.lmcs-footer {
+  padding: var(--ux4g-spacing-l) var(--ux4g-spacing-m);
+  background-color: var(--ux4g-bg-neutral);
+  border-top: 1px solid var(--ux4g-border-neutral-subtle);
+}
+
+.lmcs-footer-inner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-spacing-s);
+}
+
+.lmcs-footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ux4g-spacing-m);
+}
+
+.lmcs-footer-meta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-spacing-2xs);
+}
+
+/* ─── Public Shell ─── */
+
+.lmcs-public-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.lmcs-public-content {
+  flex: 1;
+}
+
+/* ─── Shared Page Patterns ─── */
+
+.lmcs-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--ux4g-spacing-m);
+  flex-wrap: wrap;
+}
+
+.lmcs-page-header-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-spacing-2xs);
+}
+
+/* ─── Status Badge ─── */
+
+.lmcs-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ux4g-spacing-2xs);
+  padding: var(--ux4g-spacing-2xs) var(--ux4g-spacing-s);
+  border-radius: var(--ux4g-radius-full);
+  white-space: nowrap;
+}
+
+.lmcs-status-badge-row {
+  border-radius: var(--ux4g-radius-m);
+  width: 100%;
+  justify-content: center;
+}
+
+/* ─── Empty / Error / Loading States ─── */
+
+.lmcs-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: var(--ux4g-spacing-2xl) var(--ux4g-spacing-l);
+  gap: var(--ux4g-spacing-s);
+}
+
+.lmcs-empty-state-icon {
+  font-size: 3rem;
+  color: var(--ux4g-text-neutral-secondary);
+}
+
+.lmcs-error-state {
+  padding: var(--ux4g-spacing-l);
+}
+
+.lmcs-error-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: var(--ux4g-spacing-2xl);
+  gap: var(--ux4g-spacing-m);
+}
+
+.lmcs-error-page-icon {
+  font-size: 4rem;
+  color: var(--ux4g-text-neutral-secondary);
+}
+
+.lmcs-loading-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 40vh;
+  gap: var(--ux4g-spacing-m);
+}
+
+.lmcs-loading-spinner {
+  display: flex;
+  align-items: center;
+  gap: var(--ux4g-spacing-s);
+}
+
+.lmcs-loading-spinner-page {
+  flex-direction: column;
+  justify-content: center;
+  min-height: 40vh;
+}
+
+/* ─── Login Page ─── */
+
+.lmcs-login-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: var(--ux4g-spacing-l);
+}
+
+.lmcs-login-card {
+  max-width: 420px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-spacing-l);
+}
+
+.lmcs-login-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--ux4g-spacing-s);
+}
+
+.lmcs-login-emblem {
+  height: 64px;
+  width: auto;
+}
+
+.lmcs-login-footer {
+  text-align: center;
+}
+
+/* ─── Extraction Page ─── */
+
+.lmcs-extraction-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--ux4g-spacing-l);
+}
+
+@media (min-width: 1024px) {
+  .lmcs-extraction-layout {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* ─── Grievance Portal ─── */
+
+.lmcs-grievance-emblem {
+  height: 56px;
+  width: auto;
+  margin-bottom: var(--ux4g-spacing-m);
+}
+
+/* ─── Utility: link resets ─── */
+
+.lmcs-link {
+  color: var(--ux4g-text-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.lmcs-link:hover {
+  color: var(--ux4g-color-primary-700);
+}

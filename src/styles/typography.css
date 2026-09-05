@@ -1,0 +1,43 @@
+/*
+ * typography.css — font wiring and the one text rule UX4G does not provide.
+ *
+ * NO @font-face DECLARATIONS HERE, DELIBERATELY.
+ *
+ * ux4g-web-components@2.0.1 ships seven base64-embedded @font-face families inside
+ * styles/ux4g.css: Noto Sans, Noto Sans Display, and five UX4G Material Icons
+ * variants (Outlined, Round, Sharp, TwoTone, and the filled default). Declaring
+ * Noto Sans again here would either duplicate the payload or, worse, point at a
+ * differently-hinted copy and produce two visually distinct Noto Sans renderings on
+ * the same page. DESIGN_SYSTEM.md §3 also forbids hand-picking a regional-script
+ * font; UX4G assigns Devanagari and the other Indic scripts itself, which matters
+ * for the Hindi locale scaffolded per BRD §9.1.
+ *
+ * The icon fonts shipping in the package are also why this project adds no second
+ * icon library. IMPLEMENTATION_GUIDE.md Step 2 allows one only if the BRD calls for
+ * icons outside UX4G's set, and BRD §11.6 flags no such gap.
+ *
+ * TEXT STYLE CLASSES — bind by name, never by raw size. Verified against the
+ * installed package, which uses `2xl`/`2xs` where DESIGN_SYSTEM.md §4 writes
+ * `XXL`/`XXS`:
+ *
+ *   Document outline (h1-h6):  ux4g-heading-{2xl,xl,l,m,s,xs,2xs}-{default,strong}
+ *   Bounded surface headings:  ux4g-title-{l,m,s}-{default,strong}
+ *   Display / hero only:       ux4g-display-{l,m,s,xs}-{default,strong}
+ *   Body copy:                 ux4g-body-{l,m,s,xs}-{default,strong}
+ *   Form and metric labels:    ux4g-label-{xl,l,m,s}-{default,strong}
+ *
+ * Use ux4g-title-* on a card, panel or modal heading that is not a real level in the
+ * page outline, and ux4g-heading-* only where the DOM actually has that heading
+ * level. DESIGN_SYSTEM.md §4 treats this as a screen-reader correctness rule, not a
+ * styling preference.
+ */
+
+/*
+ * Measure cap. PAGE_COMPOSITION.md §0 caps running prose at roughly 65 characters
+ * per line and requires the cap sit on the text container, not the section, so
+ * neighbouring cards and media are not narrowed with it. UX4G ships no measure
+ * utility, so this is application-specific layout under SKILL.md rule 5.
+ */
+.lmcs-measure {
+  max-width: 65ch;
+}

@@ -1,0 +1,51 @@
+<!-- @dsCard group="Components" viewport="700x420" name="Data display — cards, tags, lists" subtitle="Stat cards, tags in every colour, chips, avatars, list rows, accordion" -->
+<!DOCTYPE html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="../../styles.css">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<style>body{padding:16px;background:var(--background-neutral-default)}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px}</style>
+</head><body><div id="root"></div>
+<script type="text/babel">
+const D = window.UX4GDesignSystem30_91c311;
+const { StatCard, Card, Tag, Chip, ChipGroup, Avatar, List, Accordion, Divider, StatusPipeline } = D;
+const App = () => (
+  <div>
+    <div className="kpis">
+      <StatCard label="Products scanned" value="12,481" delta="+4.2%" deltaDirection="up" icon="qr_code_scanner" />
+      <StatCard label="Violations found" value="842" delta="+11.0%" deltaDirection="up" icon="report" />
+      <StatCard label="Compliance rate" value="93.4" unit="%" delta="-0.8%" deltaDirection="down" icon="verified" />
+      <StatCard label="Pending reviews" value="57" delta="0" deltaDirection="flat" icon="pending_actions" />
+    </div>
+    <div className="two">
+      <Card title="Top violation categories" subtitle="Last 30 days">
+        <div className="row">
+          <Tag color="error" icon="error">Labelling</Tag>
+          <Tag color="warning" icon="warning">Net weight</Tag>
+          <Tag color="info" icon="info">Expiry format</Tag>
+          <Tag color="success" icon="check_circle">Compliant</Tag>
+          <Tag color="neutral">Uncategorised</Tag>
+          <Tag color="brand" type="outline" icon="label">Brand</Tag>
+          <Tag color="error" type="filled" size="S" icon="block">Blocked</Tag>
+        </div>
+        <ChipGroup label="Filter by type" chips={[{label:'Labelling',count:64},{label:'Weight',count:22},{label:'Expiry',count:9}]} selected={['Labelling']} onToggle={()=>{}} onClearAll={()=>{}} />
+        <Divider spacing="s" />
+        <StatusPipeline stages={[{label:'Scanned',state:'complete',meta:'2 Sept'},{label:'Under review',state:'current',meta:'R Iyer'},{label:'Decision',state:'pending'}]} />
+      </Card>
+      <Card title="Recent activity">
+        <List items={[
+          {leading:<Avatar name="Radhika Iyer" size="M" status="online" statusLabel="Available" />, title:'Batch A-2201 scanned', supporting:'Pune district', meta:'2 min ago'},
+          {icon:'gavel', title:'Notice issued', supporting:'INS/2026/00841', meta:'1 hr ago'},
+          {icon:'upload_file', title:'Lab report attached', supporting:'3.4 MB PDF', meta:'3 hr ago'}
+        ]} />
+        <Accordion items={[{title:'What counts as a labelling violation?', supporting:'Guidance note 4.2', content:<p style={{margin:0}}>Missing or illegible mandatory declarations on the principal display panel.</p>}]} />
+      </Card>
+    </div>
+  </div>
+);
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script></body></html>

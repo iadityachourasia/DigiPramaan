@@ -1,0 +1,184 @@
+/**
+ * compliance.ts — the compliance record, the checklist, and the audit trail.
+ *
+ * The record is the spine of the product. It is created by Scan/Upload (page 3), the
+ * E-commerce Listing Scanner (page 8) or the Citizen Grievance Portal (page 11);
+ * finalized on Declaration Extraction & Verification (page 4); listed on Compliance
+ * Records (page 5); read in full on Product Compliance Detail (page 6); and
+ * aggregated by Analytics (page 7) and the Manufacturer Scorecard (page 9).
+ */
+
+import type { ExtractionResult, ProductCategory, Scan, UploadedImage } from "./scan";
+import type {
+  ComplianceStatus,
+  SourceTag,
+  ViolationCategoryId,
+  VerificationStatus,
+} from "./vocabulary";
+
+/**
+ * One line of the declaration checklist. A failure carries the taxonomy category
+ * and a specific, citable detail — 06 §2 is explicit that a generic "non-compliant"
+ * flag is far less useful than "MRP Non-Compliance — Rule 6(e)".
+ */
+export interface DeclarationCheck {
+  /** Matches a DeclarationFieldId, or "fontSize" for the Rule 7 result. */
+  fieldId: string;
+  passed: boolean;
+  /** The value as finalized after verification. Null when never detected. */
+  value: string | null;
+  /** Set only when passed is false. */
+  violationCategoryId?: ViolationCategoryId;
+  /**
+   * Human-readable specifics appended to the citation, e.g. "numeral height 3 mm,
+   * below required 4 mm minimum". Empty for a plain missing-declaration failure.
+   */
+  detail?: string;
+}
+
+/** A resolved violation, ready to render in the Violation Summary. */
+export interface Violation {
+  categoryId: ViolationCategoryId;
+  /** Verbatim taxonomy wording. Resolve through violationCategory(), never retype. */
+  category: string;
+  legalBasis: string;
+  detail?: string;
+}
+
+/**
+ * Audit trail entry (06 §2). The timeline runs Scanned, Extracted, Corrected,
+ * Verified, Report Generated, Flagged for Enforcement, Flagged as Needs Review.
+ */
+export type AuditEventType =
+  | "Scanned"
+  | "Extracted"
+  | "Corrected"
+  | "Verified"
+  | "Report Generated"
+  | "Flagged for Enforcement"
+  | "Flagged as Needs Review";
+
+export interface AuditEvent {
+  id: string;
+  type: AuditEventType;
+  /** ISO 8601. */
+  at: string;
+  /** Absent for system-generated events such as Extracted. */
+  byUserId?: string;
+  byUserName?: string;
+  /** Free-text note, e.g. which fields were corrected. */
+  note?: string;
+}
+
+/** Supporting photographs attached to a record (PS requirement). */
+export interface Evidence {
+  id: string;
+  image: UploadedImage;
+  caption: string;
+  /** ISO 8601. */
+  attachedAt: string;
+  attachedByUserId: string;
+}
+
+export interface ComplianceRecord {
+  id: string;
+  /** Human-facing scan identifier shown in the UI and on reports. */
+  scanId: string;
+  productName: string;
+  manufacturerName: string;
+  category: ProductCategory;
+  region: string;
+  source: SourceTag;
+
+  /**
+   * Internal workflow state. Only pages 4 and 6 surface this directly.
+   */
+  verificationStatus: VerificationStatus;
+
+  /**
+   * The status shown everywhere else. Computed from the checklist once verified,
+   * except when needsReviewFlag is set, which overrides it until resolved.
+   */
+  complianceStatus: ComplianceStatus;
+
+  /** True while a manual Needs Review escalation is outstanding. */
+  needsReviewFlag: boolean;
+  needsReviewByUserId?: string;
+  needsReviewNote?: string;
+
+  /** True once flagged for enforcement, so the action can be relabeled (06 §4). */
+  flaggedForEnforcement: boolean;
+
+  checklist: DeclarationCheck[];
+  violations: Violation[];
+  extraction: ExtractionResult;
+  evidence: Evidence[];
+  auditTrail: AuditEvent[];
+
+  /** Primary label photograph, used as the list thumbnail. */
+  thumbnail: UploadedImage;
+
+  /** Original listing URL when source is E-commerce-Sourced. */
+  ecommerceListingUrl?: string;
+
+  /** ISO 8601. */
+  scannedAt: string;
+  lastUpdatedAt: string;
+  /** Admin-only archive action (00-README.md §C). */
+  archived: boolean;
+}
+
+/**
+ * Compute Compliance Status from the record's own state, exactly as 00-README.md §A
+ * defines it. Kept as a function so no page re-implements the rule from memory.
+ *
+ * Needs Review is a human override and always wins. Otherwise, an unverified record
+ * is Pending regardless of what the checklist currently says, because nothing is
+ * determined until a person confirms it.
+ */
+export function computeComplianceStatus(
+  record: Pick<
+    ComplianceRecord,
+    "verificationStatus" | "needsReviewFlag" | "checklist"
+  >
+): ComplianceStatus {
+  if (record.needsReviewFlag) return "Needs Review";
+  if (record.verificationStatus === "Extracted") return "Pending";
+  const hasFailure = record.checklist.some((item) => !item.passed);
+  return hasFailure ? "Non-Compliant" : "Compliant";
+}
+
+/* ------------------------------------------------------------------ *
+ * Records list (page 5)
+ * ------------------------------------------------------------------ */
+
+export interface RecordFilters {
+  query?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  categories: ProductCategory[];
+  complianceStatuses: ComplianceStatus[];
+  regions: string[];
+  manufacturers: string[];
+  sources: SourceTag[];
+}
+
+export const RECORD_SORT_OPTIONS = [
+  "newest",
+  "oldest",
+  "alphabetical",
+  "status",
+  "relevance",
+] as const;
+export type RecordSort = (typeof RECORD_SORT_OPTIONS)[number];
+
+export interface RecordsPage {
+  rows: ComplianceRecord[];
+  /** Total matching the filters, for "Showing 1-20 of 3,412". */
+  totalCount: number;
+  page: number;
+  pageSize: number;
+}
+
+/** Re-exported so a page importing the record type also gets its scan. */
+export type { Scan };
