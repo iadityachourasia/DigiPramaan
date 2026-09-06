@@ -2,7 +2,7 @@
   "_meta": {
     "note": "Scaffolded locale. Values still identical to en.json are untranslated.",
     "generatedBy": "scripts/sync-locales.mjs",
-    "untranslatedCount": 511,
+    "untranslatedCount": 549,
     "untranslated": [
       "app.descriptor",
       "app.department",
@@ -421,6 +421,7 @@
       "records.filters.regionLabel",
       "records.filters.manufacturerLabel",
       "records.filters.sourceLabel",
+      "records.filters.violationLabel",
       "records.filters.dateFromLabel",
       "records.filters.dateToLabel",
       "records.filters.sortLabel",
@@ -437,6 +438,7 @@
       "records.filters.chip.region",
       "records.filters.chip.manufacturer",
       "records.filters.chip.source",
+      "records.filters.chip.violation",
       "records.filters.chip.query",
       "records.filters.chip.dateFrom",
       "records.filters.chip.dateTo",
@@ -514,7 +516,43 @@
       "recordDetail.actions.generateReport",
       "recordDetail.actions.flagForEnforcement",
       "recordDetail.actions.alreadyFlaggedForEnforcement",
-      "recordDetail.actions.backToRecords"
+      "recordDetail.actions.backToRecords",
+      "analytics.meta.title",
+      "analytics.heading",
+      "analytics.description",
+      "analytics.errorTitle",
+      "analytics.errorBody",
+      "analytics.retryLabel",
+      "analytics.summary.totalScanned",
+      "analytics.summary.complianceRate",
+      "analytics.summary.processingSuccessRate",
+      "analytics.trend.heading",
+      "analytics.trend.weekly",
+      "analytics.trend.monthly",
+      "analytics.trend.compliantSeries",
+      "analytics.trend.nonCompliantSeries",
+      "analytics.trend.totalScansSeries",
+      "analytics.trend.dateColumn",
+      "analytics.trend.notEnoughData",
+      "analytics.trend.loading",
+      "analytics.trend.errorTitle",
+      "analytics.trend.errorBody",
+      "analytics.violationBreakdown.heading",
+      "analytics.violationBreakdown.countColumn",
+      "analytics.violationBreakdown.categoryColumn",
+      "analytics.categoryAnalysis.heading",
+      "analytics.categoryAnalysis.categoryColumn",
+      "analytics.regionalDistribution.heading",
+      "analytics.regionalDistribution.columnRegion",
+      "analytics.regionalDistribution.columnTotalScanned",
+      "analytics.regionalDistribution.columnNonCompliant",
+      "analytics.regionalDistribution.columnRate",
+      "analytics.regionalDistribution.columnAction",
+      "analytics.regionalDistribution.view",
+      "analytics.sourceBreakdown.heading",
+      "analytics.anomalies.heading",
+      "analytics.anomalies.emptyTitle",
+      "analytics.anomalies.view"
     ]
   },
   "app": {
@@ -1142,6 +1180,7 @@
       "regionLabel": "Region",
       "manufacturerLabel": "Manufacturer",
       "sourceLabel": "Source",
+      "violationLabel": "Violation category",
       "dateFromLabel": "From",
       "dateToLabel": "To",
       "sortLabel": "Sort by",
@@ -1161,6 +1200,7 @@
         "region": "Region: {value}",
         "manufacturer": "Manufacturer: {value}",
         "source": "Source: {value}",
+        "violation": "Violation: {value}",
         "query": "Search: {value}",
         "dateFrom": "From: {value}",
         "dateTo": "To: {value}"
@@ -1266,6 +1306,60 @@
       "flagForEnforcement": "Flag for Enforcement",
       "alreadyFlaggedForEnforcement": "Flagged for Enforcement",
       "backToRecords": "Back to Records"
+    }
+  },
+  "analytics": {
+    "meta": {
+      "title": "Analytics & Violation Trends"
+    },
+    "heading": "Analytics & Violation Trends",
+    "description": "Where to focus enforcement effort next, across every scan in the system.",
+    "errorTitle": "Could not load analytics",
+    "errorBody": "Try again. If the problem continues, contact your system administrator.",
+    "retryLabel": "Try again",
+    "summary": {
+      "totalScanned": "Total Scanned",
+      "complianceRate": "Compliance Rate",
+      "processingSuccessRate": "Processing Success Rate"
+    },
+    "trend": {
+      "heading": "Compliance trend",
+      "weekly": "Weekly",
+      "monthly": "Monthly",
+      "compliantSeries": "Compliant",
+      "nonCompliantSeries": "Non-Compliant",
+      "totalScansSeries": "Total scans",
+      "dateColumn": "Date",
+      "notEnoughData": "Not enough data yet for this view.",
+      "loading": "Loading compliance trend",
+      "errorTitle": "Could not load the trend chart",
+      "errorBody": "Try again. The rest of the page is unaffected."
+    },
+    "violationBreakdown": {
+      "heading": "Violation-type breakdown",
+      "countColumn": "Count",
+      "categoryColumn": "Category"
+    },
+    "categoryAnalysis": {
+      "heading": "Category analysis",
+      "categoryColumn": "Category"
+    },
+    "regionalDistribution": {
+      "heading": "Regional distribution",
+      "columnRegion": "Region",
+      "columnTotalScanned": "Total scanned",
+      "columnNonCompliant": "Non-Compliant",
+      "columnRate": "Non-compliance rate",
+      "columnAction": "Action",
+      "view": "View"
+    },
+    "sourceBreakdown": {
+      "heading": "Source breakdown"
+    },
+    "anomalies": {
+      "heading": "Anomaly / hotspot alerts",
+      "emptyTitle": "No anomalies detected in the current period",
+      "view": "View"
     }
   }
 }

@@ -54,9 +54,13 @@ import {
   confidenceBand,
   DECLARATION_FIELDS,
   PIPELINE_STAGE_IDS,
+  SOURCE_TAGS,
+  VIOLATION_CATEGORY_IDS,
   violationCategory,
+  type AnalyticsSummary,
   type AuditEvent,
   type CaptureSlotAngle,
+  type CategoryBreakdownEntry,
   type ComplianceRecord,
   type DeclarationCheck,
   type DeclarationFieldId,
@@ -66,9 +70,12 @@ import {
   type RecordFilters,
   type RecordSort,
   type RecordsPage,
+  type RegionBreakdownEntry,
   type ScanMetadata,
+  type SourceBreakdownEntry,
   type UploadedImage,
   type Violation,
+  type ViolationBreakdownEntry,
 } from "@/types";
 
 /** Mock processing time per stage. Quality check and Ready-for-verification are instant. */
@@ -764,6 +771,11 @@ function matchesFilters(record: ComplianceRecord, filters: RecordFilters): boole
   )
     return false;
   if (filters.sources.length > 0 && !filters.sources.includes(record.source)) return false;
+  if (
+    filters.violationCategoryIds.length > 0 &&
+    !record.violations.some((v) => filters.violationCategoryIds.includes(v.categoryId))
+  )
+    return false;
   return true;
 }
 
@@ -803,19 +815,28 @@ function sortRecords(
  * unconditionally; this page has no "show archived" view (see the page 5
  * plan's Open Question 3).
  */
+/**
+ * Every non-archived record that exists right now, live pipeline-created
+ * plus static seeds, deduplicated by id — the one merge both `listRecords`
+ * and the Analytics aggregator (07) build on, so a record created through
+ * the live pipeline is visible to both rather than only to page 5.
+ */
+function getAllActiveRecords(): ComplianceRecord[] {
+  const seen = new Set<string>();
+  return [...getAllCreatedRecords(), ...MOCK_ACTIVE_RECORDS].filter((record) => {
+    if (record.archived || seen.has(record.id)) return false;
+    seen.add(record.id);
+    return true;
+  });
+}
+
 export function listRecords(
   filters: RecordFilters,
   sort: RecordSort,
   page: number,
   pageSize: number
 ): RecordsPage {
-  const seen = new Set<string>();
-  const all = [...getAllCreatedRecords(), ...MOCK_ACTIVE_RECORDS].filter((record) => {
-    if (record.archived || seen.has(record.id)) return false;
-    seen.add(record.id);
-    return true;
-  });
-
+  const all = getAllActiveRecords();
   const filtered = all.filter((record) => matchesFilters(record, filters));
   const sorted = sortRecords(filtered, sort, filters.query);
   const start = (page - 1) * pageSize;
@@ -826,6 +847,92 @@ export function listRecords(
     page,
     pageSize,
   };
+}
+
+export interface AnalyticsAggregate {
+  summary: AnalyticsSummary;
+  violationBreakdown: ViolationBreakdownEntry[];
+  categoryBreakdown: CategoryBreakdownEntry[];
+  regionBreakdown: RegionBreakdownEntry[];
+  sourceBreakdown: SourceBreakdownEntry[];
+}
+
+/**
+ * Summary/violation/category/region/source breakdowns for Analytics &
+ * Violation Trends (page 7), computed live over `getAllActiveRecords()` —
+ * the same live+static merge `listRecords()` uses, so a record created
+ * through the live pipeline shows up here too. This fixes the same class of
+ * bug page 5's `fetchRecords()` had before its own fix:
+ * `src/lib/mock/analytics.ts`'s `MOCK_*_BREAKDOWN` constants are computed
+ * once, at module load, from the static seeds only.
+ *
+ * Trend and anomalies are deliberately NOT computed here — they stay the
+ * illustrative static mock data `analytics.ts` already documents ("twelve
+ * seed records cannot describe several months of activity"); a live trend
+ * from today's tiny record count would be a worse chart, not a more honest
+ * one.
+ */
+export function computeAnalyticsSummary(): AnalyticsAggregate {
+  const all = getAllActiveRecords();
+  const total = all.length;
+
+  const compliantCount = all.filter((r) => r.complianceStatus === "Compliant").length;
+  const nonCompliantCount = all.filter((r) => r.complianceStatus === "Non-Compliant").length;
+  const completedCount = all.filter((r) => r.extraction.processingStatus === "Completed").length;
+
+  const summary: AnalyticsSummary = {
+    totalScanned: total,
+    complianceRatePercentage:
+      compliantCount + nonCompliantCount === 0
+        ? 0
+        : Math.round((compliantCount / (compliantCount + nonCompliantCount)) * 100),
+    processingSuccessRatePercentage: total === 0 ? 0 : Math.round((completedCount / total) * 100),
+  };
+
+  const violationBreakdown: ViolationBreakdownEntry[] = VIOLATION_CATEGORY_IDS.map(
+    (categoryId) => ({
+      categoryId,
+      count: all.reduce(
+        (sum, record) => sum + record.violations.filter((v) => v.categoryId === categoryId).length,
+        0
+      ),
+    })
+  );
+
+  const categoryBreakdown: CategoryBreakdownEntry[] = Object.values(
+    all.reduce<Record<string, CategoryBreakdownEntry>>((acc, record) => {
+      const entry = acc[record.category] ?? {
+        category: record.category,
+        compliant: 0,
+        nonCompliant: 0,
+      };
+      if (record.complianceStatus === "Compliant") entry.compliant += 1;
+      if (record.complianceStatus === "Non-Compliant") entry.nonCompliant += 1;
+      acc[record.category] = entry;
+      return acc;
+    }, {})
+  );
+
+  const regionBreakdown: RegionBreakdownEntry[] = Object.values(
+    all.reduce<Record<string, RegionBreakdownEntry>>((acc, record) => {
+      const entry = acc[record.region] ?? {
+        region: record.region,
+        totalScanned: 0,
+        nonCompliant: 0,
+      };
+      entry.totalScanned += 1;
+      if (record.complianceStatus === "Non-Compliant") entry.nonCompliant += 1;
+      acc[record.region] = entry;
+      return acc;
+    }, {})
+  );
+
+  const sourceBreakdown: SourceBreakdownEntry[] = SOURCE_TAGS.map((source) => ({
+    source,
+    count: all.filter((r) => r.source === source).length,
+  }));
+
+  return { summary, violationBreakdown, categoryBreakdown, regionBreakdown, sourceBreakdown };
 }
 
 /**

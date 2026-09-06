@@ -50,6 +50,13 @@ export interface ComplianceTrendChartProps {
     /** Column header for the date row, e.g. "Date". */
     dateColumn: string;
   };
+  /**
+   * Analytics & Violation Trends' (page 7) drill-down — clicking a point on
+   * the Compliant or Non-Compliant line navigates to Compliance Records
+   * filtered to that bucket's date range and status. Optional and unused by
+   * Dashboard's own `TrendPanel` usage, which passes nothing.
+   */
+  onPointClick?: (point: TrendPoint, series: "compliant" | "nonCompliant") => void;
 }
 
 interface SeriesColors {
@@ -116,9 +123,32 @@ function readSeriesColors(root: HTMLElement): SeriesColors {
   };
 }
 
+/** A clickable active dot — recharts' plain `activeDot={{ onClick }}` object form doesn't pass the point's own data through, so this render-prop form is needed to reach `payload` at all. */
+function clickableDot(color: string, onClick: (point: TrendPoint) => void) {
+  function ClickableDot(props: {
+    cx?: number | undefined;
+    cy?: number | undefined;
+    payload?: TrendPoint | undefined;
+  }) {
+    return (
+      <circle
+        key={`${props.cx}-${props.cy}`}
+        cx={props.cx}
+        cy={props.cy}
+        r={4}
+        fill={color}
+        style={{ cursor: "pointer" }}
+        onClick={() => props.payload && onClick(props.payload)}
+      />
+    );
+  }
+  return ClickableDot;
+}
+
 export function ComplianceTrendChart({
   data,
   labels,
+  onPointClick,
 }: ComplianceTrendChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [colors, setColors] = useState<SeriesColors>(FALLBACK_COLORS);
@@ -175,6 +205,13 @@ export function ComplianceTrendChart({
               stroke={colors.compliant}
               strokeWidth={2}
               dot={false}
+              {...(onPointClick
+                ? {
+                    activeDot: clickableDot(colors.compliant, (point) =>
+                      onPointClick(point, "compliant")
+                    ),
+                  }
+                : {})}
             />
             <Line
               type="monotone"
@@ -183,6 +220,13 @@ export function ComplianceTrendChart({
               stroke={colors.nonCompliant}
               strokeWidth={2}
               dot={false}
+              {...(onPointClick
+                ? {
+                    activeDot: clickableDot(colors.nonCompliant, (point) =>
+                      onPointClick(point, "nonCompliant")
+                    ),
+                  }
+                : {})}
             />
             <Line
               type="monotone"

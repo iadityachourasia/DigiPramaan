@@ -215,6 +215,14 @@ export interface RecordFilters {
   regions: string[];
   manufacturers: string[];
   sources: SourceTag[];
+  /**
+   * Matches a record with at least one violation in any of these categories
+   * (07-analytics-violation-trends.md's violation-type breakdown is this
+   * page's central metric, so unlike other analytics dimensions this one
+   * gets a real filter rather than the lossy `complianceStatuses=Non-Compliant`
+   * approximation used elsewhere for the same gap).
+   */
+  violationCategoryIds: ViolationCategoryId[];
 }
 
 export const RECORD_SORT_OPTIONS = [
