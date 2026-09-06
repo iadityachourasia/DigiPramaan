@@ -21,6 +21,12 @@ export const ROUTES = {
   /** Scan / Upload Product (page 3). */
   scan: "/scan",
 
+  /** Processing Pipeline Tracker, reached after a scan is submitted (03 §2 Step 5). */
+  scanStatus: (scanId: string) => `/scan/${scanId}/status` as const,
+
+  /** Mobile Capture Companion — separate route, no sidebar/header shell (03 §2). */
+  scanMobile: (sessionToken: string) => `/scan/mobile/${sessionToken}` as const,
+
   /**
    * Declaration Extraction & Verification (page 4).
    * Needs the compliance record id that was created by page 3 or page 8.

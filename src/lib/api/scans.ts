@@ -3,6 +3,16 @@
  */
 
 import { API } from "@/lib/constants";
+import type {
+  CaptureSlotAngle,
+  MobileHandoffSession,
+  PipelineRun,
+  PipelineStageId,
+  QualityCheckResult,
+  QualityFailureReason,
+  ScanMetadata,
+} from "@/types";
+
 import { apiGet, apiUpload, isMockMode, type ApiResult } from "./client";
 
 /**
@@ -17,24 +27,56 @@ export interface ScanResponse {
   createdAt: string;
 }
 
+export interface CreateScanRequest {
+  metadata: ScanMetadata;
+  /** Passed-quality images only — a slot that never cleared the gate is not here. */
+  images: Array<{ angle: CaptureSlotAngle; fileName: string; url: string; sizeBytes: number }>;
+  /** The signed-in officer — becomes the pipeline run's/record's "Scanned" audit actor. */
+  scannedByUserId: string;
+  /** `?demo=pipeline-fail-<stage>` on the wizard's own URL — forwarded, not decided here. */
+  forceFailStage?: PipelineStageId;
+  fallbackOverride?: "used" | "skipped";
+}
+
 export async function createScan(
-  formData: FormData
+  request: CreateScanRequest
 ): Promise<ApiResult<ScanResponse>> {
   if (isMockMode()) {
-    const { MOCK_RECORDS } = await import("@/lib/mock");
-    const firstRecord = MOCK_RECORDS[0];
-    if (!firstRecord)
-      return { ok: false, status: 500, message: "No mock records available" };
+    const id = `scan-${Date.now()}`;
+
+    /*
+     * The Processing Pipeline Tracker (03 §2 Step 5) needs server-side state
+     * that survives a closed tab — the same reason Mobile Handoff isn't a
+     * client mock (see scan-pipeline-store.ts) — so submitting a scan means
+     * creating that run now, not just returning a fake ID for a page that
+     * will find nothing when it polls.
+     */
+    const pipelineResult = await createScanPipeline({
+      scanId: id,
+      metadata: request.metadata,
+      images: request.images,
+      scannedByUserId: request.scannedByUserId,
+      ...(request.forceFailStage ? { forceFailStage: request.forceFailStage } : {}),
+      ...(request.fallbackOverride ? { fallbackOverride: request.fallbackOverride } : {}),
+    });
+
+    if (!pipelineResult.ok) {
+      return { ok: false, status: pipelineResult.status, message: pipelineResult.message };
+    }
+
     return {
       ok: true,
       data: {
-        id: `scan-${Date.now()}`,
-        recordId: firstRecord.id,
+        id,
+        recordId: pipelineResult.data.recordId,
         status: "Processing",
         createdAt: new Date().toISOString(),
       },
     };
   }
+  const formData = new FormData();
+  formData.append("metadata", JSON.stringify(request.metadata));
+  formData.append("images", JSON.stringify(request.images));
   return apiUpload(API.scans.create, formData);
 }
 
@@ -51,4 +93,154 @@ export async function fetchScan(id: string): Promise<ApiResult<ScanResponse>> {
     };
   }
   return apiGet(API.scans.detail(id));
+}
+
+/* ------------------------------------------------------------------ *
+ * Image Quality Inspection Layer (03-scan-upload.md §2)
+ * ------------------------------------------------------------------ */
+
+export interface QualityCheckRequest {
+  angle: CaptureSlotAngle;
+  file: File;
+}
+
+/**
+ * `simulateFailure` exists only for demoing/testing every rejection reason on
+ * demand (see the Dashboard's established `?demo=` convention). It is read by
+ * the mock branch only — a real backend call never receives or needs it, so
+ * wiring the real endpoint means deleting the mock branch, not this parameter.
+ */
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+export async function checkImageQuality(
+  request: QualityCheckRequest,
+  simulateFailure?: QualityFailureReason
+): Promise<ApiResult<QualityCheckResult>> {
+  if (isMockMode()) {
+    /* Near-instant per 03 §2 — long enough to see "Checking…", never a real wait. */
+    await delay(400 + Math.random() * 300);
+
+    if (simulateFailure) {
+      return { ok: true, data: { passed: false, failureReason: simulateFailure } };
+    }
+    return { ok: true, data: { passed: true } };
+  }
+
+  const formData = new FormData();
+  formData.append("angle", request.angle);
+  formData.append("file", request.file);
+  return apiUpload(API.scans.qualityCheck, formData);
+}
+
+/* ------------------------------------------------------------------ *
+ * Mobile Handoff session (03-scan-upload.md §2, Mobile Handoff Panel)
+ * ------------------------------------------------------------------ *
+ * Deliberately NOT gated by isMockMode(). This is the one part of the
+ * page's data layer where "mock" and "real" already share the exact same
+ * client-side code path — the desktop tab and the phone are two separate
+ * browser contexts that both need to see one shared session, which no
+ * client-side mock branch can provide (see mobile-session-store.ts). The
+ * mock-ness lives entirely in that server module; swapping in a real backend
+ * later means changing the route handlers, not these functions or their
+ * callers.
+ */
+
+async function requestJson<T>(path: string, init?: RequestInit): Promise<ApiResult<T>> {
+  try {
+    const response = await fetch(path, init);
+    if (!response.ok) {
+      const body = (await response.json().catch(() => null)) as { error?: string } | null;
+      return {
+        ok: false,
+        status: response.status,
+        message: body?.error ?? `Request to ${path} failed with status ${response.status}`,
+      };
+    }
+    return { ok: true, data: (await response.json()) as T };
+  } catch {
+    return { ok: false, status: 0, message: "Network error" };
+  }
+}
+
+export function createMobileSession(
+  scanDraftId: string
+): Promise<ApiResult<MobileHandoffSession>> {
+  return requestJson("/api/mobile-sessions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ scanDraftId }),
+  });
+}
+
+export function pollMobileSession(token: string): Promise<ApiResult<MobileHandoffSession>> {
+  return requestJson(`/api/mobile-sessions/${token}`);
+}
+
+export function cancelMobileSession(token: string): Promise<ApiResult<MobileHandoffSession>> {
+  return requestJson(`/api/mobile-sessions/${token}`, { method: "DELETE" });
+}
+
+export function connectMobileSession(token: string): Promise<ApiResult<MobileHandoffSession>> {
+  return requestJson(`/api/mobile-sessions/${token}/connect`, { method: "POST" });
+}
+
+export interface ReportMobileCaptureRequest {
+  angle: CaptureSlotAngle;
+  fileName: string;
+  sizeBytes: number;
+  /** A data: URL — see mobile-session-store.ts for why. */
+  dataUrl: string;
+}
+
+export function reportMobileCapture(
+  token: string,
+  request: ReportMobileCaptureRequest
+): Promise<ApiResult<MobileHandoffSession>> {
+  return requestJson(`/api/mobile-sessions/${token}/capture`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(request),
+  });
+}
+
+/* ------------------------------------------------------------------ *
+ * Processing Pipeline Tracker (03-scan-upload.md §2, Step 5)
+ * ------------------------------------------------------------------ *
+ * Same reasoning as Mobile Handoff above: this is server-authoritative
+ * state (must survive a closed tab), so these are always real HTTP calls
+ * to scan-pipeline-store.ts's Route Handlers — never gated by isMockMode().
+ */
+
+export interface CreateScanPipelineRequest {
+  scanId: string;
+  metadata: ScanMetadata;
+  images: Array<{ angle: CaptureSlotAngle; fileName: string; url: string; sizeBytes: number }>;
+  scannedByUserId: string;
+  forceFailStage?: PipelineStageId;
+  fallbackOverride?: "used" | "skipped";
+}
+
+export function createScanPipeline(
+  request: CreateScanPipelineRequest
+): Promise<ApiResult<PipelineRun>> {
+  return requestJson("/api/scan-pipelines", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(request),
+  });
+}
+
+export function pollScanPipeline(scanId: string): Promise<ApiResult<PipelineRun>> {
+  return requestJson(`/api/scan-pipelines/${scanId}`);
+}
+
+export function retryPipelineStage(
+  scanId: string,
+  stageId: PipelineStageId
+): Promise<ApiResult<PipelineRun>> {
+  return requestJson(`/api/scan-pipelines/${scanId}/retry/${stageId}`, { method: "POST" });
 }

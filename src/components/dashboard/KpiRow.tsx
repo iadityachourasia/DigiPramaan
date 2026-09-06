@@ -37,7 +37,13 @@ export interface KpiRowProps {
 
 function kpiHref(kpi: KpiMetric): string {
   if (!kpi.routesToStatus) return ROUTES.records;
-  return `${ROUTES.records}?status=${encodeURIComponent(kpi.routesToStatus)}`;
+  /*
+   * Query key matches `RecordFilters.complianceStatuses` (src/types/compliance.ts)
+   * rather than an independently-invented `status` key, so this link is
+   * already shaped the way Records' own filter state expects once that page
+   * reads its query string.
+   */
+  return `${ROUTES.records}?complianceStatuses=${encodeURIComponent(kpi.routesToStatus)}`;
 }
 
 function kpiLabel(id: KpiMetric["id"], labels: KpiRowProps["labels"]): string {

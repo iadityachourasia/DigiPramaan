@@ -70,6 +70,49 @@ export interface AuditEvent {
   note?: string;
 }
 
+/**
+ * Compliance Score (13-history-and-hierarchy.md §1.2) — additive, does not
+ * replace Compliance Status. Compliance Status governs filtering/workflow;
+ * the score is finer-grained severity within Compliant/Non-Compliant. Absent
+ * until a record is Verified (see computeComplianceScore()) — an unverified
+ * record has nothing to score yet.
+ */
+export interface ComplianceScore {
+  value: number;
+  band: "Excellent" | "Good" | "Poor" | "Critical";
+  breakdownByCategory: Partial<Record<ViolationCategoryId, number>>;
+}
+
+/** Band cutoffs per the spec's own "placeholder wording" caveat. */
+export function complianceScoreBand(value: number): ComplianceScore["band"] {
+  if (value >= 90) return "Excellent";
+  if (value >= 70) return "Good";
+  if (value >= 40) return "Poor";
+  return "Critical";
+}
+
+/**
+ * Placeholder formula: proportion of checklist lines that passed. The
+ * frontend renders whatever this returns rather than hardcoding the shape of
+ * the calculation, so a real formula can replace this later without
+ * touching any rendering code.
+ */
+export function computeComplianceScore(
+  record: Pick<ComplianceRecord, "checklist">
+): ComplianceScore {
+  const total = record.checklist.length;
+  const passed = record.checklist.filter((line) => line.passed).length;
+  const value = total === 0 ? 0 : Math.round((passed / total) * 100);
+  const breakdownByCategory: Partial<Record<ViolationCategoryId, number>> = {};
+  for (const line of record.checklist) {
+    if (!line.passed && line.violationCategoryId) {
+      breakdownByCategory[line.violationCategoryId] =
+        (breakdownByCategory[line.violationCategoryId] ?? 0) + 1;
+    }
+  }
+  return { value, band: complianceScoreBand(value), breakdownByCategory };
+}
+
 /** Supporting photographs attached to a record (PS requirement). */
 export interface Evidence {
   id: string;
@@ -111,12 +154,23 @@ export interface ComplianceRecord {
 
   checklist: DeclarationCheck[];
   violations: Violation[];
+  /** Present once Verified (see computeComplianceScore()); absent while Pending. */
+  complianceScore?: ComplianceScore;
   extraction: ExtractionResult;
   evidence: Evidence[];
   auditTrail: AuditEvent[];
 
   /** Primary label photograph, used as the list thumbnail. */
   thumbnail: UploadedImage;
+
+  /**
+   * The captured Front/Back/Side-PDP photographs (04's two-panel layout —
+   * an officer switches between these while reviewing declarations, and
+   * each field's source-image badge opens the one it was actually read
+   * from). Always includes at least the front image the thumbnail is drawn
+   * from.
+   */
+  capturedImages: UploadedImage[];
 
   /** Original listing URL when source is E-commerce-Sourced. */
   ecommerceListingUrl?: string;

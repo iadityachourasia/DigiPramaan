@@ -371,6 +371,7 @@
       "compliantSeries": "Compliant",
       "nonCompliantSeries": "Non-Compliant",
       "totalScansSeries": "Total scans",
+      "dateColumn": "Date",
       "notEnoughData": "Not enough data yet for this view.",
       "loading": "Loading compliance trend",
       "errorTitle": "Could not load the trend chart",
@@ -407,6 +408,338 @@
       "scanEcommerceListing": "Scan E-commerce Listing",
       "viewRecords": "View Records",
       "generateReport": "Generate Report"
+    }
+  },
+  "scan": {
+    "meta": { "title": "Scan / Upload Product" },
+    "heading": "Scan / Upload Product",
+    "description": "Photograph the front, back and principal display panel of the product. Each image is checked for quality before it counts as captured.",
+    "noAccessTitle": "You do not have access to create scans",
+    "noAccessBody": "Your role has full read access to compliance records, but cannot start a new scan.",
+    "progress": {
+      "mode": "Capture mode",
+      "capture": "Capture",
+      "details": "Details",
+      "submit": "Submit"
+    },
+    "modeSelect": {
+      "heading": "How will you capture this product?",
+      "requiredPrompt": "Pick a capture mode to continue.",
+      "device": {
+        "title": "Upload from device",
+        "body": "Desktop or laptop with existing photos, or a phone being used directly as the browser device."
+      },
+      "camera": {
+        "title": "Use this device's camera",
+        "body": "Phone or tablet with camera access — photograph the product live."
+      },
+      "mobile": {
+        "title": "Continue on mobile",
+        "body": "At a desktop with the product in front of you? Hand capture off to your phone."
+      }
+    },
+    "slots": {
+      "heading": "Capture the required angles",
+      "incomplete": "Front, Back and Side (Principal Display Panel) are all required before you can continue.",
+      "formatHint": "JPG, JPEG, PNG or PDF, up to {maxMb} MB",
+      "empty": "No photo yet",
+      "browse": "Browse files",
+      "takePhoto": "Take photo",
+      "retake": "Retake",
+      "remove": "Remove",
+      "checking": "Checking image quality…",
+      "passed": "Passed",
+      "cameraDenied": "Camera access was not granted. Check your browser permissions and reload.",
+      "front": {
+        "label": "Front",
+        "hint": "The face customers see on shelf — brand name, generic name, net quantity."
+      },
+      "back": {
+        "label": "Back",
+        "hint": "Ingredients or composition panel — manufacturer details, consumer care."
+      },
+      "side_pdp": {
+        "label": "Side — Principal Display Panel",
+        "hint": "Wherever the mandatory declarations actually sit, when it differs from Front."
+      },
+      "additional": {
+        "label": "Additional angle",
+        "hint": "Optional — for edge cases such as an export-only panel."
+      }
+    },
+    "qualityFailure": {
+      "blur": "Image is blurry — hold steady and retake.",
+      "distortion": "Photo is too skewed to read reliably — retake it facing the label directly.",
+      "curvature": "Label is too curved to read — try a flatter angle or more distance.",
+      "no_text_detected": "No readable text detected."
+    },
+    "mobileHandoff": {
+      "fallbackCodeLabel": "Or type this code on your phone",
+      "waiting": "Waiting for phone to connect…",
+      "connected": "Phone connected — waiting for photos…",
+      "angleCaptured": "{angle} captured",
+      "expiresIn": "Code expires in {time}",
+      "expired": "This code has expired.",
+      "cancelled": "Session cancelled. Generate a new code to continue on mobile.",
+      "generateNewCode": "Generate new code",
+      "cancel": "Cancel",
+      "allCaptured": "All three captured on your phone."
+    },
+    "mobileCompanion": {
+      "codeEntryHeading": "Continue on mobile",
+      "codeEntryBody": "Enter the code shown on the desktop screen to continue that scan here.",
+      "codeEntryLabel": "Code",
+      "codeEntrySubmit": "Continue",
+      "connectedTo": "Capturing for scan {scanDraftId} — connected",
+      "allDoneTitle": "All three captured",
+      "allDoneBody": "You can close this page — the desktop has everything it needs.",
+      "sessionEnded": "This session was ended from the desktop.",
+      "sessionExpired": "This code is no longer valid. Ask for a new code on the desktop screen."
+    },
+    "metadata": {
+      "heading": "Product details",
+      "categoryLabel": "Product category",
+      "categoryRequiredError": "Choose a product category.",
+      "manufacturerLabel": "Manufacturer",
+      "manufacturerHint": "Optional — suggests known manufacturers as you type.",
+      "regionLabel": "Inspection region",
+      "regionRequiredError": "Choose an inspection region.",
+      "ecommerceUrlLabel": "E-commerce listing URL",
+      "ecommerceUrlCaption": "Optional. Only for noting that this physically-photographed product is also listed online — to scan directly from an online listing instead, with no physical photo, use the E-commerce Listing Scanner.",
+      "ecommerceUrlHint": "e.g. https://marketplace.example.in/listing/…",
+      "ecommerceUrlInvalidError": "Enter a valid URL, starting with https://."
+    },
+    "manualEntry": {
+      "toggleOn": "Enter declarations manually instead",
+      "toggleOff": "Use photo capture instead",
+      "heading": "Manual declaration entry",
+      "body": "Use this when OCR isn't viable — a damaged label, or you already have the information transcribed.",
+      "isImportLabel": "This is an imported commodity",
+      "valueHint": "Enter exactly as printed on the label."
+    },
+    "submit": {
+      "action": "Submit",
+      "submitting": "Submitting…"
+    },
+    "pipeline": {
+      "heading": "Processing pipeline",
+      "description": "This runs automatically. You can leave this page and come back — progress is saved.",
+      "notFoundTitle": "Nothing to show here",
+      "notFoundBody": "This scan's processing run could not be found. It may have already finished, or the link may be incorrect.",
+      "stages": {
+        "uploading": "Uploading",
+        "qualityCheck": "Quality check",
+        "textExtraction": "Text extraction (OCR)",
+        "fallbackExtraction": "Fallback extraction",
+        "structuring": "Structuring (LLM)",
+        "ruleEngine": "Rule engine evaluation",
+        "complianceScore": "Compliance score",
+        "readyForVerification": "Ready for verification"
+      },
+      "skipped": "Skipped",
+      "retry": "Retry this stage",
+      "srPending": "Not started",
+      "srInProgress": "In progress",
+      "srCompleted": "Completed",
+      "srFailed": "Failed — needs attention",
+      "readyTitle": "Ready for verification",
+      "readyBody": "Taking you to Declaration Extraction & Verification.",
+      "reviewNow": "Review now"
+    }
+  },
+  "extraction": {
+    "meta": { "title": "Declaration Extraction & Verification" },
+    "heading": "Declaration Extraction & Verification",
+    "description": "Review what the pipeline read from this label, correct anything wrong, then confirm.",
+    "notFoundTitle": "Record not found",
+    "notFoundBody": "This compliance record could not be found. It may not exist, or the link may be incorrect.",
+    "sourceImageHeading": "Source image",
+    "declarationsHeading": "Extracted declarations",
+    "overallConfidence": "{percentage}% overall extraction confidence",
+    "notDetected": "Not detected",
+    "corrected": "Corrected",
+    "viewImage": "View source image",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "drawerTitle": "Source image",
+    "sourceEngine": {
+      "paddleocr": "PaddleOCR",
+      "gemini_fallback": "Gemini fallback",
+      "manual": "Manual entry"
+    },
+    "readOnlyBanner": {
+      "title": "This record is Verified",
+      "body": "Reopen it to make further corrections. Reopening does not change its Verification Status."
+    },
+    "reopenToEdit": "Reopen to edit",
+    "zeroDeclarations": {
+      "title": "No declarations could be read",
+      "body": "OCR could not read any of the mandatory declarations from the captured images. Retry OCR, or enter each value directly below."
+    },
+    "blocked": {
+      "title": "Confirm & Verify is blocked",
+      "body": "The following declarations are still missing and must be detected, corrected, or entered before this record can be verified:"
+    },
+    "mutationError": {
+      "title": "That change could not be saved",
+      "body": "This record predates the live pipeline and has no editable copy to write to. Try again from a record created through Scan / Upload Product."
+    },
+    "needsReview": {
+      "confirmPrompt": "Escalate this record for a supervisor's review?"
+    },
+    "complianceScore": {
+      "heading": "Compliance score",
+      "band": {
+        "Excellent": "Excellent",
+        "Good": "Good",
+        "Poor": "Poor",
+        "Critical": "Critical"
+      }
+    },
+    "actions": {
+      "confirmAndVerify": "Confirm & Verify",
+      "confirming": "Verifying…",
+      "saveCorrections": "Save corrections",
+      "flagAsNeedsReview": "Flag as Needs Review",
+      "flagging": "Flagging…",
+      "retryOcr": "Retry OCR",
+      "retrying": "Retrying…"
+    }
+  },
+  "records": {
+    "meta": { "title": "Compliance Records" },
+    "heading": "Compliance Records",
+    "description": "Every scanned product and its compliance history, in one place.",
+    "filters": {
+      "searchLabel": "Search",
+      "searchPlaceholder": "Product name, manufacturer, or scan ID",
+      "categoryLabel": "Category",
+      "statusLabel": "Compliance Status",
+      "regionLabel": "Region",
+      "manufacturerLabel": "Manufacturer",
+      "sourceLabel": "Source",
+      "dateFromLabel": "From",
+      "dateToLabel": "To",
+      "sortLabel": "Sort by",
+      "sortOptions": {
+        "newest": "Newest first",
+        "oldest": "Oldest first",
+        "alphabetical": "Alphabetical",
+        "status": "Compliance Status",
+        "relevance": "Relevance"
+      },
+      "clearAll": "Clear all filters",
+      "removeFilter": "Remove filter: {label}",
+      "addFilterPlaceholder": "Add filter…",
+      "chip": {
+        "category": "Category: {value}",
+        "status": "Status: {value}",
+        "region": "Region: {value}",
+        "manufacturer": "Manufacturer: {value}",
+        "source": "Source: {value}",
+        "query": "Search: {value}",
+        "dateFrom": "From: {value}",
+        "dateTo": "To: {value}"
+      }
+    },
+    "bulk": {
+      "selectedCount": "{count} selected",
+      "export": "Export selected",
+      "flagNeedsReview": "Flag as Needs Review",
+      "clearNeedsReview": "Clear Needs Review",
+      "skippedTitle": "Some records were not updated",
+      "skippedBody": "{count} selected record(s) predate the live pipeline and have no editable copy to write to."
+    },
+    "mutationError": {
+      "title": "That change could not be saved",
+      "body": "This record predates the live pipeline and has no editable copy to write to."
+    },
+    "table": {
+      "columnThumbnail": "Product",
+      "columnProduct": "Product",
+      "columnManufacturer": "Manufacturer",
+      "columnScanDate": "Scan date",
+      "columnStatus": "Compliance Status",
+      "columnViolations": "Violations",
+      "columnSource": "Source",
+      "columnLastUpdated": "Last updated",
+      "columnActions": "Actions",
+      "caption": "Compliance records",
+      "view": "View",
+      "reScan": "Re-scan",
+      "generateReport": "Generate Report",
+      "archive": "Archive",
+      "selectAll": "Select all records on this page",
+      "selectRow": "Select {productName}",
+      "emptyFilteredTitle": "No records match these filters",
+      "emptyFilteredBody": "Try removing a filter or clearing them all.",
+      "emptyTitle": "No records yet",
+      "emptyBody": "Scan a product to see it appear here.",
+      "emptyAction": "Scan new product"
+    },
+    "pagination": {
+      "pageSizeLabel": "Rows per page",
+      "navLabel": "Pagination",
+      "previous": "Previous page",
+      "next": "Next page",
+      "pageLabel": "Page {page}"
+    }
+  },
+  "recordDetail": {
+    "meta": { "title": "Product Compliance Detail" },
+    "scanIdLabel": "Scan ID",
+    "scannedOn": "Scanned {date}",
+    "lastUpdated": "Last updated {date}",
+    "notFoundTitle": "Record not found",
+    "notFoundBody": "This compliance record could not be found. It may not exist, or the link may be incorrect.",
+    "unverifiedBanner": {
+      "title": "Not yet verified",
+      "body": "This record is still Pending — an officer has not confirmed the extracted data yet. Nothing here is final until verification is complete."
+    },
+    "mutationError": {
+      "title": "That change could not be saved",
+      "body": "This record predates the live pipeline and has no editable copy to write to."
+    },
+    "violationsHeading": "Violation summary",
+    "noViolations": "No violations found",
+    "checklistHeading": "Declaration checklist",
+    "notDetected": "Not detected",
+    "passed": "Passed",
+    "sourceHeading": "Source & extracted data",
+    "sourceImage": {
+      "angle": {
+        "front": "Front",
+        "back": "Back",
+        "side_pdp": "Side — Principal Display Panel"
+      },
+      "zoomIn": "Zoom in",
+      "zoomOut": "Zoom out"
+    },
+    "evidenceHeading": "Attached evidence",
+    "evidenceEmptyTitle": "No additional evidence attached",
+    "evidenceEmptyBody": "No supporting photographs beyond the original capture have been added to this record.",
+    "evidenceAttachedOn": "Attached {date}",
+    "auditHeading": "Audit trail",
+    "auditTrail": {
+      "eventType": {
+        "Scanned": "Scanned",
+        "Extracted": "Extracted",
+        "Corrected": "Corrected",
+        "Verified": "Verified",
+        "Report Generated": "Report generated",
+        "Flagged for Enforcement": "Flagged for enforcement",
+        "Flagged as Needs Review": "Flagged as Needs Review"
+      }
+    },
+    "actions": {
+      "completeVerification": "Complete Verification",
+      "viewInExtraction": "View in Extraction & Verification",
+      "flagAsNeedsReview": "Flag as Needs Review",
+      "clearNeedsReview": "Clear Needs Review Flag",
+      "generateReport": "Generate Compliance Report",
+      "flagForEnforcement": "Flag for Enforcement",
+      "alreadyFlaggedForEnforcement": "Flagged for Enforcement",
+      "backToRecords": "Back to Records"
     }
   }
 }

@@ -31,6 +31,7 @@ export interface TrendPanelProps {
     compliantSeries: string;
     nonCompliantSeries: string;
     totalScansSeries: string;
+    dateColumn: string;
     notEnoughData: string;
     loading: string;
     errorTitle: string;
@@ -90,7 +91,7 @@ export function TrendPanel({ labels, demoState }: TrendPanelProps) {
         </div>
 
         {demoState === "loading" ? (
-          <Skeleton height="320px" />
+          <Skeleton height="var(--lmcs-chart-height)" />
         ) : demoState === "error" ? (
           <ErrorState
             title={labels.errorTitle}
@@ -113,6 +114,8 @@ export function TrendPanel({ labels, demoState }: TrendPanelProps) {
               compliant: labels.compliantSeries,
               nonCompliant: labels.nonCompliantSeries,
               totalScans: labels.totalScansSeries,
+              heading: labels.heading,
+              dateColumn: labels.dateColumn,
             }}
           />
         )}

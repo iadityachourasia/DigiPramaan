@@ -45,6 +45,10 @@ export interface ComplianceTrendChartProps {
     compliant: string;
     nonCompliant: string;
     totalScans: string;
+    /** Heading for the visually-hidden fallback table's caption. */
+    heading: string;
+    /** Column header for the date row, e.g. "Date". */
+    dateColumn: string;
   };
 }
 
@@ -56,6 +60,9 @@ interface SeriesColors {
   axis: string;
   tooltipBackground: string;
   tooltipText: string;
+  tooltipBorderWidth: string;
+  tooltipRadius: string;
+  fontSize: string;
 }
 
 /** Neutral fallback so the chart never throws if a token somehow resolves empty. */
@@ -67,6 +74,9 @@ const FALLBACK_COLORS: SeriesColors = {
   axis: "#737373",
   tooltipBackground: "#ffffff",
   tooltipText: "#171717",
+  tooltipBorderWidth: "1px",
+  tooltipRadius: "8px",
+  fontSize: "12px",
 };
 
 function readSeriesColors(root: HTMLElement): SeriesColors {
@@ -94,6 +104,15 @@ function readSeriesColors(root: HTMLElement): SeriesColors {
       FALLBACK_COLORS.tooltipBackground
     ),
     tooltipText: read("--ux4g-text-neutral-primary", FALLBACK_COLORS.tooltipText),
+    /*
+     * Border width, radius and tick/tooltip/legend font size all have real
+     * UX4G tokens too — read live for the same theme-correctness reason as
+     * the colours above, rather than left as the bare numbers recharts
+     * defaults its inline styles to.
+     */
+    tooltipBorderWidth: read("--ux4g-border-thin", FALLBACK_COLORS.tooltipBorderWidth),
+    tooltipRadius: read("--ux4g-radius-md", FALLBACK_COLORS.tooltipRadius),
+    fontSize: read("--ux4g-fs-12", FALLBACK_COLORS.fontSize),
   };
 }
 
@@ -112,60 +131,93 @@ export function ComplianceTrendChart({
 
   return (
     <div ref={containerRef} className="lmcs-chart-container">
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={[...data]} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-          <CartesianGrid stroke={colors.grid} strokeDasharray="3 3" />
-          <XAxis
-            dataKey="date"
-            stroke={colors.axis}
-            tick={{ fontSize: 12, fill: colors.axis }}
-            tickLine={false}
-          />
-          <YAxis
-            stroke={colors.axis}
-            tick={{ fontSize: 12, fill: colors.axis }}
-            tickLine={false}
-            axisLine={false}
-            allowDecimals={false}
-          />
-          <Tooltip
-            contentStyle={{
-              fontSize: 13,
-              borderRadius: 8,
-              border: `1px solid ${colors.grid}`,
-              backgroundColor: colors.tooltipBackground,
-              color: colors.tooltipText,
-            }}
-            labelStyle={{ color: colors.tooltipText }}
-          />
-          <Legend wrapperStyle={{ fontSize: 13 }} />
-          <Line
-            type="monotone"
-            dataKey="compliant"
-            name={labels.compliant}
-            stroke={colors.compliant}
-            strokeWidth={2}
-            dot={false}
-          />
-          <Line
-            type="monotone"
-            dataKey="nonCompliant"
-            name={labels.nonCompliant}
-            stroke={colors.nonCompliant}
-            strokeWidth={2}
-            dot={false}
-          />
-          <Line
-            type="monotone"
-            dataKey="totalScans"
-            name={labels.totalScans}
-            stroke={colors.totalScans}
-            strokeWidth={1.5}
-            strokeDasharray="4 3"
-            dot={false}
-          />
-        </LineChart>
-      </ResponsiveContainer>
+      {/*
+        recharts renders an SVG with no text-equivalent of its own — a screen
+        reader user got nothing from this widget beyond its heading, confirmed
+        by reading the accessibility tree directly (screenshots can't surface
+        this). The chart itself is hidden from assistive tech below, and a
+        real `ux4g-sr-only` table carrying the same `data`/`labels` stands in
+        for it, matching the "table fallback" 02-dashboard.md's component
+        notes call for.
+      */}
+      <div aria-hidden="true" className="lmcs-chart-svg-wrapper">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={[...data]} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+            <CartesianGrid stroke={colors.grid} strokeDasharray="3 3" />
+            <XAxis
+              dataKey="date"
+              stroke={colors.axis}
+              tick={{ fontSize: colors.fontSize, fill: colors.axis }}
+              tickLine={false}
+            />
+            <YAxis
+              stroke={colors.axis}
+              tick={{ fontSize: colors.fontSize, fill: colors.axis }}
+              tickLine={false}
+              axisLine={false}
+              allowDecimals={false}
+            />
+            <Tooltip
+              contentStyle={{
+                fontSize: colors.fontSize,
+                borderRadius: colors.tooltipRadius,
+                border: `${colors.tooltipBorderWidth} solid ${colors.grid}`,
+                backgroundColor: colors.tooltipBackground,
+                color: colors.tooltipText,
+              }}
+              labelStyle={{ color: colors.tooltipText }}
+            />
+            <Legend wrapperStyle={{ fontSize: colors.fontSize }} />
+            <Line
+              type="monotone"
+              dataKey="compliant"
+              name={labels.compliant}
+              stroke={colors.compliant}
+              strokeWidth={2}
+              dot={false}
+            />
+            <Line
+              type="monotone"
+              dataKey="nonCompliant"
+              name={labels.nonCompliant}
+              stroke={colors.nonCompliant}
+              strokeWidth={2}
+              dot={false}
+            />
+            <Line
+              type="monotone"
+              dataKey="totalScans"
+              name={labels.totalScans}
+              stroke={colors.totalScans}
+              strokeWidth={1.5}
+              strokeDasharray="4 3"
+              dot={false}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+
+      <table className="ux4g-sr-only">
+        <caption>{labels.heading}</caption>
+        <thead>
+          <tr>
+            <th scope="col">{labels.dateColumn}</th>
+            <th scope="col">{labels.compliant}</th>
+            <th scope="col">{labels.nonCompliant}</th>
+            <th scope="col">{labels.totalScans}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((point) => (
+            <tr key={point.date}>
+              <th scope="row">{point.date}</th>
+              <td>{point.compliant}</td>
+              <td>{point.nonCompliant}</td>
+              <td>{point.totalScans}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

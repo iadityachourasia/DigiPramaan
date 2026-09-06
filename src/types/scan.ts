@@ -31,10 +31,158 @@ export interface UploadedImage {
   /** Public path or object URL. Never a bare grey placeholder. */
   url: string;
   sizeBytes: number;
-  /** Which face of the package this photo shows, for multi-angle scans. */
-  angle: "front" | "back" | "ingredients" | "other";
+  /**
+   * Which face of the package this photo shows.
+   *
+   * `"front"`/`"back"`/`"side_pdp"`/`"additional"` are the four named capture
+   * slots from 03-scan-upload.md §2 (Side-PDP = Principal Display Panel,
+   * wherever it differs from Front; Additional is the optional 4th slot).
+   * `"other"` is the pre-existing, separate concept used for free-form
+   * evidence attachments on a record (06 §2) — never for a named slot.
+   */
+  angle: "front" | "back" | "side_pdp" | "additional" | "other";
   /** Meaningful alt text is mandatory (A-02); never empty for evidence images. */
   altText: string;
+}
+
+/* ------------------------------------------------------------------ *
+ * Capture wizard (03-scan-upload.md)
+ * ------------------------------------------------------------------ */
+
+/** The three required capture slots, plus the optional 4th. */
+export const CAPTURE_SLOT_ANGLES = ["front", "back", "side_pdp", "additional"] as const;
+export type CaptureSlotAngle = (typeof CAPTURE_SLOT_ANGLES)[number];
+
+/** How the officer chose to get photos into the wizard (03 §2, Step 0). */
+export const CAPTURE_MODES = ["device", "camera", "mobile"] as const;
+export type CaptureMode = (typeof CAPTURE_MODES)[number];
+
+/**
+ * Why the Image Quality Inspection Layer rejected a photo (03 §2). Each maps to
+ * one specific, user-facing reason — never a generic "upload failed".
+ */
+export const QUALITY_FAILURE_REASONS = [
+  "blur",
+  "distortion",
+  "curvature",
+  "no_text_detected",
+] as const;
+export type QualityFailureReason = (typeof QUALITY_FAILURE_REASONS)[number];
+
+export interface QualityCheckResult {
+  passed: boolean;
+  /** Present only when passed is false. */
+  failureReason?: QualityFailureReason;
+}
+
+/**
+ * One capture slot's client-side wizard state. Deliberately NOT part of `Scan`
+ * — a slot only becomes part of the real `Scan.images` array once it passes
+ * the quality gate. A failed attempt lives only here, transiently, and is
+ * discarded on retry (03 §2: "a prior failed attempt leaves no trace... once a
+ * later attempt passes").
+ */
+export type CaptureSlotStatus = "empty" | "capturing" | "checking" | "passed" | "failed";
+
+export interface CaptureSlotState {
+  angle: CaptureSlotAngle;
+  status: CaptureSlotStatus;
+  image?: UploadedImage;
+  /** Present only when status is "failed". */
+  failureReason?: QualityFailureReason;
+}
+
+/* ------------------------------------------------------------------ *
+ * Mobile Handoff (03-scan-upload.md §2, Mobile Handoff Panel)
+ * ------------------------------------------------------------------ */
+
+/**
+ * A phone connecting is a genuinely different browser context from the
+ * desktop that generated the QR code — this state has to live somewhere both
+ * can reach, which is the one piece of this page's mock layer that cannot be
+ * a client-side module (see src/app/api/mobile-sessions/route.ts).
+ */
+export const MOBILE_SESSION_STATUSES = ["waiting", "connected", "expired", "cancelled"] as const;
+export type MobileSessionStatus = (typeof MOBILE_SESSION_STATUSES)[number];
+
+export interface MobileHandoffSession {
+  token: string;
+  /** Scopes the session to one in-progress scan draft (03 §2). */
+  scanDraftId: string;
+  status: MobileSessionStatus;
+  /** ISO 8601. */
+  createdAt: string;
+  /** ISO 8601. */
+  expiresAt: string;
+  /** Grows live as the phone captures and passes each angle. */
+  capturedAngles: CaptureSlotAngle[];
+  /**
+   * The actual passed images, keyed by angle, so the desktop tab receives
+   * real evidence photos (not just a "this angle is done" flag) once the scan
+   * is ready to submit. `url` is a data: URL — this mock has no object
+   * storage, so the image travels as base64 through the same in-memory
+   * session record as everything else.
+   */
+  capturedImages: Partial<Record<CaptureSlotAngle, UploadedImage>>;
+}
+
+/* ------------------------------------------------------------------ *
+ * Processing Pipeline Tracker (03-scan-upload.md §2, Step 5)
+ * ------------------------------------------------------------------ */
+
+/**
+ * The 8 stages, in order, exactly as named in 03 §2. "Quality check" is
+ * already resolved before this route is reached (the capture wizard's own
+ * gate) — it is created already `completed` here, "for continuity" per spec.
+ */
+export const PIPELINE_STAGE_IDS = [
+  "uploading",
+  "qualityCheck",
+  "textExtraction",
+  "fallbackExtraction",
+  "structuring",
+  "ruleEngine",
+  "complianceScore",
+  "readyForVerification",
+] as const;
+export type PipelineStageId = (typeof PIPELINE_STAGE_IDS)[number];
+
+/**
+ * Five states, not four — "skipped" is its own state so Fallback extraction
+ * can be shown as explicitly not needed, never silently omitted (03 §2's own
+ * requirement).
+ */
+export const PIPELINE_STAGE_STATES = [
+  "pending",
+  "in_progress",
+  "completed",
+  "skipped",
+  "failed",
+] as const;
+export type PipelineStageState = (typeof PIPELINE_STAGE_STATES)[number];
+
+export interface PipelineStage {
+  id: PipelineStageId;
+  state: PipelineStageState;
+  /** One-line result, present once completed/skipped/failed (03 §2). */
+  summary?: string;
+  /** Present only when state is "failed". */
+  failureReason?: string;
+}
+
+/**
+ * Read-only progress of one scan through the pipeline. State that must
+ * survive the officer navigating away and back — the same underlying
+ * problem Mobile Handoff solves, so it lives behind real Route Handlers
+ * (src/app/api/scan-pipelines/) over a server-side store, not a client mock
+ * (see src/lib/server/scan-pipeline-store.ts).
+ */
+export interface PipelineRun {
+  scanId: string;
+  /** The compliance record this run produces — stable from creation, even
+   *  before it's populated, so the tracker can link to it once ready. */
+  recordId: string;
+  stages: PipelineStage[];
 }
 
 /** Product categories route to the right declaration checklist (03 §2). */
@@ -177,6 +325,14 @@ export interface ExtractedDeclaration {
   corrected: boolean;
   /** Present when corrected, for the audit trail. */
   correctedByUserId?: string;
+  /**
+   * Which engine produced this value (13-history-and-hierarchy.md §1.1) — a
+   * trust feature so an officer knows when they're looking at a second-opinion
+   * read rather than the primary pipeline's own result.
+   */
+  sourceEngine: "paddleocr" | "gemini_fallback" | "manual";
+  /** Which photo this value was read from (13-history-and-hierarchy.md §1.1). */
+  sourceImageAngle: "front" | "back" | "side_pdp";
 }
 
 /**

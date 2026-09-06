@@ -67,6 +67,7 @@ export function AlertsPanel({ alerts, labels, demoState }: AlertsPanelProps) {
                   <Link
                     href={alert.href}
                     className="ux4g-btn ux4g-btn-text-primary ux4g-btn-sm"
+                    aria-label={`${labels.viewAction}: ${alert.message}`}
                   >
                     {labels.viewAction}
                   </Link>

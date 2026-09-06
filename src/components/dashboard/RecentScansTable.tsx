@@ -95,6 +95,7 @@ export function RecentScansTable({
         <Link
           href={ROUTES.recordDetail(record.id)}
           className="ux4g-btn ux4g-btn-text-primary ux4g-btn-sm"
+          aria-label={`${labels.viewLabel}: ${record.productName}`}
         >
           {labels.viewLabel}
         </Link>

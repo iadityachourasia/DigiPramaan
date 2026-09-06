@@ -142,6 +142,7 @@ export default async function DashboardPage({
             compliantSeries: tDashboard("trend.compliantSeries"),
             nonCompliantSeries: tDashboard("trend.nonCompliantSeries"),
             totalScansSeries: tDashboard("trend.totalScansSeries"),
+            dateColumn: tDashboard("trend.dateColumn"),
             notEnoughData: tDashboard("trend.notEnoughData"),
             loading: tDashboard("trend.loading"),
             errorTitle: tDashboard("trend.errorTitle"),

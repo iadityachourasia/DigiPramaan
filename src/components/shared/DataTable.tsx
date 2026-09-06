@@ -26,11 +26,15 @@ import { Skeleton } from "./Skeleton";
  *
  * Both the table and a stacked-card layout are rendered into the DOM; CSS
  * media queries show exactly one of them per breakpoint (`.lmcs-datatable-table`
- * visible at ≥1024px — the bottom of the Tablet range — `.lmcs-datatable-cards`
- * below it, matching DESIGN_SYSTEM.md §8's Mobile/Tablet boundary). Both read
- * from the same `columns`/`rows` props, so a caller writes one column set and
- * gets a correct layout at every width, rather than two components that can
- * drift apart.
+ * visible at ≥1440px — DESIGN_SYSTEM.md §8's Desktop tier — `.lmcs-datatable-cards`
+ * below it). The split sits at Desktop rather than Tablet because a 5-column
+ * table's real content width (~856px) doesn't fit in a Tablet-width table
+ * wrapper once the sidebar and card padding are subtracted (~724px available)
+ * — confirmed live, not assumed — so Tablet gets the always-correct card
+ * layout instead of a table that clips its own action column. Both layouts
+ * read from the same `columns`/`rows` props, so a caller writes one column set
+ * and gets a correct layout at every width, rather than two components that
+ * can drift apart.
  *
  * Table markup follows the package's actual composition, verified against the
  * compiled stylesheet: `.ux4g-table-responsive` wraps a real `<table>` with
@@ -78,6 +82,20 @@ export interface DataTableProps<T> {
   emptyState?: { icon: string; title: string; description?: string; action?: ReactNode };
   error?: { title: string; description: string; action?: ReactNode };
   caption: string;
+  /**
+   * Row selection for bulk actions (Compliance Records' bulk export/status
+   * change, 05-compliance-records.md §2). Fully optional — omitting all
+   * four of these leaves every existing caller (e.g. RecentScansTable)
+   * completely unaffected; no selection column renders unless `selectable`
+   * is set.
+   */
+  selectable?: boolean;
+  selectedKeys?: ReadonlySet<string>;
+  onToggleRow?: (key: string) => void;
+  onToggleAll?: () => void;
+  /** Accessible label for a row's checkbox, e.g. (row) => row.productName. Required when `selectable` is set. */
+  getRowLabel?: (row: T) => string;
+  labels?: { selectAll: string; selectRow: (label: string) => string };
 }
 
 const CELL_VARIANT_CLASS: Record<
@@ -118,6 +136,42 @@ function TableSkeletonRows({
   );
 }
 
+/*
+ * A bare input rather than the shared `Checkbox` component — `Checkbox`
+ * always renders a visible label span next to the control, which reads as
+ * clutter repeated down every row of a dense table. Same real classes
+ * (`ux4g-checkbox*`) confirmed against the compiled stylesheet, with the
+ * label wrapped `ux4g-sr-only` instead of visible.
+ */
+function RowCheckbox({
+  id,
+  label,
+  checked,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  checked: boolean;
+  onChange: () => void;
+}) {
+  return (
+    <label className="ux4g-checkbox ux4g-checkbox-md" htmlFor={id}>
+      <input
+        type="checkbox"
+        id={id}
+        className="ux4g-checkbox-input"
+        checked={checked}
+        onChange={onChange}
+        aria-label={label}
+      />
+      <span className="ux4g-checkbox-control" aria-hidden="true">
+        <span className="ux4g-checkmark" />
+      </span>
+      <span className="ux4g-sr-only">{label}</span>
+    </label>
+  );
+}
+
 export function DataTable<T>({
   columns,
   rows,
@@ -128,6 +182,12 @@ export function DataTable<T>({
   emptyState,
   error,
   caption,
+  selectable = false,
+  selectedKeys,
+  onToggleRow,
+  onToggleAll,
+  getRowLabel,
+  labels,
 }: DataTableProps<T>) {
   if (error) {
     return <ErrorState {...error} />;
@@ -143,6 +203,10 @@ export function DataTable<T>({
     (c) => c !== headingColumn && c !== footerColumn
   );
 
+  const showSelection = selectable && !loading && labels && getRowLabel;
+  const allSelected =
+    showSelection && rows.length > 0 && rows.every((row) => selectedKeys?.has(getRowKey(row)));
+
   return (
     <>
       {/* ─── ≥1024px: the real table ─── */}
@@ -151,6 +215,16 @@ export function DataTable<T>({
           <caption className="ux4g-sr-only">{caption}</caption>
           <thead>
             <tr>
+              {showSelection ? (
+                <th scope="col">
+                  <RowCheckbox
+                    id="datatable-select-all"
+                    label={labels.selectAll}
+                    checked={Boolean(allSelected)}
+                    onChange={() => onToggleAll?.()}
+                  />
+                </th>
+              ) : null}
               {columns.map((column) => (
                 <th key={column.key} scope="col">
                   {column.header}
@@ -162,19 +236,32 @@ export function DataTable<T>({
             {loading ? (
               <TableSkeletonRows columns={columns} count={skeletonRowCount} />
             ) : (
-              rows.map((row) => (
-                <tr key={getRowKey(row)}>
-                  {columns.map((column) => (
-                    <td key={column.key}>
-                      <div
-                        className={CELL_VARIANT_CLASS[column.cellVariant ?? "text"]}
-                      >
-                        {column.render(row)}
-                      </div>
-                    </td>
-                  ))}
-                </tr>
-              ))
+              rows.map((row) => {
+                const key = getRowKey(row);
+                return (
+                  <tr key={key}>
+                    {showSelection ? (
+                      <td>
+                        <RowCheckbox
+                          id={`datatable-select-${key}`}
+                          label={labels.selectRow(getRowLabel(row))}
+                          checked={Boolean(selectedKeys?.has(key))}
+                          onChange={() => onToggleRow?.(key)}
+                        />
+                      </td>
+                    ) : null}
+                    {columns.map((column) => (
+                      <td key={column.key}>
+                        <div
+                          className={CELL_VARIANT_CLASS[column.cellVariant ?? "text"]}
+                        >
+                          {column.render(row)}
+                        </div>
+                      </td>
+                    ))}
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>
@@ -192,42 +279,55 @@ export function DataTable<T>({
                 </div>
               </div>
             ))
-          : rows.map((row) => (
-              <div key={getRowKey(row)} className="ux4g-card ux4g-card-outline">
-                <div className="ux4g-card-body lmcs-datatable-card">
-                  {headingColumn ? (
-                    <div
-                      className={
-                        CELL_VARIANT_CLASS[headingColumn.cellVariant ?? "text"]
-                      }
-                    >
-                      {headingColumn.render(row)}
-                    </div>
-                  ) : null}
-                  <dl className="lmcs-datatable-card-details">
-                    {detailColumns.map((column) => (
-                      <div key={column.key} className="lmcs-datatable-card-row">
-                        <dt className="ux4g-label-s-default ux4g-text-neutral-secondary">
-                          {column.header}
-                        </dt>
-                        <dd
+          : rows.map((row) => {
+              const key = getRowKey(row);
+              return (
+                <div key={key} className="ux4g-card ux4g-card-outline">
+                  <div className="ux4g-card-body lmcs-datatable-card">
+                    <div className="lmcs-datatable-card-heading-row">
+                      {showSelection ? (
+                        <RowCheckbox
+                          id={`datatable-select-card-${key}`}
+                          label={labels.selectRow(getRowLabel(row))}
+                          checked={Boolean(selectedKeys?.has(key))}
+                          onChange={() => onToggleRow?.(key)}
+                        />
+                      ) : null}
+                      {headingColumn ? (
+                        <div
                           className={
-                            CELL_VARIANT_CLASS[column.cellVariant ?? "text"]
+                            CELL_VARIANT_CLASS[headingColumn.cellVariant ?? "text"]
                           }
                         >
-                          {column.render(row)}
-                        </dd>
-                      </div>
-                    ))}
-                  </dl>
-                  {footerColumn ? (
-                    <div className="lmcs-datatable-card-footer">
-                      {footerColumn.render(row)}
+                          {headingColumn.render(row)}
+                        </div>
+                      ) : null}
                     </div>
-                  ) : null}
+                    <dl className="lmcs-datatable-card-details">
+                      {detailColumns.map((column) => (
+                        <div key={column.key} className="lmcs-datatable-card-row">
+                          <dt className="ux4g-label-s-default ux4g-text-neutral-secondary">
+                            {column.header}
+                          </dt>
+                          <dd
+                            className={
+                              CELL_VARIANT_CLASS[column.cellVariant ?? "text"]
+                            }
+                          >
+                            {column.render(row)}
+                          </dd>
+                        </div>
+                      ))}
+                    </dl>
+                    {footerColumn ? (
+                      <div className="lmcs-datatable-card-footer">
+                        {footerColumn.render(row)}
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
       </div>
     </>
   );
