@@ -6,7 +6,7 @@ import { EmptyState, ErrorState, Skeleton } from "@/components/shared";
 import { Link } from "@/i18n/navigation";
 import { ROUTES } from "@/lib/constants";
 import { getTrendForPeriod } from "@/lib/mock";
-import type { TrendPeriod } from "@/types";
+import type { TrendPeriod, TrendPoint } from "@/types";
 
 import { ComplianceTrendChart } from "./ComplianceTrendChart";
 
@@ -39,12 +39,34 @@ export interface TrendPanelProps {
     retryLabel: string;
   };
   demoState?: "loading" | "empty" | "error";
+  /** Analytics & Violation Trends' (page 7) drill-down — unused by Dashboard's own usage. */
+  onPointClick?: (point: TrendPoint, series: "compliant" | "nonCompliant") => void;
+  /**
+   * Standard controlled/uncontrolled split: omit both to let this panel own
+   * its own weekly/monthly state (Dashboard's usage). Analytics (page 7)
+   * passes both — its drill-down handler needs to know which bucket width
+   * a clicked point belongs to, so the period has to live in the parent
+   * rather than only inside this panel.
+   */
+  period?: TrendPeriod;
+  onPeriodChange?: (period: TrendPeriod) => void;
 }
 
 const MIN_POINTS_FOR_TREND = 2;
 
-export function TrendPanel({ labels, demoState }: TrendPanelProps) {
-  const [period, setPeriod] = useState<TrendPeriod>("weekly");
+export function TrendPanel({
+  labels,
+  demoState,
+  onPointClick,
+  period: controlledPeriod,
+  onPeriodChange,
+}: TrendPanelProps) {
+  const [internalPeriod, setInternalPeriod] = useState<TrendPeriod>("weekly");
+  const period = controlledPeriod ?? internalPeriod;
+  const setPeriod = (next: TrendPeriod) => {
+    onPeriodChange?.(next);
+    if (controlledPeriod === undefined) setInternalPeriod(next);
+  };
   const data = demoState === "empty" ? [] : getTrendForPeriod(period);
 
   return (
@@ -69,9 +91,7 @@ export function TrendPanel({ labels, demoState }: TrendPanelProps) {
                 period === "weekly" ? "ux4g-btn-primary" : "ux4g-btn-outline-primary"
               }`}
               aria-pressed={period === "weekly"}
-              onClick={() => {
-                setPeriod("weekly");
-              }}
+              onClick={() => setPeriod("weekly")}
             >
               {labels.weekly}
             </button>
@@ -81,9 +101,7 @@ export function TrendPanel({ labels, demoState }: TrendPanelProps) {
                 period === "monthly" ? "ux4g-btn-primary" : "ux4g-btn-outline-primary"
               }`}
               aria-pressed={period === "monthly"}
-              onClick={() => {
-                setPeriod("monthly");
-              }}
+              onClick={() => setPeriod("monthly")}
             >
               {labels.monthly}
             </button>
@@ -117,6 +135,7 @@ export function TrendPanel({ labels, demoState }: TrendPanelProps) {
               heading: labels.heading,
               dateColumn: labels.dateColumn,
             }}
+            {...(onPointClick ? { onPointClick } : {})}
           />
         )}
       </div>

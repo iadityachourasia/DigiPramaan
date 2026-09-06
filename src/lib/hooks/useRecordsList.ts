@@ -13,15 +13,17 @@ import {
   type RecordSort,
   type RecordsPage,
   type SourceTag,
+  type ViolationCategoryId,
 } from "@/types";
 
-/** The five multi-value `RecordFilters` fields — each rendered as its own set of chips. */
+/** The six multi-value `RecordFilters` fields — each rendered as its own set of chips. */
 export const MULTI_FILTER_KEYS = [
   "categories",
   "complianceStatuses",
   "regions",
   "manufacturers",
   "sources",
+  "violationCategoryIds",
 ] as const;
 export type MultiFilterKey = (typeof MULTI_FILTER_KEYS)[number];
 
@@ -32,6 +34,7 @@ function filtersFromParams(params: URLSearchParams): RecordFilters {
     regions: params.getAll("regions"),
     manufacturers: params.getAll("manufacturers"),
     sources: params.getAll("sources") as SourceTag[],
+    violationCategoryIds: params.getAll("violationCategoryIds") as ViolationCategoryId[],
   };
   const query = params.get("query");
   if (query) filters.query = query;

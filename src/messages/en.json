@@ -618,6 +618,7 @@
       "regionLabel": "Region",
       "manufacturerLabel": "Manufacturer",
       "sourceLabel": "Source",
+      "violationLabel": "Violation category",
       "dateFromLabel": "From",
       "dateToLabel": "To",
       "sortLabel": "Sort by",
@@ -637,6 +638,7 @@
         "region": "Region: {value}",
         "manufacturer": "Manufacturer: {value}",
         "source": "Source: {value}",
+        "violation": "Violation: {value}",
         "query": "Search: {value}",
         "dateFrom": "From: {value}",
         "dateTo": "To: {value}"
@@ -740,6 +742,58 @@
       "flagForEnforcement": "Flag for Enforcement",
       "alreadyFlaggedForEnforcement": "Flagged for Enforcement",
       "backToRecords": "Back to Records"
+    }
+  },
+  "analytics": {
+    "meta": { "title": "Analytics & Violation Trends" },
+    "heading": "Analytics & Violation Trends",
+    "description": "Where to focus enforcement effort next, across every scan in the system.",
+    "errorTitle": "Could not load analytics",
+    "errorBody": "Try again. If the problem continues, contact your system administrator.",
+    "retryLabel": "Try again",
+    "summary": {
+      "totalScanned": "Total Scanned",
+      "complianceRate": "Compliance Rate",
+      "processingSuccessRate": "Processing Success Rate"
+    },
+    "trend": {
+      "heading": "Compliance trend",
+      "weekly": "Weekly",
+      "monthly": "Monthly",
+      "compliantSeries": "Compliant",
+      "nonCompliantSeries": "Non-Compliant",
+      "totalScansSeries": "Total scans",
+      "dateColumn": "Date",
+      "notEnoughData": "Not enough data yet for this view.",
+      "loading": "Loading compliance trend",
+      "errorTitle": "Could not load the trend chart",
+      "errorBody": "Try again. The rest of the page is unaffected."
+    },
+    "violationBreakdown": {
+      "heading": "Violation-type breakdown",
+      "countColumn": "Count",
+      "categoryColumn": "Category"
+    },
+    "categoryAnalysis": {
+      "heading": "Category analysis",
+      "categoryColumn": "Category"
+    },
+    "regionalDistribution": {
+      "heading": "Regional distribution",
+      "columnRegion": "Region",
+      "columnTotalScanned": "Total scanned",
+      "columnNonCompliant": "Non-Compliant",
+      "columnRate": "Non-compliance rate",
+      "columnAction": "Action",
+      "view": "View"
+    },
+    "sourceBreakdown": {
+      "heading": "Source breakdown"
+    },
+    "anomalies": {
+      "heading": "Anomaly / hotspot alerts",
+      "emptyTitle": "No anomalies detected in the current period",
+      "view": "View"
     }
   }
 }

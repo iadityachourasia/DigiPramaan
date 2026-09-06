@@ -73,6 +73,7 @@ function buildRecordsQuery(
   for (const value of filters.regions) params.append("regions", value);
   for (const value of filters.manufacturers) params.append("manufacturers", value);
   for (const value of filters.sources) params.append("sources", value);
+  for (const value of filters.violationCategoryIds) params.append("violationCategoryIds", value);
   params.set("sort", sort);
   params.set("page", String(page));
   params.set("pageSize", String(pageSize));

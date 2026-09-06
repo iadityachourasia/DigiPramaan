@@ -37,6 +37,7 @@ export interface RecordsFiltersProps {
     regions: readonly SelectOption[];
     manufacturers: readonly SelectOption[];
     sources: readonly SelectOption[];
+    violationCategories: readonly SelectOption[];
   };
   labels: {
     searchLabel: string;
@@ -46,6 +47,7 @@ export interface RecordsFiltersProps {
     regionLabel: string;
     manufacturerLabel: string;
     sourceLabel: string;
+    violationLabel: string;
     dateFromLabel: string;
     dateToLabel: string;
     sortLabel: string;
@@ -58,6 +60,7 @@ export interface RecordsFiltersProps {
     regionChipLabel: (value: string) => string;
     manufacturerChipLabel: (value: string) => string;
     sourceChipLabel: (value: string) => string;
+    violationChipLabel: (value: string) => string;
     queryChipLabel: (value: string) => string;
     dateFromChipLabel: (value: string) => string;
     dateToChipLabel: (value: string) => string;
@@ -154,6 +157,16 @@ export function RecordsFilters({
             if (event.target.value) onToggleFilterValue("sources", event.target.value);
           }}
         />
+        <Select
+          id="records-filter-violation"
+          label={labels.violationLabel}
+          placeholder={labels.addFilterPlaceholder}
+          options={options.violationCategories}
+          value=""
+          onChange={(event) => {
+            if (event.target.value) onToggleFilterValue("violationCategoryIds", event.target.value);
+          }}
+        />
 
         <TextField
           id="records-filter-date-from"
@@ -240,6 +253,14 @@ export function RecordsFilters({
               label={labels.sourceChipLabel(value)}
               removeLabel={labels.removeFilter(labels.sourceChipLabel(value))}
               onRemove={() => onToggleFilterValue("sources", value)}
+            />
+          ))}
+          {filters.violationCategoryIds.map((value) => (
+            <FilterChip
+              key={`violationCategoryIds-${value}`}
+              label={labels.violationChipLabel(value)}
+              removeLabel={labels.removeFilter(labels.violationChipLabel(value))}
+              onRemove={() => onToggleFilterValue("violationCategoryIds", value)}
             />
           ))}
           <button type="button" className="ux4g-btn ux4g-btn-text-primary ux4g-btn-sm" onClick={onClearAll}>

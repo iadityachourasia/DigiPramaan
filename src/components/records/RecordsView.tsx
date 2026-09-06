@@ -18,8 +18,11 @@ import {
   COMPLIANCE_STATUSES,
   PRODUCT_CATEGORIES,
   SOURCE_TAGS,
+  VIOLATION_TAXONOMY,
+  violationCategory,
   type ComplianceRecord,
   type RecordSort,
+  type ViolationCategoryId,
 } from "@/types";
 
 import { RecordsFilters } from "./RecordsFilters";
@@ -167,6 +170,7 @@ export function RecordsView({ locale }: { locale: string }) {
           regions: INSPECTION_REGIONS.map((r) => ({ label: r, value: r })),
           manufacturers: MOCK_MANUFACTURERS.map((m) => ({ label: m.name, value: m.name })),
           sources: SOURCE_TAGS.map((s) => ({ label: tVocab(`sourceTag.${s}`), value: s })),
+          violationCategories: VIOLATION_TAXONOMY.map((v) => ({ label: v.category, value: v.id })),
         }}
         labels={{
           searchLabel: t("filters.searchLabel"),
@@ -176,6 +180,7 @@ export function RecordsView({ locale }: { locale: string }) {
           regionLabel: t("filters.regionLabel"),
           manufacturerLabel: t("filters.manufacturerLabel"),
           sourceLabel: t("filters.sourceLabel"),
+          violationLabel: t("filters.violationLabel"),
           dateFromLabel: t("filters.dateFromLabel"),
           dateToLabel: t("filters.dateToLabel"),
           sortLabel: t("filters.sortLabel"),
@@ -196,6 +201,10 @@ export function RecordsView({ locale }: { locale: string }) {
           manufacturerChipLabel: (value) => t("filters.chip.manufacturer", { value }),
           sourceChipLabel: (value) =>
             t("filters.chip.source", { value: tVocab(`sourceTag.${value}`) }),
+          violationChipLabel: (value) =>
+            t("filters.chip.violation", {
+              value: violationCategory(value as ViolationCategoryId).category,
+            }),
           queryChipLabel: (value) => t("filters.chip.query", { value }),
           dateFromChipLabel: (value) => t("filters.chip.dateFrom", { value }),
           dateToChipLabel: (value) => t("filters.chip.dateTo", { value }),

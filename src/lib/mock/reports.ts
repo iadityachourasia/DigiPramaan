@@ -45,6 +45,7 @@ export const MOCK_REPORTS: readonly GeneratedReport[] = [
         regions: ["Maharashtra"],
         manufacturers: [],
         sources: [],
+        violationCategoryIds: [],
         dateFrom: "2026-08-01",
         dateTo: "2026-08-31",
       },

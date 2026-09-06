@@ -23,6 +23,9 @@ export async function GET(request: Request) {
     regions: params.getAll("regions"),
     manufacturers: params.getAll("manufacturers"),
     sources: params.getAll("sources") as RecordFilters["sources"],
+    violationCategoryIds: params.getAll(
+      "violationCategoryIds"
+    ) as RecordFilters["violationCategoryIds"],
     ...(params.get("query") ? { query: params.get("query")! } : {}),
     ...(params.get("dateFrom") ? { dateFrom: params.get("dateFrom")! } : {}),
     ...(params.get("dateTo") ? { dateTo: params.get("dateTo")! } : {}),
