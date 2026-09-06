@@ -17,6 +17,15 @@ export const API = {
     create: "/scans",
     detail: (id: string) => `/scans/${id}` as const,
     extraction: (scanId: string) => `/scans/${scanId}/extraction` as const,
+    qualityCheck: "/scans/quality-check",
+    pipeline: (scanId: string) => `/scans/${scanId}/pipeline` as const,
+    pipelineRetry: (scanId: string, stageId: string) =>
+      `/scans/${scanId}/pipeline/${stageId}/retry` as const,
+    mobileSession: {
+      create: "/scans/mobile-session",
+      poll: (token: string) => `/scans/mobile-session/${token}` as const,
+      cancel: (token: string) => `/scans/mobile-session/${token}/cancel` as const,
+    },
   },
 
   records: {

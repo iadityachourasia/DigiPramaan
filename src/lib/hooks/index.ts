@@ -3,7 +3,13 @@
  */
 
 export { useAuth, usePermission, useHasRole } from "./useAuth";
+export { useCaptureSlots } from "./useCaptureSlots";
+export { useComplianceRecord } from "./useComplianceRecord";
 export { useDebounce } from "./useDebounce";
+export { useMobileHandoffSession } from "./useMobileHandoffSession";
+export { useRecordDetail } from "./useRecordDetail";
+export { MULTI_FILTER_KEYS, useRecordsList, type MultiFilterKey } from "./useRecordsList";
+export { useScanPipeline } from "./useScanPipeline";
 export {
   useMediaQuery,
   useIsTabletOrAbove,

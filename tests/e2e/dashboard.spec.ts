@@ -22,11 +22,11 @@ test.describe("Dashboard KPIs", () => {
 
     await expect(
       page.getByRole("link", { name: /Compliant[\s\S]*\+4%/ })
-    ).toHaveAttribute("href", /\/records\?status=Compliant/);
+    ).toHaveAttribute("href", /\/records\?complianceStatuses=Compliant/);
 
     await expect(
       page.getByRole("link", { name: /Non-Compliant[\s\S]*\+9%/ })
-    ).toHaveAttribute("href", /\/records\?status=Non-Compliant/);
+    ).toHaveAttribute("href", /\/records\?complianceStatuses=Non-Compliant/);
 
     /* Products Scanned has no single status, so it links to the plain list. */
     await expect(
@@ -75,14 +75,23 @@ test.describe("Compliance trend", () => {
 
     await signInAs(page, "r.deshmukh");
 
+    /*
+     * The chart now has a visually-hidden `ux4g-sr-only` table fallback
+     * (ComplianceTrendChart.tsx) carrying the same dates as the chart's own
+     * x-axis ticks — a plain page-wide getByText would ambiguously match
+     * both. Scope to the chart's own aria-hidden SVG wrapper, the only place
+     * this test actually means to look.
+     */
+    const chart = page.locator(".lmcs-chart-svg-wrapper");
+
     /* Weekly-only: the series never reaches this far in the monthly data. */
-    await expect(page.getByText("2026-07-06")).toBeVisible();
+    await expect(chart.getByText("2026-07-06")).toBeVisible();
 
     await page.getByRole("button", { name: "Monthly" }).click();
 
-    await expect(page.getByText("2026-07-06")).toHaveCount(0);
+    await expect(chart.getByText("2026-07-06")).toHaveCount(0);
     /* Monthly-only: 12 months back from the series' latest point. */
-    await expect(page.getByText("2025-10-01")).toBeVisible();
+    await expect(chart.getByText("2025-10-01")).toBeVisible();
   });
 });
 
@@ -103,8 +112,14 @@ test.describe("Recent Scans", () => {
       .locator("visible=true");
     await expect(visibleProductCells).toHaveCount(1);
 
+    /*
+     * Each row's View link carries an aria-label naming its own product
+     * ("View: <product name>") so a screen-reader links list doesn't show
+     * eight indistinguishable "View" entries — match by prefix rather than
+     * the plain visible text.
+     */
     const visibleViewLinks = page
-      .getByRole("link", { name: "View" })
+      .getByRole("link", { name: /^View:/ })
       .locator("visible=true");
     expect(await visibleViewLinks.count()).toBeGreaterThan(0);
   });
@@ -121,7 +136,7 @@ test.describe("Alerts", () => {
 
     const link = page
       .locator(".ux4g-alert", { hasText: "Ganga Beverages Ltd" })
-      .getByRole("link", { name: "View" });
+      .getByRole("link", { name: /^View:/ });
     await expect(link).toHaveAttribute("href", "/manufacturers/mfr-002");
   });
 });

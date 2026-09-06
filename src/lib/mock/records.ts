@@ -18,6 +18,7 @@
  */
 
 import {
+  computeComplianceScore,
   computeComplianceStatus,
   confidenceBand,
   DECLARATION_FIELDS,
@@ -76,8 +77,12 @@ interface RecordSeed {
   ecommerceListingUrl?: string;
 }
 
-/** Plausible extracted values, so no screen shows "Test" or lorem ipsum. */
-const SAMPLE_VALUES: Record<DeclarationFieldId, string> = {
+/**
+ * Plausible extracted values, so no screen shows "Test" or lorem ipsum.
+ * Exported — src/lib/server/scan-pipeline-store.ts reuses this rather than
+ * keeping a second, drifting copy of sample declaration text.
+ */
+export const SAMPLE_VALUES: Record<DeclarationFieldId, string> = {
   manufacturerDetails:
     "Sahyadri Foods Pvt Ltd, Plot 14, MIDC Industrial Area, Pune 411019, Maharashtra",
   genericName: "Refined groundnut oil",
@@ -86,6 +91,25 @@ const SAMPLE_VALUES: Record<DeclarationFieldId, string> = {
   retailSalePrice: "MRP ₹235.00 (inclusive of all taxes)",
   countryOfOrigin: "India",
   consumerCareDetails: "care@sahyadrifoods.example.in · 1800 200 4321",
+};
+
+/**
+ * Which photographed face each declaration is plausibly read from
+ * (13-history-and-hierarchy.md §1.1's `sourceImageAngle`). Fixed, not
+ * random, so a field's source badge is reproducible across runs — also
+ * reused by scan-pipeline-store.ts for the same reason.
+ */
+export const DECLARATION_FIELD_SOURCE_ANGLE: Record<
+  DeclarationFieldId,
+  "front" | "back" | "side_pdp"
+> = {
+  genericName: "front",
+  netQuantity: "front",
+  retailSalePrice: "side_pdp",
+  manufacturerDetails: "back",
+  consumerCareDetails: "back",
+  manufactureDate: "side_pdp",
+  countryOfOrigin: "side_pdp",
 };
 
 function placeholderImage(seedId: string, category: ProductCategory): UploadedImage {
@@ -98,6 +122,30 @@ function placeholderImage(seedId: string, category: ProductCategory): UploadedIm
     angle: "front",
     altText: `Front label of the scanned package, scan ${seedId}`,
   };
+}
+
+const ANGLE_LABEL: Record<"front" | "back" | "side_pdp", string> = {
+  front: "Front",
+  back: "Back",
+  side_pdp: "Side — Principal Display Panel",
+};
+
+/**
+ * The three captured photographs a static seed carries (`capturedImages` on
+ * `ComplianceRecord`) — a static seed has no real per-angle photo, so every
+ * angle points at the same category placeholder image `placeholderImage()`
+ * already draws the thumbnail from, same coarse-placeholder precedent.
+ */
+function placeholderImages(seedId: string, category: ProductCategory): UploadedImage[] {
+  const slug = category.toLowerCase().replace(/[^a-z]+/g, "-");
+  return (["front", "back", "side_pdp"] as const).map((angle) => ({
+    id: `${seedId}-img-${angle}`,
+    fileName: `${seedId}-${angle}.jpg`,
+    url: `/images/placeholder/${slug}.svg`,
+    sizeBytes: 842_000,
+    angle,
+    altText: `${ANGLE_LABEL[angle]} of the scanned package, scan ${seedId}`,
+  }));
 }
 
 function buildChecklist(seed: RecordSeed): DeclarationCheck[] {
@@ -166,6 +214,10 @@ function buildDeclarations(seed: RecordSeed): ExtractedDeclaration[] {
       confidence,
       band: confidenceBand(confidence),
       corrected: corrected.has(field.id),
+      /* A static seed has no real pipeline run behind it — PaddleOCR is the
+       * plausible default source engine for every field that isn't missing. */
+      sourceEngine: "paddleocr",
+      sourceImageAngle: DECLARATION_FIELD_SOURCE_ANGLE[field.id],
     };
     if (corrected.has(field.id)) entry.correctedByUserId = seed.scannedByUserId;
     return entry;
@@ -286,10 +338,15 @@ function buildRecord(seed: RecordSeed): ComplianceRecord {
     evidence: buildEvidence(seed),
     auditTrail: buildAuditTrail(seed),
     thumbnail: placeholderImage(seed.id, seed.category),
+    capturedImages: placeholderImages(seed.id, seed.category),
     scannedAt: seed.scannedAt,
     lastUpdatedAt: seed.lastUpdatedAt,
     archived: seed.archived ?? false,
   };
+
+  if (seed.verificationStatus === "Verified") {
+    record.complianceScore = computeComplianceScore({ checklist });
+  }
 
   if (seed.needsReviewByUserId !== undefined)
     record.needsReviewByUserId = seed.needsReviewByUserId;

@@ -181,7 +181,16 @@ export const MOCK_DASHBOARD_ALERTS: readonly DashboardAlert[] = [
     id: "alert-001",
     severity: "warning",
     message: "MRP Non-Compliance is up 40% against last week.",
-    href: "/records?violation=mrp-non-compliance",
+    /*
+     * FIXED: was `?violation=mrp-non-compliance` — not one of
+     * `RecordFilters`' 6 filter dimensions (Compliance Records has no
+     * violation-category filter, only a violation *count* column), so this
+     * link landed on a page that had no idea what `violation` meant.
+     * `complianceStatuses=Non-Compliant` is the closest real, supported
+     * filter — a genuine approximation (not every Non-Compliant record has
+     * this specific violation), stated here rather than silently done.
+     */
+    href: "/records?complianceStatuses=Non-Compliant",
   },
   {
     id: "alert-002",
@@ -194,7 +203,10 @@ export const MOCK_DASHBOARD_ALERTS: readonly DashboardAlert[] = [
     id: "alert-003",
     severity: "info",
     message: "4 Citizen-Reported submissions are awaiting verification.",
-    href: "/records?status=Pending&source=Citizen-Reported",
+    /* FIXED: was `?status=...&source=...` — Records' filter state reads
+     * `complianceStatuses`/`sources` (matching `RecordFilters`), the same
+     * convention `KpiRow.tsx`'s links already use. */
+    href: "/records?complianceStatuses=Pending&sources=Citizen-Reported",
   },
 ];
 
@@ -205,7 +217,9 @@ export const MOCK_ANOMALIES: readonly AnomalyAlert[] = [
     description:
       "Beverage packs account for most Rule 7 failures this month, well above their share of total scans.",
     severity: "warning",
-    href: "/records?category=Beverages&violation=font-size-readability-failure",
+    /* FIXED: `violation=` dropped (see alert-001's note above) — `categories`
+     * (plural) is the real filter key. */
+    href: "/records?categories=Beverages&complianceStatuses=Non-Compliant",
   },
   {
     id: "anomaly-002",
@@ -213,7 +227,8 @@ export const MOCK_ANOMALIES: readonly AnomalyAlert[] = [
     description:
       "Scan volume in Uttar Pradesh rose against its own four-week baseline. Compliance rate is unchanged.",
     severity: "info",
-    href: "/records?region=Uttar%20Pradesh",
+    /* FIXED: `region=` (singular) → `regions` (plural, matching `RecordFilters.regions`). */
+    href: "/records?regions=Uttar%20Pradesh",
   },
 ];
 

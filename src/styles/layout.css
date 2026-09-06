@@ -33,6 +33,7 @@
   --lmcs-state-icon-lg: 3rem;
   --lmcs-state-icon-xl: 4rem;
   --lmcs-desktop-breakpoint: 1024px; /* DESIGN_SYSTEM §8: Tablet grid starts here */
+  --lmcs-chart-height: 320px;
 }
 
 /* ─── App Shell ─── */
@@ -241,6 +242,13 @@
   display: flex;
   flex-direction: column;
   gap: var(--ux4g-gap-row-2xs);
+}
+
+/* ─── Capture Shell (Mobile Capture Companion — no header, sidebar or footer) ─── */
+
+.lmcs-capture-shell {
+  min-height: 100dvh;
+  background: var(--ux4g-bg-neutral-elevated);
 }
 
 /* ─── Public Shell ─── */
@@ -521,7 +529,17 @@
 
 .lmcs-chart-container {
   width: 100%;
-  height: 320px;
+  height: var(--lmcs-chart-height);
+}
+
+/*
+ * Wraps recharts' own SVG, which is `aria-hidden` in favour of the sr-only
+ * table fallback sitting beside it (ComplianceTrendChart.tsx) — needs its own
+ * explicit 100% so ResponsiveContainer still has a sized parent to measure.
+ */
+.lmcs-chart-svg-wrapper {
+  width: 100%;
+  height: 100%;
 }
 
 .lmcs-chart-legend {
@@ -578,12 +596,18 @@
 }
 
 /* ─── DataTable responsive split (src/components/shared/DataTable.tsx) ───
- * Exactly one of these two renders at a time, split at 1024px — the bottom of
- * DESIGN_SYSTEM §8's Mobile range and top of Tablet. Below it: card-per-row,
- * per PAGE_COMPOSITION §5's explicit "never a horizontally-scrolled dense
- * table on mobile." At or above it: the real table, which is free to scroll
- * horizontally within its own .ux4g-table-responsive wrapper if a caller ever
- * adds enough columns to need it.
+ * Exactly one of these two renders at a time. Split at 1440px — DESIGN_SYSTEM
+ * §8's Desktop tier — rather than the 1024px Tablet boundary: with the
+ * persistent sidebar and card padding subtracted, Tablet only leaves ~724px
+ * for the table, but a 5-column table (thumbnail+name, date, status, source,
+ * View action) needs ~856px, cutting the View column off-screen with no
+ * scroll affordance (confirmed live: wrapper clientWidth 724px vs table
+ * scrollWidth 856px at 1024px). Below 1440px: card-per-row, per
+ * PAGE_COMPOSITION §5's explicit "never a horizontally-scrolled dense table
+ * on mobile" — which this reads as including Tablet once a table's real
+ * content width doesn't fit. At or above it: the real table, still free to
+ * scroll horizontally within its own .ux4g-table-responsive wrapper if a
+ * caller adds enough columns to need it despite the extra room.
  */
 
 .lmcs-datatable-table {
@@ -596,7 +620,7 @@
   gap: var(--ux4g-gap-row-s);
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 1440px) {
   .lmcs-datatable-table {
     display: block;
   }
@@ -634,4 +658,572 @@
 .lmcs-datatable-card-footer {
   padding-top: var(--ux4g-padding-2xs);
   border-top: var(--ux4g-border-thin) solid var(--ux4g-border-color-neutral-subtle);
+}
+
+/* ─── Scan Capture Wizard (src/components/scan/*) ───
+ * Mode-select cards, the capture-slot grid, and the native-select reset below
+ * are project-specific composition classes — every declared value still comes
+ * from a confirmed --ux4g-* custom property, per this file's own discipline.
+ */
+
+.lmcs-mode-card-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--ux4g-gap-column-m);
+}
+
+@media (min-width: 1024px) {
+  .lmcs-mode-card-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.lmcs-mode-card {
+  text-align: left;
+  cursor: pointer;
+  width: 100%;
+}
+
+.lmcs-mode-card-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--ux4g-gap-row-xs);
+}
+
+.lmcs-mode-card-icon {
+  font-size: var(--ux4g-fs-24);
+  color: var(--ux4g-text-brand-primary-default);
+}
+
+.lmcs-mode-card.is-selected {
+  border-color: var(--ux4g-border-color-primary-strong);
+  background: var(--ux4g-bg-primary);
+}
+
+.lmcs-capture-slot-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--ux4g-gap-column-m);
+}
+
+@media (min-width: 1024px) {
+  .lmcs-capture-slot-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1440px) {
+  .lmcs-capture-slot-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.lmcs-capture-slot {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-xs);
+}
+
+.lmcs-capture-slot-heading {
+  display: flex;
+  flex-direction: column;
+}
+
+.lmcs-capture-slot-camera {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--ux4g-gap-row-m);
+  width: 100%;
+}
+
+.lmcs-capture-slot-video {
+  width: 100%;
+  max-height: 220px;
+  object-fit: cover;
+  border-radius: var(--ux4g-radius-md);
+  background: var(--ux4g-bg-neutral-strong);
+}
+
+.lmcs-capture-slot-shutter {
+  min-width: var(--lmcs-touch-target);
+  min-height: var(--lmcs-touch-target);
+}
+
+.lmcs-capture-slot-file {
+  width: 100%;
+}
+
+.lmcs-capture-slot-thumb img {
+  border-radius: var(--ux4g-radius-sm);
+  object-fit: cover;
+  width: 64px;
+  height: 64px;
+}
+
+/*
+ * A real, visible native <select> inside .ux4g-select-control (see
+ * src/components/ui/Select.tsx for why this wraps a native element rather
+ * than the package's own custom popup listbox). Only geometry/typography
+ * resets here — colour and border stay owned by .ux4g-select-control.
+ */
+.lmcs-select-native {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  width: 100%;
+  font: inherit;
+  color: inherit;
+}
+
+.lmcs-form-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-l);
+  max-width: 640px;
+}
+
+.lmcs-page-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-section-l);
+}
+
+.lmcs-page-section-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-m);
+}
+
+.lmcs-wizard-progress {
+  margin-bottom: var(--ux4g-gap-row-m);
+}
+
+/* ─── Mobile Handoff (src/components/scan/MobileHandoffPanel.tsx, QrCode.tsx) ─── */
+
+.lmcs-qr-code {
+  border-radius: var(--ux4g-radius-md);
+  overflow: hidden;
+}
+
+.lmcs-qr-code svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.lmcs-mobile-handoff {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-l);
+  max-width: 480px;
+}
+
+.lmcs-mobile-handoff-qr {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--ux4g-gap-row-m);
+}
+
+.lmcs-mobile-handoff-code {
+  align-items: center;
+  gap: var(--ux4g-gap-row-2xs);
+  padding: var(--ux4g-padding-m);
+}
+
+.lmcs-mobile-handoff-code-value {
+  letter-spacing: var(--ux4g-ls-wide);
+}
+
+.lmcs-mobile-handoff-mirror {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ux4g-gap-column-s);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* ─── Mobile Capture Companion (src/app/[locale]/(capture)/scan/mobile/*) ─── */
+
+.lmcs-capture-main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100dvh;
+  padding: var(--ux4g-padding-xl) var(--ux4g-padding-l);
+}
+
+.lmcs-mobile-code-entry {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-m);
+  width: 100%;
+  max-width: 360px;
+  margin-top: var(--ux4g-section-xl);
+}
+
+.lmcs-mobile-capture-view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-m);
+  width: 100%;
+  max-width: 480px;
+}
+
+/* ─── Processing Pipeline Tracker (src/components/scan/PipelineTracker.tsx) ─── */
+
+.lmcs-pipeline-tracker {
+  max-width: 640px;
+}
+
+/*
+ * The real component has no "failed" state class (confirmed by grep) — this
+ * composes the same subtle-bg/strong-border/status-icon recipe already used
+ * for error Alerts elsewhere, applied to the 40px head-icon circle the real
+ * .ux4g-status-pipeline-head-icon already sizes.
+ */
+.lmcs-pipeline-stage-failed {
+  background-color: var(--ux4g-bg-error-subtle);
+  border: var(--ux4g-border-width-sm) solid var(--ux4g-border-color-error-strong);
+  color: var(--ux4g-icon-status-error);
+}
+
+.lmcs-pipeline-stage-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--ux4g-gap-row-xs);
+  padding-bottom: var(--ux4g-padding-m);
+}
+
+/* ─── Declaration Extraction & Verification (src/components/scan/Extraction*.tsx) ─── */
+
+.lmcs-extraction-status-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--ux4g-gap-column-m);
+}
+
+.lmcs-extraction-score {
+  color: var(--ux4g-text-neutral-secondary);
+}
+
+.lmcs-extraction-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-m);
+}
+
+.lmcs-extraction-overall-confidence {
+  color: var(--ux4g-text-neutral-secondary);
+}
+
+.lmcs-extraction-field-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-s);
+}
+
+.lmcs-extraction-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ux4g-gap-column-m);
+}
+
+.lmcs-field-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-xs);
+  padding: var(--ux4g-padding-m);
+}
+
+.lmcs-field-row-badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ux4g-gap-column-xs);
+}
+
+.lmcs-field-source-badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ux4g-gap-column-2xs);
+}
+
+/* The image badge is a real <button> wearing a tag class — reset the
+   button-specific defaults the tag's own rule doesn't need to override. */
+.lmcs-field-source-badge-btn {
+  border: none;
+  font: inherit;
+}
+
+.lmcs-confidence-badge {
+  white-space: nowrap;
+}
+
+.lmcs-image-viewer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-s);
+  position: sticky;
+  top: var(--ux4g-space-5);
+}
+
+.lmcs-image-viewer-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ux4g-gap-column-xs);
+}
+
+.lmcs-image-viewer-frame {
+  border: var(--ux4g-border-width-sm) solid var(--ux4g-border-color-neutral-default);
+  border-radius: var(--ux4g-radius-md);
+  overflow: hidden;
+  background: var(--ux4g-bg-neutral-strong);
+}
+
+.lmcs-image-viewer-zoom-btn {
+  display: block;
+  width: 100%;
+  cursor: zoom-in;
+}
+
+.lmcs-image-viewer-zoom-btn img {
+  display: block;
+  width: 100%;
+  height: auto;
+  transition: transform 0.25s ease;
+}
+
+.lmcs-image-viewer-zoomed .lmcs-image-viewer-zoom-btn {
+  cursor: zoom-out;
+}
+
+.lmcs-image-viewer-zoomed .lmcs-image-viewer-zoom-btn img {
+  transform: scale(1.8);
+}
+
+.lmcs-source-image-drawer-img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: var(--ux4g-radius-md);
+}
+
+/* ─── Compliance Records (src/components/records/*.tsx) ─── */
+
+.lmcs-records-filters {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-m);
+}
+
+.lmcs-records-filters-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--ux4g-gap-column-m);
+}
+
+.lmcs-records-filters-row > * {
+  min-width: 12rem;
+}
+
+.lmcs-records-filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ux4g-gap-column-xs);
+}
+
+.lmcs-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ux4g-gap-column-2xs);
+}
+
+/* Padding carries the 44x44px minimum touch target — the visible chip stays compact. */
+.lmcs-filter-chip-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--lmcs-touch-target);
+  min-height: var(--lmcs-touch-target);
+  margin: calc(var(--lmcs-touch-target) * -0.3);
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.lmcs-records-bulk-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ux4g-gap-column-m);
+  padding: var(--ux4g-padding-s) var(--ux4g-padding-m);
+  border: var(--ux4g-border-width-sm) solid var(--ux4g-border-color-neutral-default);
+  border-radius: var(--ux4g-radius-md);
+}
+
+.lmcs-records-thumb-img {
+  width: var(--ux4g-sz-40);
+  height: var(--ux4g-sz-40);
+  border-radius: var(--ux4g-radius-sm);
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.lmcs-records-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lmcs-records-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ux4g-gap-column-2xs);
+}
+
+.lmcs-records-pagination-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ux4g-gap-column-m);
+}
+
+.lmcs-datatable-card-heading-row {
+  display: flex;
+  align-items: center;
+  gap: var(--ux4g-gap-column-xs);
+}
+
+/* ─── Product Compliance Detail (src/components/records/RecordDetailView.tsx etc.) ─── */
+
+.lmcs-record-detail-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--ux4g-gap-column-m);
+}
+
+.lmcs-record-detail-header-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-2xs);
+}
+
+.lmcs-record-detail-header-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--ux4g-gap-column-xs);
+}
+
+/* Violation Summary — the page's "emotional and legal core" (06 design note):
+   a stronger border than every other section card on this page. */
+.lmcs-record-detail-section-emphasis {
+  border-color: var(--ux4g-border-color-error-strong);
+  border-width: var(--ux4g-border-width-md);
+}
+
+/* Audit trail — explicitly "useful but secondary" per the same design note. */
+.lmcs-record-detail-section-muted {
+  background-color: var(--ux4g-bg-neutral-subtle);
+}
+
+.lmcs-violation-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-s);
+}
+
+.lmcs-violation-citation {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ux4g-gap-column-s);
+  padding: var(--ux4g-padding-m);
+  background-color: var(--ux4g-bg-error-subtle);
+  border: var(--ux4g-border-width-sm) solid var(--ux4g-border-color-error-strong);
+  border-radius: var(--ux4g-radius-md);
+}
+
+.lmcs-violation-citation-icon {
+  color: var(--ux4g-icon-status-error);
+  flex-shrink: 0;
+}
+
+.lmcs-violation-citation-text {
+  margin: 0;
+}
+
+.lmcs-checklist-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-s);
+}
+
+.lmcs-checklist-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-2xs);
+  padding: var(--ux4g-padding-m);
+}
+
+.lmcs-checklist-row-badge {
+  display: flex;
+}
+
+.lmcs-evidence-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: var(--ux4g-gap-column-m);
+}
+
+.lmcs-evidence-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-xs);
+}
+
+.lmcs-evidence-thumb {
+  width: 100%;
+  height: 160px;
+  object-fit: cover;
+  border-radius: var(--ux4g-radius-sm);
+}
+
+.lmcs-audit-trail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-m);
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.lmcs-audit-trail-entry {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-2xs);
+  padding-bottom: var(--ux4g-padding-s);
+  border-bottom: var(--ux4g-border-width-sm) solid var(--ux4g-border-color-neutral-default);
+}
+
+.lmcs-audit-trail-entry:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.lmcs-record-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ux4g-gap-column-m);
 }
