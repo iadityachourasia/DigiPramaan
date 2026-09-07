@@ -1329,5 +1329,93 @@
       "record_archived": "Record archived",
       "case_reassigned": "Case reassigned"
     }
+  },
+  "staticPages": {
+    "accessibilityStatement": {
+      "meta": {
+        "title": "Accessibility Statement"
+      },
+      "heading": "Accessibility Statement",
+      "description": "Digi-Pramaan is built to conform with the Guidelines for Indian Government Websites (GIGW) 3.0 and the Web Content Accessibility Guidelines (WCAG) 2.1 at Level AA.",
+      "conformanceHeading": "Conformance status",
+      "conformanceBody": "This system is designed and developed to meet WCAG 2.1 Level AA. It has not yet undergone a formal third-party accessibility audit — this statement reflects the standard the system is built and tested against, not an independent certification.",
+      "measuresHeading": "Measures we have taken",
+      "measuresBody": "Every page can be operated by keyboard alone, carries a skip-to-content link, and gives visible focus to the control currently selected. Interactive elements meet a 44x44 pixel minimum touch target. Status is never conveyed by colour alone — every status also carries text or an icon with a text label. Images carry meaningful alternative text, and forms report errors in text, not colour alone.",
+      "limitationsHeading": "Known limitations",
+      "limitationsBody": "Compliance reports downloaded as PDF are not currently produced as tagged, accessible PDFs (WCAG 1.3.1). If you rely on assistive technology to read a report, download it in the DOCX format instead, which is available alongside every PDF this system generates. We are working to close this gap.",
+      "feedbackHeading": "Reporting an accessibility barrier",
+      "feedbackBody": "If you encounter a barrier using this system, tell us. Write to accessibility@doca.gov.in with the page you were on, what you were trying to do, and the assistive technology you use, if any. We aim to acknowledge every report within five working days.",
+      "reviewedLabel": "This statement was last reviewed on"
+    },
+    "privacyPolicy": {
+      "meta": {
+        "title": "Privacy Policy"
+      },
+      "heading": "Privacy Policy",
+      "description": "This policy explains what information Digi-Pramaan collects, how it is used, and how it is protected, in keeping with the Information Technology Act, 2000 and its associated rules.",
+      "collectionHeading": "Information we collect",
+      "collectionBodyOfficers": "Departmental accounts (Enforcement Officer, Admin, Reviewer) carry a name, username, department and posting region, issued and managed by the Department of Consumer Affairs. No self-registration is available.",
+      "collectionBodyCitizens": "The Citizen Grievance Portal requires only a photograph of the product in question. Your name and contact details are entirely optional, and reporting a concern never requires creating an account.",
+      "useHeading": "How we use it",
+      "useBody": "Information collected is used solely to investigate and act on compliance concerns under the Legal Metrology Act, 2009 and its Rules. If you leave contact details on a grievance, they are used only to follow up on that specific report.",
+      "protectionHeading": "How your details are protected",
+      "protectionBody": "A citizen's name and contact information are stored separately from the compliance record their report creates, and are never shown on that record or in any public status lookup. Only the fact that contact details were left is retained alongside the record — never the details themselves.",
+      "sharingHeading": "Sharing of information",
+      "sharingBody": "Information is not sold or shared with third parties for marketing. It may be disclosed where required by law, or as part of a formal enforcement or legal proceeding under the Legal Metrology Act, 2009.",
+      "contactHeading": "Questions about this policy",
+      "contactBody": "Write to privacy@doca.gov.in with any question about how your information is handled."
+    },
+    "termsOfUse": {
+      "meta": {
+        "title": "Terms of Use"
+      },
+      "heading": "Terms of Use",
+      "description": "By using Digi-Pramaan, you agree to the terms below, which follow the standard terms of use for Government of India websites and applications.",
+      "acceptanceHeading": "Acceptance of these terms",
+      "acceptanceBody": "Access to and use of this system, and the information it makes available, signifies your agreement to be bound by these terms. If you do not agree, please discontinue use.",
+      "permittedUseHeading": "Permitted use",
+      "permittedUseBody": "Departmental features are restricted to authorised Enforcement Officers, Admins and Reviewers of the Department of Consumer Affairs, for legal metrology compliance work. The Citizen Grievance Portal is open to the public for reporting suspected non-compliance in good faith.",
+      "hyperlinkingHeading": "Hyperlinking policy",
+      "hyperlinkingBody": "Other websites may link to this site's pages without prior permission. This site may link to external websites for reference; such links do not constitute an endorsement of their content, and this Department is not responsible for the content of external sites.",
+      "contentOwnershipHeading": "Content ownership",
+      "contentOwnershipBody": "Unless otherwise stated, content on this site is owned by the Department of Consumer Affairs, Ministry of Consumer Affairs, Food & Public Distribution, Government of India.",
+      "disclaimerHeading": "Disclaimer",
+      "disclaimerBody": "Compliance status shown in this system reflects the information available at the time of scanning or reporting and is provided in good faith. It does not by itself constitute a final legal finding — enforcement action follows the due process set out in the Legal Metrology Act, 2009.",
+      "jurisdictionHeading": "Governing law",
+      "jurisdictionBody": "These terms are governed by the laws of India, and any dispute arising from use of this system is subject to the exclusive jurisdiction of the courts of India."
+    },
+    "rti": {
+      "meta": {
+        "title": "Right to Information"
+      },
+      "heading": "Right to Information",
+      "description": "The Right to Information Act, 2005 gives every citizen the right to request information from a public authority. This page explains how to file a request with the Department of Consumer Affairs.",
+      "aboutHeading": "About the Act",
+      "aboutBody": "Under the RTI Act, 2005, any citizen of India may request information held by, or under the control of, this Department. Requests must be responded to within 30 days, or 48 hours where the information concerns the life or liberty of a person.",
+      "howToFileHeading": "How to file a request",
+      "howToFileBody": "Requests may be submitted in writing or electronically to the Central Public Information Officer named below, and must be accompanied by the prescribed fee of ₹10. Applicants below the poverty line are exempt from this fee on production of the relevant certificate.",
+      "onlinePortalBody": "Requests can also be filed through the Government of India's RTI Online portal at rtionline.gov.in.",
+      "cpioHeading": "Central Public Information Officer",
+      "cpioBody": "Central Public Information Officer, Department of Consumer Affairs, Ministry of Consumer Affairs, Food & Public Distribution — cpio@doca.gov.in",
+      "appellateHeading": "Appellate Authority",
+      "appellateBody": "An applicant not satisfied with a response, or who receives no response within the statutory period, may appeal to the First Appellate Authority, Department of Consumer Affairs, within 30 days of the response or the expiry of that period."
+    },
+    "help": {
+      "meta": {
+        "title": "Help"
+      },
+      "heading": "Help",
+      "description": "Guidance for using Digi-Pramaan, organised by who you are.",
+      "officersHeading": "For Enforcement Officers and Admins",
+      "officersBody": "Sign in with the departmental account issued to you. Scan or upload a product's label under Scan / Upload Product, review the extracted declarations, and confirm or correct them before verifying. Compliance Records lists every product scanned so far and can be filtered by status, region or manufacturer.",
+      "signInCta": "Sign in",
+      "reviewersHeading": "For Reviewers",
+      "reviewersBody": "Reviewers have full read access to records, analytics and reports, and can flag a record as Needs Review, but do not scan products or verify extracted data. Use Analytics & Violation Trends to see where enforcement effort is most needed.",
+      "citizensHeading": "For members of the public",
+      "citizensBody": "No account is needed to report a mislabelled or non-compliant product. Use the Citizen Grievance Portal to submit a photograph and a short description. You will receive a tracking reference you can use to check the status of your report at any time — no sign-in required.",
+      "reportCta": "Report a product",
+      "supportHeading": "Still need help?",
+      "supportBody": "Write to support@doca.gov.in describing what you were trying to do and what happened instead."
+    }
   }
 }
