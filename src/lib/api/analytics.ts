@@ -24,10 +24,13 @@ export async function fetchDashboardKpis(): Promise<ApiResult<KpiMetric[]>> {
  * come from the static mock data — see `computeAnalyticsSummary()`'s own
  * doc comment for why those two stay illustrative.
  */
-export async function fetchAnalyticsData(): Promise<ApiResult<AnalyticsData>> {
+export async function fetchAnalyticsData(viewerId?: string): Promise<ApiResult<AnalyticsData>> {
   const { MOCK_TREND, MOCK_ANOMALIES } = await import("@/lib/mock");
   try {
-    const response = await fetch("/api/analytics");
+    /* Scopes the breakdowns to the viewer's jurisdiction and role (13 §4
+     * plan) — see fetchRecords's own doc comment for the same convention. */
+    const query = viewerId ? `?viewerId=${encodeURIComponent(viewerId)}` : "";
+    const response = await fetch(`/api/analytics${query}`);
     if (!response.ok) {
       return {
         ok: false,

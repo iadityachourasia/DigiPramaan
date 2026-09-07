@@ -321,6 +321,13 @@ function buildRecord(seed: RecordSeed): ComplianceRecord {
     auditTrail: buildAuditTrail(seed),
     thumbnail: placeholderImage(seed.id, seed.category),
     capturedImages: placeholderImages(seed.id, seed.category),
+    /*
+     * Every seed here is Officer-Scanned, so the officer who scanned it is
+     * also the officer it's currently assigned to — nothing has ever
+     * reassigned a seed record. `reassignCase()` is the only thing that
+     * would ever change this away from `scannedByUserId` (13 §4.2).
+     */
+    assignedOfficerUserId: seed.scannedByUserId,
     scannedAt: seed.scannedAt,
     lastUpdatedAt: seed.lastUpdatedAt,
     archived: seed.archived ?? false,

@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 import { fetchAnalyticsData } from "@/lib/api/analytics";
 import type { AnalyticsData } from "@/types";
 
+import { useAuth } from "./useAuth";
+
 /**
  * useAnalyticsData — Analytics & Violation Trends' (page 7) one page-level
  * fetch. No filter/period URL state exists for this page (the current
@@ -16,12 +18,15 @@ import type { AnalyticsData } from "@/types";
  * multi-widget-skeleton pattern rather than one page-blocking spinner.
  */
 export function useAnalyticsData() {
+  const { user } = useAuth();
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [error, setError] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    fetchAnalyticsData().then((result) => {
+    /* Scopes the fetch to the signed-in user's jurisdiction and role
+     * (13 §4 plan) — see fetchAnalyticsData's own doc comment. */
+    fetchAnalyticsData(user?.id).then((result) => {
       if (cancelled) return;
       if (result.ok) setData(result.data);
       else setError(true);
@@ -29,7 +34,7 @@ export function useAnalyticsData() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [user?.id]);
 
   return { data, loading: !data && !error, error };
 }

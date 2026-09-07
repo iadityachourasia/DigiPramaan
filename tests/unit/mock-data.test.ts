@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  INSPECTION_REGIONS,
   MOCK_ACTIVE_RECORDS,
+  MOCK_JURISDICTIONS,
   MOCK_KPIS,
   MOCK_RECORDS,
   MOCK_SCORECARDS,
+  MOCK_USERS,
 } from "@/lib/mock";
 import { recordScanIdLabels } from "@/lib/server/scan-pipeline-store";
 import {
@@ -142,5 +145,33 @@ describe("activity log record labels", () => {
       expect(labels[record.id]).toBe(record.scanId);
     }
     expect(MOCK_RECORDS.some((record) => record.archived)).toBe(true);
+  });
+});
+
+describe("jurisdiction backward compatibility (13 §4)", () => {
+  it("assigns the three original accounts to National, so their visibility is unchanged from before jurisdiction existed", () => {
+    for (const id of ["usr-001", "usr-002", "usr-003"]) {
+      const user = MOCK_USERS.find((u) => u.id === id);
+      const jurisdiction = MOCK_JURISDICTIONS.find((j) => j.id === user?.jurisdictionId);
+      expect(jurisdiction?.level).toBe("National");
+    }
+  });
+
+  it("assigns the two new accounts to a real State jurisdiction, not National", () => {
+    for (const id of ["usr-004", "usr-005"]) {
+      const user = MOCK_USERS.find((u) => u.id === id);
+      const jurisdiction = MOCK_JURISDICTIONS.find((j) => j.id === user?.jurisdictionId);
+      expect(jurisdiction?.level).toBe("State");
+      expect(jurisdiction?.name).toBe("Maharashtra");
+    }
+  });
+
+  it("seeds no District jurisdiction — no data anywhere has ever been recorded at that granularity", () => {
+    expect(MOCK_JURISDICTIONS.some((j) => j.level === "District")).toBe(false);
+  });
+
+  it("every State jurisdiction's name matches a real INSPECTION_REGIONS value, one each", () => {
+    const stateNames = MOCK_JURISDICTIONS.filter((j) => j.level === "State").map((j) => j.name);
+    expect(stateNames.sort()).toEqual([...INSPECTION_REGIONS].sort());
   });
 });

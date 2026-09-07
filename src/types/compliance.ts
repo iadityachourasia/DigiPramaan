@@ -202,6 +202,23 @@ export interface ComplianceRecord {
    */
   citizenReport?: CitizenReportDetails;
 
+  /**
+   * The Enforcement Officer this case currently belongs to (13 §4.2 —
+   * jurisdiction scoping and case reassignment). Not in §4.1's own code
+   * block, which lists only `Jurisdiction` and `User` fields, but
+   * necessary: without a field that reassignment can actually change,
+   * "an Officer always sees their own cases" and "an Admin can reassign a
+   * case between Officers" would have nothing to read or write, and
+   * reassignment would be an audit-log gesture with no visibility effect.
+   *
+   * Populated at creation from the scanning officer where one exists
+   * (Officer-Scanned, E-commerce-Sourced); absent for Citizen-Reported,
+   * which has no officer to assign. Distinct from `auditTrail[0].byUserId`
+   * — that stays a historical fact (who originally scanned it) and must
+   * never change; this is the current assignment and is exactly what
+   * `reassignCase()` moves.
+   */
+  assignedOfficerUserId?: string;
   /** ISO 8601. */
   scannedAt: string;
   lastUpdatedAt: string;

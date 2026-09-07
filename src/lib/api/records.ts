@@ -62,7 +62,8 @@ function buildRecordsQuery(
   filters: RecordFilters,
   sort: RecordSort,
   page: number,
-  pageSize: number
+  pageSize: number,
+  viewerId?: string
 ): string {
   const params = new URLSearchParams();
   if (filters.query) params.set("query", filters.query);
@@ -78,16 +79,23 @@ function buildRecordsQuery(
   params.set("sort", sort);
   params.set("page", String(page));
   params.set("pageSize", String(pageSize));
+  if (viewerId) params.set("viewerId", viewerId);
   return params.toString();
 }
 
+/**
+ * `viewerId` scopes the result to that user's jurisdiction and role
+ * (13 §4 plan) — see `/api/records`'s own doc comment for what an absent
+ * or unresolvable one does.
+ */
 export function fetchRecords(
   filters: RecordFilters,
   sort: RecordSort,
   page: number,
-  pageSize: number
+  pageSize: number,
+  viewerId?: string
 ): Promise<ApiResult<RecordsPage>> {
-  return requestJson(`/api/records?${buildRecordsQuery(filters, sort, page, pageSize)}`);
+  return requestJson(`/api/records?${buildRecordsQuery(filters, sort, page, pageSize, viewerId)}`);
 }
 
 export function archiveRecord(
