@@ -21,6 +21,17 @@ export interface User {
   department: string;
   /** Region the officer is posted to, used to default Scan/Upload metadata. */
   region: string;
+  /**
+   * Organizational scope (13 §4.1), orthogonal to `role` — a permission
+   * dimension and an organizational dimension, never multiplied into a
+   * fourth role. `region` above is unrelated and stays exactly what it is
+   * (the posting that defaults the Scan/Upload form); this can point at a
+   * `Jurisdiction` of any level, though no `District` jurisdiction is
+   * seeded anywhere in this build (see `jurisdiction.ts`).
+   */
+  jurisdictionId: string;
+  /** The Admin this user reports to, if any. Typed per §4.1; nothing reads it yet — no shared-queue-grant mechanism exists (that's the unbuilt Admin Console, §4.3). */
+  reportsToUserId?: string;
   /** ISO 8601. */
   lastLoginAt: string;
 }

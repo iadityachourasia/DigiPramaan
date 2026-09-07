@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 
 import { usePathname, useRouter } from "@/i18n/navigation";
 import { fetchRecords } from "@/lib/api/records";
+import { useAuth } from "./useAuth";
 import {
   RECORD_SORT_OPTIONS,
   type ComplianceStatus,
@@ -67,6 +68,9 @@ export function useRecordsList() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
+  /* Scopes the fetch to the signed-in user's jurisdiction and role (13 §4
+   * plan) — see fetchRecords's own doc comment. */
+  const { user } = useAuth();
 
   const filters = filtersFromParams(searchParams);
   const sortParam = searchParams.get("sort");
@@ -88,12 +92,12 @@ export function useRecordsList() {
   /** Bumped after a mutation (archive, bulk flag) that doesn't change the URL, to force a re-fetch. */
   const [refetchToken, setRefetchToken] = useState(0);
 
-  const searchKey = `${searchParams.toString()}::${refetchToken}`;
+  const searchKey = `${searchParams.toString()}::${refetchToken}::${user?.id ?? ""}`;
   const loading = resolvedKey !== searchKey;
 
   useEffect(() => {
     let cancelled = false;
-    fetchRecords(filters, sort, page, pageSize).then((result) => {
+    fetchRecords(filters, sort, page, pageSize, user?.id).then((result) => {
       if (cancelled) return;
       if (result.ok) setData(result.data);
       setResolvedKey(searchKey);
@@ -101,7 +105,7 @@ export function useRecordsList() {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- `searchKey` is the real, primitive dependency; filters/sort/page/pageSize are derived from it fresh every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `searchKey` is the real, primitive dependency; filters/sort/page/pageSize/user.id are derived from it fresh every render.
   }, [searchKey]);
 
   function refetch() {

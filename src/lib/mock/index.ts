@@ -9,6 +9,7 @@
 
 export * from "./users";
 export * from "./reference";
+export * from "./jurisdictions";
 export * from "./records";
 export * from "./analytics";
 export * from "./manufacturers";

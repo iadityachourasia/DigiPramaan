@@ -34,14 +34,24 @@ export interface ManufacturerListResponse {
   total: number;
 }
 
-export function fetchManufacturers(): Promise<ApiResult<ManufacturerListResponse>> {
-  return requestJson("/api/manufacturers");
+/**
+ * `viewerId` scopes every scorecard's numbers to that user's jurisdiction
+ * and role (13 §4 plan) — see records.ts's `fetchRecords` for the same
+ * convention.
+ */
+export function fetchManufacturers(
+  viewerId?: string
+): Promise<ApiResult<ManufacturerListResponse>> {
+  const query = viewerId ? `?viewerId=${encodeURIComponent(viewerId)}` : "";
+  return requestJson(`/api/manufacturers${query}`);
 }
 
 export function fetchManufacturerScorecard(
-  id: string
+  id: string,
+  viewerId?: string
 ): Promise<ApiResult<ManufacturerScorecard>> {
-  return requestJson(`/api/manufacturers/${id}/scorecard`);
+  const query = viewerId ? `?viewerId=${encodeURIComponent(viewerId)}` : "";
+  return requestJson(`/api/manufacturers/${id}/scorecard${query}`);
 }
 
 export interface ManufacturerFlagResponse {

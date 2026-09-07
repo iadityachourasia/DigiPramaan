@@ -10,7 +10,10 @@ import { computeManufacturerScorecards } from "@/lib/server/scan-pipeline-store"
  * this server process, so a client-side mock branch could never see a
  * manufacturer scanned through the live pipeline.
  */
-export async function GET() {
-  const scorecards = computeManufacturerScorecards();
+export async function GET(request: Request) {
+  /* Scopes every scorecard's numbers to the viewer's jurisdiction and role
+   * (13 §4 plan) — see /api/records's own comment for the same convention. */
+  const viewerId = new URL(request.url).searchParams.get("viewerId") ?? undefined;
+  const scorecards = computeManufacturerScorecards(viewerId);
   return NextResponse.json({ scorecards, total: scorecards.length });
 }

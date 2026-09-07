@@ -40,5 +40,15 @@ export async function GET(request: Request) {
   const page = Math.max(1, Number(params.get("page")) || 1);
   const pageSize = Math.max(1, Number(params.get("pageSize")) || 20);
 
-  return NextResponse.json(listRecords(filters, sort, page, pageSize));
+  /*
+   * The viewer whose jurisdiction and role scope the result (13 §4 plan).
+   * Mirrors the existing (already-insecure) convention every mutation
+   * already follows — an unvalidated id supplied by the caller, since there
+   * is no server-side session to read one from instead. Missing or
+   * unresolvable fails open to unscoped, per `scopeRecordsForViewer`'s own
+   * doc comment.
+   */
+  const viewerId = params.get("viewerId") ?? undefined;
+
+  return NextResponse.json(listRecords(filters, sort, page, pageSize, viewerId));
 }

@@ -48,6 +48,8 @@ import {
  * either module exports.
  */
 import { findMockRecord, MOCK_ACTIVE_RECORDS, MOCK_RECORDS } from "@/lib/mock/records";
+import { findMockUser } from "@/lib/mock/users";
+import { regionNamesVisibleTo } from "@/lib/mock/jurisdictions";
 import { emitActivityEvent, ensureSeeded as ensureAuditSeeded } from "./audit-store";
 import {
   UNIDENTIFIED_MANUFACTURER,
@@ -266,6 +268,16 @@ interface StoredPipelineRun {
 const runs = new Map<string, StoredPipelineRun>();
 
 /**
+ * Test-only seam, mirroring `resetAuditStoreForTests` in audit-store.ts.
+ * Without it, every test in a suite that creates a pipeline run would need
+ * a globally-unique scan id to avoid colliding with every other test's runs
+ * in the same module-level `runs` Map.
+ */
+export function resetPipelineStoreForTests(): void {
+  runs.clear();
+}
+
+/**
  * The quality gate is a pre-submit, client-side step on page 3
  * (`useCaptureSlots.submitImage` → `checkImageQuality`) that runs against a
  * real `File` and reports blur/skew/curvature/no-text — all faults of field
@@ -447,6 +459,16 @@ function buildFinalRecord(run: StoredPipelineRun): ComplianceRecord {
 
   if (metadata.ecommerceListingUrl !== undefined) {
     record.ecommerceListingUrl = metadata.ecommerceListingUrl;
+  }
+  /*
+   * The officer this case belongs to, for jurisdiction scoping (13 §4.2)
+   * and case reassignment. Citizen-Reported records have no officer to
+   * assign — `scannedByUserId` there is the `CITIZEN_ACTOR_ID` sentinel,
+   * not a real account, so it stays unset rather than assigning a case to
+   * an actor that isn't an Enforcement Officer.
+   */
+  if (run.source !== "Citizen-Reported") {
+    record.assignedOfficerUserId = scannedByUserId;
   }
   if (run.batchId !== undefined) {
     record.batchId = run.batchId;
@@ -1131,6 +1153,59 @@ function getAllActiveRecords(): ComplianceRecord[] {
 }
 
 /**
+ * Narrows a record set to what one viewer's jurisdiction and role permit
+ * (13 §4.2) — the ONE place this rule is implemented. `listRecords`,
+ * `computeAnalyticsSummary` and `recordsForManufacturer` each call this
+ * immediately after `getAllActiveRecords()`, rather than each carrying its
+ * own copy of the rule. That matters here specifically: this is exactly the
+ * shape of bug that made a manufacturer scanned live invisible on their own
+ * scorecard before `getAllActiveRecords()` itself existed (see that
+ * function's own doc comment) — one shared choke point instead of three
+ * near-identical filters that could quietly drift apart.
+ *
+ * Two independent narrowings, applied in order:
+ *
+ * 1. Jurisdiction. A National viewer (or one whose jurisdiction cannot be
+ *    resolved) sees everything — `regionNamesVisibleTo` returns `null` for
+ *    both cases, meaning "do not filter by region at all," which is a
+ *    deliberate fail-open: every account this build ships resolves to a
+ *    real jurisdiction, so the unresolvable branch never actually fires
+ *    today, but a caller that forgets to pass a viewer during rollout sees
+ *    too much rather than a silently blank page. A `State` viewer sees only
+ *    records whose region equals their state's name.
+ * 2. Role. An Enforcement Officer sees only their own assigned cases
+ *    (`assignedOfficerUserId === viewer.id`) — REGARDLESS of jurisdiction
+ *    level, per 13 §4.2's own wording, so this filter applies even to an
+ *    Officer at National jurisdiction. This is a genuine, intended
+ *    narrowing of what the existing `usr-001` account sees (12 seed records
+ *    down to the 7 it scanned), not a regression — see the 13 §4 plan's own
+ *    "EO own-cases rule" decision. Admin and Reviewer are unaffected;
+ *    §4.2 states no jurisdiction rule for Reviewer at all, so it stays
+ *    unscoped rather than inventing a rule nothing asked for.
+ */
+function scopeRecordsForViewer(
+  records: ComplianceRecord[],
+  viewerId: string | undefined
+): ComplianceRecord[] {
+  const viewer = viewerId ? findMockUser(viewerId) : undefined;
+  if (!viewer) return records;
+
+  let scoped = records;
+
+  const visibleRegions = regionNamesVisibleTo(viewer.jurisdictionId);
+  if (visibleRegions !== null) {
+    const regionSet = new Set(visibleRegions);
+    scoped = scoped.filter((record) => regionSet.has(record.region));
+  }
+
+  if (viewer.role === "Enforcement Officer") {
+    scoped = scoped.filter((record) => record.assignedOfficerUserId === viewer.id);
+  }
+
+  return scoped;
+}
+
+/**
  * Every record's human-readable scan id, keyed by record id — live
  * pipeline-created plus every static seed.
  *
@@ -1154,9 +1229,10 @@ export function listRecords(
   filters: RecordFilters,
   sort: RecordSort,
   page: number,
-  pageSize: number
+  pageSize: number,
+  viewerId?: string
 ): RecordsPage {
-  const all = getAllActiveRecords();
+  const all = scopeRecordsForViewer(getAllActiveRecords(), viewerId);
   const filtered = all.filter((record) => matchesFilters(record, filters));
   const sorted = sortRecords(filtered, sort, filters.query);
   const start = (page - 1) * pageSize;
@@ -1192,8 +1268,8 @@ export interface AnalyticsAggregate {
  * from today's tiny record count would be a worse chart, not a more honest
  * one.
  */
-export function computeAnalyticsSummary(): AnalyticsAggregate {
-  const all = getAllActiveRecords();
+export function computeAnalyticsSummary(viewerId?: string): AnalyticsAggregate {
+  const all = scopeRecordsForViewer(getAllActiveRecords(), viewerId);
   const total = all.length;
 
   const compliantCount = all.filter((r) => r.complianceStatus === "Compliant").length;
@@ -1326,8 +1402,19 @@ export function recordReportGenerated(
  */
 
 /** Records whose manufacturer matches, on the exact-name join `RecordFilters.manufacturers` also uses. */
-function recordsForManufacturer(name: string): ComplianceRecord[] {
-  return getAllActiveRecords().filter((record) => record.manufacturerName === name);
+/**
+ * `viewerId` is optional and only ever passed by the Manufacturer
+ * Compliance Scorecard's own read path (13 §4 plan). `flagManufacturerForEnforcement`
+ * below deliberately calls this the same way it always has, with no
+ * viewer — flagging is a mutation over the manufacturer's real, complete
+ * set of qualifying records, not a scoped read, and narrowing what an
+ * enforcement action can see would change what gets flagged, not just what
+ * gets displayed. That's a bigger decision than this session's scope
+ * (visibility on Dashboard/Records/Analytics/Scorecard), so it's left alone.
+ */
+function recordsForManufacturer(name: string, viewerId?: string): ComplianceRecord[] {
+  const all = getAllActiveRecords().filter((record) => record.manufacturerName === name);
+  return scopeRecordsForViewer(all, viewerId);
 }
 
 function withinThresholdWindow(iso: string, now: number): boolean {
@@ -1341,19 +1428,39 @@ function withinThresholdWindow(iso: string, now: number): boolean {
  * aggregation and `flagManufacturerForEnforcement`, so the count shown in the
  * confirmation is computed by the same code that does the flagging.
  */
-function recentNonCompliantRecords(name: string, now: number): ComplianceRecord[] {
-  return recordsForManufacturer(name).filter(
+function recentNonCompliantRecords(
+  name: string,
+  now: number,
+  viewerId?: string
+): ComplianceRecord[] {
+  return recordsForManufacturer(name, viewerId).filter(
     (record) =>
       record.complianceStatus === "Non-Compliant" &&
       withinThresholdWindow(record.lastUpdatedAt, now)
   );
 }
 
-function buildScorecard(id: string, name: string, now: number): ManufacturerScorecard {
-  const products = recordsForManufacturer(name);
+/**
+ * `viewerId` scopes every number on the scorecard — compliance rate, trend,
+ * violation breakdown, the repeat-violation flag — to what that viewer can
+ * see, not just the product list (13 §4 plan). Worth being direct about the
+ * consequence: a State Admin's scorecard for a national manufacturer shows
+ * that manufacturer's record *within their state*, which can genuinely
+ * disagree with the manufacturer's true national standing (repeat-violation
+ * flagged in one view, clean in another). That's the correct behaviour for
+ * a jurisdiction-scoped read, not a bug, but it's why the scorecard needs
+ * to be legible about being a scoped view rather than the complete picture.
+ */
+function buildScorecard(
+  id: string,
+  name: string,
+  now: number,
+  viewerId?: string
+): ManufacturerScorecard {
+  const products = recordsForManufacturer(name, viewerId);
   const verified = products.filter((r) => r.verificationStatus === "Verified");
   const compliant = verified.filter((r) => r.complianceStatus === "Compliant");
-  const recentNonCompliantCount = recentNonCompliantRecords(name, now).length;
+  const recentNonCompliantCount = recentNonCompliantRecords(name, now, viewerId).length;
 
   const violationBreakdown: ViolationBreakdownEntry[] = VIOLATION_CATEGORY_IDS.map(
     (categoryId) => ({
@@ -1408,15 +1515,18 @@ function buildScorecard(id: string, name: string, now: number): ManufacturerScor
   };
 }
 
-export function computeManufacturerScorecards(): ManufacturerScorecard[] {
+export function computeManufacturerScorecards(viewerId?: string): ManufacturerScorecard[] {
   const now = Date.now();
-  return MOCK_MANUFACTURERS.map((m) => buildScorecard(m.id, m.name, now));
+  return MOCK_MANUFACTURERS.map((m) => buildScorecard(m.id, m.name, now, viewerId));
 }
 
-export function computeManufacturerScorecard(id: string): ManufacturerScorecard | undefined {
+export function computeManufacturerScorecard(
+  id: string,
+  viewerId?: string
+): ManufacturerScorecard | undefined {
   const manufacturer = MOCK_MANUFACTURERS.find((m) => m.id === id);
   if (!manufacturer) return undefined;
-  return buildScorecard(manufacturer.id, manufacturer.name, Date.now());
+  return buildScorecard(manufacturer.id, manufacturer.name, Date.now(), viewerId);
 }
 
 export interface ManufacturerFlagResult {
@@ -1516,6 +1626,74 @@ export function archiveRecord(recordId: string, userId: string): ComplianceRecor
   );
 
   return run.record;
+}
+
+/**
+ * Case reassignment (13 §4.2) — an Admin at or above a case's own
+ * jurisdiction moves it to a different Enforcement Officer. Backend logic
+ * only: no route handler and no UI call it yet, since the reassignment
+ * screen belongs to the unbuilt Admin Console (§4.3), which is where an
+ * Admin would actually pick "which case" and "which officer" from a real
+ * list. Planned and implemented now anyway, per the 13 §4 plan's own
+ * decision, because it's the same jurisdiction-traversal logic this file
+ * already has in hand, it closes the previously-never-emitted
+ * `case_reassigned` gap (BACKEND_HANDOFF.md §7.5/§8) cheaply, and it's what
+ * makes `assignedOfficerUserId` — and therefore "an Officer sees their own
+ * cases" — a real, moveable fact rather than a field nothing ever changes.
+ *
+ * Three ways this can honestly fail, and it returns `undefined` for every
+ * one of them rather than distinguishing which — the same coarse
+ * "not writable" shape every other single-record mutation here already
+ * uses, since nothing consumes a richer reason yet:
+ *
+ *   - the record doesn't exist or has no backing pipeline run (the same
+ *     static-seed limitation every mutation in this file accepts);
+ *   - `reassignedByUserId` isn't a real Admin, or their jurisdiction
+ *     doesn't cover the record's own region — an Admin cannot reassign a
+ *     case outside their scope, mirroring how a State Admin cannot see
+ *     records outside it either;
+ *   - `newOfficerUserId` isn't a real Enforcement Officer — reassigning a
+ *     case to an Admin or a Reviewer would create a case with no one
+ *     eligible to actually work it.
+ */
+export function reassignCase(
+  recordId: string,
+  newOfficerUserId: string,
+  reassignedByUserId: string
+): ComplianceRecord | undefined {
+  const run = findRunByRecordId(recordId);
+  if (!run?.record) return undefined;
+  const record = run.record;
+
+  const admin = findMockUser(reassignedByUserId);
+  if (!admin || admin.role !== "Admin") return undefined;
+
+  const visibleRegions = regionNamesVisibleTo(admin.jurisdictionId);
+  if (visibleRegions !== null && !visibleRegions.includes(record.region)) return undefined;
+
+  const newOfficer = findMockUser(newOfficerUserId);
+  if (!newOfficer || newOfficer.role !== "Enforcement Officer") return undefined;
+
+  const previousOfficerName = record.assignedOfficerUserId
+    ? (findMockUser(record.assignedOfficerUserId)?.fullName ?? record.assignedOfficerUserId)
+    : "no one";
+
+  record.assignedOfficerUserId = newOfficer.id;
+  record.lastUpdatedAt = new Date().toISOString();
+
+  emitActivityEvent(
+    {
+      recordId: record.id,
+      type: "case_reassigned",
+      actorUserId: admin.id,
+      at: record.lastUpdatedAt,
+      region: record.region,
+      detail: `Reassigned from ${previousOfficerName} to ${newOfficer.fullName}.`,
+    },
+    record
+  );
+
+  return record;
 }
 
 export interface BulkNeedsReviewResult {
