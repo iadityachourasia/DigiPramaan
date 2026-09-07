@@ -1513,3 +1513,84 @@
   gap: var(--ux4g-gap-row-xs);
   align-items: flex-start;
 }
+
+/* Citizen Grievance Portal (page 11) */
+
+/*
+ * BRD Layout asks for Comfortable density here against Compact for the
+ * internal pages. That is a spacing decision only — contrast and touch
+ * targets are unchanged, and 11 section 5 is explicit that public-facing
+ * does not mean relaxed standards.
+ */
+.lmcs-grievance-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-xl);
+}
+
+.lmcs-grievance-concerns {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-s);
+  align-items: flex-start;
+  border: none;
+  margin: 0;
+  padding: 0;
+}
+
+.lmcs-grievance-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ux4g-gap-column-m);
+}
+
+/* The one thing a citizen must leave with, so it gets its own block. */
+.lmcs-grievance-reference-card {
+  max-width: 32rem;
+}
+
+.lmcs-grievance-reference {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: var(--ux4g-ls-wide);
+}
+
+.lmcs-grievance-next-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-s);
+  margin: 0;
+  padding-left: var(--ux4g-padding-l);
+}
+
+/*
+ * The package ships this retake control with `padding: 0`, so it renders about
+ * 21px tall — below the 44px floor A-09 / WCAG 2.5.5 sets. It is reused by both
+ * the officer capture wizard and the citizen portal, and on the latter it is a
+ * phone control on a public form, so the floor is applied here rather than on
+ * one page.
+ */
+.ux4g-upload-file-retry {
+  min-height: var(--lmcs-touch-target);
+}
+
+/*
+ * The package's default button is 40px, under the same floor. On an upload
+ * control that is always the primary tap target — and on the citizen portal it
+ * is the one thing a person has to hit, on a phone, possibly one-handed in a
+ * shop — so the floor applies here too. The app-wide default button height is
+ * a separate, pre-existing gap that this does not attempt to fix.
+ */
+.ux4g-upload-btn {
+  min-height: var(--lmcs-touch-target);
+}
+
+.lmcs-grievance-lookup-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--ux4g-gap-row-s) var(--ux4g-gap-column-m);
+}
+
+.lmcs-grievance-status-card {
+  max-width: 32rem;
+}

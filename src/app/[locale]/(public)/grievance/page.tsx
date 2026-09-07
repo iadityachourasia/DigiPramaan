@@ -1,11 +1,16 @@
-import Image from "next/image";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import type { Metadata } from "next";
 
+import { GrievanceView } from "@/components/grievance/GrievanceView";
+
 /**
- * Citizen Grievance Portal — page 11. Public, no auth, no shell.
+ * Citizen Grievance Portal — page 11. Public, no auth, no app shell.
  * Spec: Pages_Userflow/11-citizen-grievance-portal.md
- * USP page — the only public-facing surface in the product.
+ *
+ * The trust signal 11 §2 asks for is already above this page: the (public)
+ * layout renders `PublicMasthead` with the emblem and department name. An
+ * earlier version of this stub drew a second emblem of its own, which
+ * duplicated it rather than reinforcing it.
  */
 
 export async function generateMetadata({
@@ -14,11 +19,9 @@ export async function generateMetadata({
   params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
   const { locale } = await params;
-  const t = await getTranslations({ locale, namespace: "metadata" });
-  return {
-    title: `Report a Product | ${t("defaultTitle")}`,
-    description: t("description"),
-  };
+  const t = await getTranslations({ locale, namespace: "grievance" });
+  const tMeta = await getTranslations({ locale, namespace: "metadata" });
+  return { title: `${t("meta.title")} | ${tMeta("defaultTitle")}`, description: t("description") };
 }
 
 export default async function GrievancePage({
@@ -28,42 +31,21 @@ export default async function GrievancePage({
 }) {
   const { locale } = await params;
   setRequestLocale(locale);
-  const t = await getTranslations();
+  const t = await getTranslations("grievance");
 
   return (
     <main id="main-content" className="ux4g-container ux4g-py-xl">
       <header className="ux4g-mb-xl">
-        <Image
-            src="/images/emblem.svg"
-            alt={t("app.emblemAlt")}
-            className="lmcs-grievance-emblem"
-            width={56}
-            height={56}
-            unoptimized
-          />
-        <h1 className="ux4g-heading-xl-strong">
-          Report a Packaging Concern
-        </h1>
+        <h1 className="ux4g-heading-xl-strong">{t("heading")}</h1>
         <p className="ux4g-body-m-default ux4g-text-neutral-secondary lmcs-measure">
-          Report a product whose label may not comply with the Legal Metrology
-          (Packaged Commodities) Rules, 2011. No account is needed.
+          {t("intro")}
+        </p>
+        <p className="ux4g-body-s-default ux4g-text-neutral-secondary lmcs-measure">
+          {t("noAccountNote")}
         </p>
       </header>
 
-      <section aria-labelledby="grievance-form-heading">
-        <h2 id="grievance-form-heading" className="ux4g-heading-m-strong ux4g-mb-m">
-          Submit a report
-        </h2>
-        {/* Grievance form: photo upload, concern checkboxes, optional */}
-        {/* contact details. Spec: 11-citizen-grievance-portal.md §2. */}
-      </section>
-
-      <section className="ux4g-mt-xl" aria-labelledby="grievance-track-heading">
-        <h2 id="grievance-track-heading" className="ux4g-heading-m-strong ux4g-mb-m">
-          Track your report
-        </h2>
-        {/* Reference number lookup. Spec: 11-citizen-grievance-portal.md §3. */}
-      </section>
+      <GrievanceView locale={locale} />
     </main>
   );
 }

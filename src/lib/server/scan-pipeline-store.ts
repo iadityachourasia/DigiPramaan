@@ -49,6 +49,8 @@ import {
  */
 import { findMockRecord, MOCK_ACTIVE_RECORDS } from "@/lib/mock/records";
 import {
+  CITIZEN_ACTOR_ID,
+  UNIDENTIFIED_MANUFACTURER,
   computeComplianceScore,
   computeComplianceStatus,
   confidenceBand,
@@ -62,6 +64,7 @@ import {
   type AuditEvent,
   type CaptureSlotAngle,
   type CategoryBreakdownEntry,
+  type CitizenReportDetails,
   type ComplianceRatePoint,
   type ComplianceRecord,
   type DeclarationCheck,
@@ -130,6 +133,15 @@ export interface CreatePipelineRunInput {
   source?: SourceTag;
   /** Set by page 8's bulk mode, so a batch's records stay traceable to it. */
   batchId?: string;
+  /**
+   * What the quality-check stage should report. Page 11 passes the outcome of
+   * its advisory photo check here, so an officer opening a citizen record can
+   * see that the photo looked dark or blurry — information the blocking gate
+   * would have thrown away with the photo.
+   */
+  qualityNote?: string;
+  /** What the citizen actually reported (page 11). Never set by the other two paths. */
+  citizenReport?: CitizenReportDetails;
   /** `?demo=pipeline-fail-<id>` — forces that one stage to fail once. */
   forceFailStage?: PipelineStageId;
   /** `?demo=fallback-used` / `?demo=no-fallback` — omitted means the default (used). */
@@ -243,6 +255,7 @@ interface StoredPipelineRun {
   scannedByUserId: string;
   source: SourceTag;
   batchId?: string;
+  citizenReport?: CitizenReportDetails;
   createdAt: string;
   /** Populated once `readyForVerification` completes. */
   record?: ComplianceRecord;
@@ -259,19 +272,39 @@ const runs = new Map<string, StoredPipelineRun>();
  * that run marks the stage `skipped` with its own reason — the same honest
  * treatment `fallbackExtraction` already gets when it isn't needed.
  */
-function initialStages(source: SourceTag): PipelineStage[] {
-  const scraped = source === "E-commerce-Sourced";
-  return PIPELINE_STAGE_IDS.map((id) =>
-    id === "qualityCheck"
-      ? {
-          id,
-          state: (scraped ? "skipped" : "completed") as PipelineStage["state"],
-          summary: scraped
-            ? "Not applicable — listing images are not field photographs."
-            : "All images passed the quality gate before this screen.",
-        }
-      : { id, state: "pending" as const }
-  );
+function initialStages(source: SourceTag, qualityNote?: string): PipelineStage[] {
+  return PIPELINE_STAGE_IDS.map((id) => {
+    if (id !== "qualityCheck") return { id, state: "pending" as const };
+
+    /*
+     * Three intake paths, three genuinely different answers — this was a
+     * binary check until page 11, and a citizen run fell into the officer
+     * branch and claimed a gate had passed when none had run.
+     */
+    if (source === "E-commerce-Sourced") {
+      return {
+        id,
+        state: "skipped" as const,
+        summary: "Not applicable — listing images are not field photographs.",
+      };
+    }
+
+    if (source === "Citizen-Reported") {
+      return {
+        id,
+        state: "skipped" as const,
+        summary:
+          qualityNote ??
+          "Submitted from the public portal — photo accepted without a blocking quality gate.",
+      };
+    }
+
+    return {
+      id,
+      state: "completed" as const,
+      summary: "All images passed the quality gate before this screen.",
+    };
+  });
 }
 
 function stageSummary(run: StoredPipelineRun, stageId: PipelineStageId): string {
@@ -341,10 +374,18 @@ function buildFinalRecord(run: StoredPipelineRun): ComplianceRecord {
   });
   const thumbnail = capturedImages[0]!;
 
+  /*
+   * The seeded-manufacturer fallback is wrong for a citizen report: an
+   * anonymous complaint that names no company would be filed against a real
+   * one, which is a false accusation the record then carries into the
+   * Manufacturer Scorecard. Citizen submissions get an explicit placeholder
+   * instead.
+   */
   const manufacturerName =
     metadata.manufacturerName ??
-    MOCK_MANUFACTURERS[0]?.name ??
-    "Unregistered manufacturer";
+    (run.source === "Citizen-Reported"
+      ? UNIDENTIFIED_MANUFACTURER
+      : (MOCK_MANUFACTURERS[0]?.name ?? "Unregistered manufacturer"));
   /*
    * `metadata.productName` is set when the intake path actually knows the
    * product's name — today that means the E-commerce Listing Scanner (page
@@ -389,7 +430,21 @@ function buildFinalRecord(run: StoredPipelineRun): ComplianceRecord {
     },
     evidence: [],
     auditTrail: [
-      { id: `${run.recordId}-audit-1`, type: "Scanned", at: run.createdAt, byUserId: scannedByUserId },
+      {
+        id: `${run.recordId}-audit-1`,
+        type: "Scanned",
+        at: run.createdAt,
+        byUserId: scannedByUserId,
+        /*
+         * Named explicitly rather than resolved from the id: `mockUserName`
+         * falls back to "System" for an unknown user, which would make a
+         * member of the public reporting a product read as something the
+         * system did by itself.
+         */
+        ...(scannedByUserId === CITIZEN_ACTOR_ID
+          ? { byUserName: "Citizen report (public portal)" }
+          : {}),
+      },
       { id: `${run.recordId}-audit-2`, type: "Extracted", at: now, note: "Automated extraction completed." },
     ],
     thumbnail,
@@ -404,6 +459,9 @@ function buildFinalRecord(run: StoredPipelineRun): ComplianceRecord {
   }
   if (run.batchId !== undefined) {
     record.batchId = run.batchId;
+  }
+  if (run.citizenReport !== undefined) {
+    record.citizenReport = run.citizenReport;
   }
 
   return record;
@@ -466,13 +524,14 @@ export function createPipelineRun(input: CreatePipelineRunInput) {
   const run: StoredPipelineRun = {
     scanId: input.scanId,
     recordId: `rec-${input.scanId}`,
-    stages: initialStages(source),
+    stages: initialStages(source, input.qualityNote),
     currentStageStartedAt: now,
     metadata: input.metadata,
     images: input.images,
     scannedByUserId: input.scannedByUserId,
     source,
     ...(input.batchId ? { batchId: input.batchId } : {}),
+    ...(input.citizenReport ? { citizenReport: input.citizenReport } : {}),
     createdAt: now,
     seeded,
   };
@@ -483,6 +542,38 @@ export function createPipelineRun(input: CreatePipelineRunInput) {
 
   runs.set(run.scanId, run);
   return toPublicRun(withAdvancedStages(run));
+}
+
+/**
+ * Runs a pipeline to completion immediately, for an intake path with no
+ * tracker page behind it (page 11).
+ *
+ * `withAdvancedStages` derives progress from wall-clock time, and the clock
+ * for a stage only starts the first time that stage is read. That works
+ * because every path so far lands the submitter on a tracker that polls. A
+ * citizen submits and leaves with a reference, so nothing ever polls their
+ * run — it would sit at its first stage indefinitely and the record would
+ * never reach Compliance Records, which page 11 Definition of Done requires.
+ *
+ * The precedent is `createZeroDeclarationDemoRecord`, which builds a fully
+ * completed run for the same underlying reason: a synchronous request cannot
+ * wait out simulated stage durations. Nothing about the pipeline is skipped —
+ * the same seeding and the same `buildFinalRecord` run, just without the
+ * artificial delay a citizen would never see anyway.
+ */
+export function completePipelineRunNow(scanId: string): ComplianceRecord | undefined {
+  const run = runs.get(scanId);
+  if (!run) return undefined;
+
+  for (const stage of run.stages) {
+    if (stage.state === "pending" || stage.state === "in_progress") {
+      stage.state = "completed";
+      stage.summary = stageSummary(run, stage.id);
+    }
+  }
+
+  run.record = buildFinalRecord(run);
+  return run.record;
 }
 
 export function getPipelineRun(scanId: string) {
@@ -782,9 +873,23 @@ export function createZeroDeclarationDemoRecord(scannedByUserId: string): Compli
  */
 
 /** Every record a pipeline run has produced so far — the list equivalent of `getCreatedRecord`. */
+/**
+ * Every record the live pipeline has produced.
+ *
+ * Advances each run first. Progress in this store is derived from elapsed time
+ * on read, so a run nobody reads never moves — and until page 11 every run had
+ * a tracker page polling it, which hid that. A citizen submission has no
+ * tracker at all: the reporter gets a reference and leaves. Without this the
+ * run would sit at its first stage forever and the record would never reach
+ * Compliance Records, which page 11 Definition of Done explicitly requires.
+ *
+ * It also fixes the same latent case for the other paths — an officer who
+ * closes the tab mid-pipeline had a run that only resumed if they came back.
+ */
 function getAllCreatedRecords(): ComplianceRecord[] {
   const out: ComplianceRecord[] = [];
   for (const run of runs.values()) {
+    withAdvancedStages(run);
     if (run.record) out.push(run.record);
   }
   return out;
