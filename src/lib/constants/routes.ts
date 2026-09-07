@@ -48,6 +48,13 @@ export const ROUTES = {
   /** E-commerce Listing Scanner — USP (page 8). */
   ecommerce: "/ecommerce",
 
+  /**
+   * One bulk batch's queue (page 8, bulk mode). Its own URL because 08 §4
+   * step 5 requires an officer be able to navigate away mid-batch and come
+   * back to it.
+   */
+  ecommerceBatch: (batchId: string) => `/ecommerce/batch/${batchId}` as const,
+
   /** Manufacturer Compliance Scorecards — USP (page 9). */
   manufacturers: "/manufacturers",
 

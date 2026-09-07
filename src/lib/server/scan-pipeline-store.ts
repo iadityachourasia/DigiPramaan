@@ -54,6 +54,7 @@ import {
   confidenceBand,
   DECLARATION_FIELDS,
   PIPELINE_STAGE_IDS,
+  REPEAT_VIOLATION_THRESHOLD,
   SOURCE_TAGS,
   VIOLATION_CATEGORY_IDS,
   violationCategory,
@@ -61,10 +62,12 @@ import {
   type AuditEvent,
   type CaptureSlotAngle,
   type CategoryBreakdownEntry,
+  type ComplianceRatePoint,
   type ComplianceRecord,
   type DeclarationCheck,
   type DeclarationFieldId,
   type ExtractedDeclaration,
+  type ManufacturerScorecard,
   type PipelineStage,
   type PipelineStageId,
   type RecordFilters,
@@ -72,6 +75,7 @@ import {
   type RecordsPage,
   type RegionBreakdownEntry,
   type ScanMetadata,
+  type SourceTag,
   type SourceBreakdownEntry,
   type UploadedImage,
   type Violation,
@@ -116,6 +120,16 @@ export interface CreatePipelineRunInput {
   metadata: ScanMetadata;
   images: Array<{ angle: CaptureSlotAngle; fileName: string; url: string; sizeBytes: number }>;
   scannedByUserId: string;
+  /**
+   * Which intake path produced this run. Defaults to `Officer-Scanned`, so
+   * page 3's wizard is unaffected — the E-commerce Listing Scanner (page 8)
+   * is the first caller to pass anything else, and 08's Definition of Done
+   * requires its records be tagged `E-commerce-Sourced`, which was
+   * impossible while this was hardcoded in `buildFinalRecord`.
+   */
+  source?: SourceTag;
+  /** Set by page 8's bulk mode, so a batch's records stay traceable to it. */
+  batchId?: string;
   /** `?demo=pipeline-fail-<id>` — forces that one stage to fail once. */
   forceFailStage?: PipelineStageId;
   /** `?demo=fallback-used` / `?demo=no-fallback` — omitted means the default (used). */
@@ -227,6 +241,8 @@ interface StoredPipelineRun {
   metadata: ScanMetadata;
   images: Array<{ angle: CaptureSlotAngle; fileName: string; url: string; sizeBytes: number }>;
   scannedByUserId: string;
+  source: SourceTag;
+  batchId?: string;
   createdAt: string;
   /** Populated once `readyForVerification` completes. */
   record?: ComplianceRecord;
@@ -234,13 +250,25 @@ interface StoredPipelineRun {
 
 const runs = new Map<string, StoredPipelineRun>();
 
-function initialStages(): PipelineStage[] {
+/**
+ * The quality gate is a pre-submit, client-side step on page 3
+ * (`useCaptureSlots.submitImage` → `checkImageQuality`) that runs against a
+ * real `File` and reports blur/skew/curvature/no-text — all faults of field
+ * photography. A scraped e-commerce listing image has no `File` and none of
+ * those failure modes, so no gate ran for it. Rather than claim one did,
+ * that run marks the stage `skipped` with its own reason — the same honest
+ * treatment `fallbackExtraction` already gets when it isn't needed.
+ */
+function initialStages(source: SourceTag): PipelineStage[] {
+  const scraped = source === "E-commerce-Sourced";
   return PIPELINE_STAGE_IDS.map((id) =>
     id === "qualityCheck"
       ? {
           id,
-          state: "completed" as const,
-          summary: "All images passed the quality gate before this screen.",
+          state: (scraped ? "skipped" : "completed") as PipelineStage["state"],
+          summary: scraped
+            ? "Not applicable — listing images are not field photographs."
+            : "All images passed the quality gate before this screen.",
         }
       : { id, state: "pending" as const }
   );
@@ -313,17 +341,21 @@ function buildFinalRecord(run: StoredPipelineRun): ComplianceRecord {
   });
   const thumbnail = capturedImages[0]!;
 
-  /*
-   * TODO: the Scan Capture Wizard's metadata form (03-scan-upload.md §2 Step
-   * 4) has no product-name field — only category/manufacturer/region/e-commerce
-   * URL. Synthesizing a name here rather than silently leaving it blank;
-   * revisit if/when the wizard's metadata gains a real product-name field.
-   */
   const manufacturerName =
     metadata.manufacturerName ??
     MOCK_MANUFACTURERS[0]?.name ??
     "Unregistered manufacturer";
-  const productName = `${manufacturerName} — ${metadata.category}`;
+  /*
+   * `metadata.productName` is set when the intake path actually knows the
+   * product's name — today that means the E-commerce Listing Scanner (page
+   * 8), which has the scraped listing's own title.
+   *
+   * TODO (still open for page 3): the Scan Capture Wizard's metadata form
+   * (03-scan-upload.md §2 Step 4) has no product-name field, so a
+   * physically scanned record still falls back to this synthesized name.
+   * Adding that field to the wizard would close the gap for both paths.
+   */
+  const productName = metadata.productName ?? `${manufacturerName} — ${metadata.category}`;
 
   const record: ComplianceRecord = {
     id: run.recordId,
@@ -332,7 +364,7 @@ function buildFinalRecord(run: StoredPipelineRun): ComplianceRecord {
     manufacturerName,
     category: metadata.category,
     region: metadata.region,
-    source: "Officer-Scanned",
+    source: run.source,
     verificationStatus: "Extracted",
     complianceStatus: computeComplianceStatus({
       verificationStatus: "Extracted",
@@ -369,6 +401,9 @@ function buildFinalRecord(run: StoredPipelineRun): ComplianceRecord {
 
   if (metadata.ecommerceListingUrl !== undefined) {
     record.ecommerceListingUrl = metadata.ecommerceListingUrl;
+  }
+  if (run.batchId !== undefined) {
+    record.batchId = run.batchId;
   }
 
   return record;
@@ -426,14 +461,18 @@ export function createPipelineRun(input: CreatePipelineRunInput) {
   const seeded = seedDeclarations(fallbackNeeded, input.forceZeroDeclarations ?? false);
   const now = new Date().toISOString();
 
+  const source: SourceTag = input.source ?? "Officer-Scanned";
+
   const run: StoredPipelineRun = {
     scanId: input.scanId,
     recordId: `rec-${input.scanId}`,
-    stages: initialStages(),
+    stages: initialStages(source),
     currentStageStartedAt: now,
     metadata: input.metadata,
     images: input.images,
     scannedByUserId: input.scannedByUserId,
+    source,
+    ...(input.batchId ? { batchId: input.batchId } : {}),
     createdAt: now,
     seeded,
   };
@@ -728,6 +767,7 @@ export function createZeroDeclarationDemoRecord(scannedByUserId: string): Compli
     metadata: { category: "Other", region: "Delhi" },
     images: [],
     scannedByUserId,
+    source: "Officer-Scanned",
     createdAt: now,
     seeded: seedDeclarations(false, true),
   };
@@ -774,6 +814,11 @@ function matchesFilters(record: ComplianceRecord, filters: RecordFilters): boole
   if (
     filters.violationCategoryIds.length > 0 &&
     !record.violations.some((v) => filters.violationCategoryIds.includes(v.categoryId))
+  )
+    return false;
+  if (
+    filters.batchIds.length > 0 &&
+    !(record.batchId !== undefined && filters.batchIds.includes(record.batchId))
   )
     return false;
   return true;
@@ -933,6 +978,181 @@ export function computeAnalyticsSummary(): AnalyticsAggregate {
   }));
 
   return { summary, violationBreakdown, categoryBreakdown, regionBreakdown, sourceBreakdown };
+}
+
+/*
+ * ---------------------------------------------------------------------------
+ * Manufacturer Compliance Scorecard (page 9)
+ * ---------------------------------------------------------------------------
+ * Same live+static merge as `listRecords` and `computeAnalyticsSummary`, for
+ * the same reason: `src/lib/mock/manufacturers.ts`'s `MOCK_SCORECARDS` is
+ * computed once at module load from the static seeds only, so a manufacturer
+ * scanned through the live pipeline today would never appear on their own
+ * scorecard. That's the third time this bug class has come up (pages 5, 7,
+ * now 9); the aggregation maths itself is lifted from that module's
+ * `buildScorecard` rather than written twice.
+ *
+ * Unlike the mock, the threshold window is anchored to real `Date.now()`.
+ * The mock keeps its fixed `REFERENCE_NOW` so seeded demo flags stay stable
+ * however long from now the demo runs; live scans have to age correctly.
+ */
+
+/** Records whose manufacturer matches, on the exact-name join `RecordFilters.manufacturers` also uses. */
+function recordsForManufacturer(name: string): ComplianceRecord[] {
+  return getAllActiveRecords().filter((record) => record.manufacturerName === name);
+}
+
+function withinThresholdWindow(iso: string, now: number): boolean {
+  const days = (now - new Date(iso).getTime()) / (1000 * 60 * 60 * 24);
+  return days <= REPEAT_VIOLATION_THRESHOLD.withinDays;
+}
+
+/**
+ * The Non-Compliant records that a manufacturer-level enforcement flag would
+ * cover: Non-Compliant, inside the threshold window. Shared by the scorecard
+ * aggregation and `flagManufacturerForEnforcement`, so the count shown in the
+ * confirmation is computed by the same code that does the flagging.
+ */
+function recentNonCompliantRecords(name: string, now: number): ComplianceRecord[] {
+  return recordsForManufacturer(name).filter(
+    (record) =>
+      record.complianceStatus === "Non-Compliant" &&
+      withinThresholdWindow(record.lastUpdatedAt, now)
+  );
+}
+
+function buildScorecard(id: string, name: string, now: number): ManufacturerScorecard {
+  const products = recordsForManufacturer(name);
+  const verified = products.filter((r) => r.verificationStatus === "Verified");
+  const compliant = verified.filter((r) => r.complianceStatus === "Compliant");
+  const recentNonCompliantCount = recentNonCompliantRecords(name, now).length;
+
+  const violationBreakdown: ViolationBreakdownEntry[] = VIOLATION_CATEGORY_IDS.map(
+    (categoryId) => ({
+      categoryId,
+      count: products.reduce(
+        (sum, record) => sum + record.violations.filter((v) => v.categoryId === categoryId).length,
+        0
+      ),
+    })
+  ).filter((entry) => entry.count > 0);
+
+  const dates = products
+    .map((r) => r.scannedAt)
+    .sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+
+  /*
+   * One cumulative point per Verified record, oldest first — deliberately not
+   * the illustrative `MOCK_TREND` (07's precedent: real-but-thin beats
+   * fabricated-but-smooth). Each point carries its `sampleSize` so a
+   * manufacturer with a single scan renders one point the UI can label as too
+   * thin for a trend, rather than a flat line implying stability.
+   */
+  const complianceTrend: ComplianceRatePoint[] = verified
+    .slice()
+    .sort((a, b) => new Date(a.scannedAt).getTime() - new Date(b.scannedAt).getTime())
+    .map((record, index, all) => {
+      const upTo = all.slice(0, index + 1);
+      const compliantSoFar = upTo.filter((r) => r.complianceStatus === "Compliant").length;
+      return {
+        date: record.scannedAt.slice(0, 10),
+        ratePercentage: Math.round((compliantSoFar / upTo.length) * 100),
+        sampleSize: upTo.length,
+      };
+    });
+
+  return {
+    summary: {
+      id,
+      name,
+      totalProductsScanned: products.length,
+      complianceRatePercentage:
+        verified.length === 0 ? 0 : Math.round((compliant.length / verified.length) * 100),
+      firstScannedAt: dates[0] ?? "",
+      lastScannedAt: dates[dates.length - 1] ?? "",
+    },
+    repeatViolationFlagged:
+      recentNonCompliantCount >= REPEAT_VIOLATION_THRESHOLD.nonCompliantCount,
+    recentNonCompliantCount,
+    complianceTrend,
+    violationBreakdown,
+    products,
+  };
+}
+
+export function computeManufacturerScorecards(): ManufacturerScorecard[] {
+  const now = Date.now();
+  return MOCK_MANUFACTURERS.map((m) => buildScorecard(m.id, m.name, now));
+}
+
+export function computeManufacturerScorecard(id: string): ManufacturerScorecard | undefined {
+  const manufacturer = MOCK_MANUFACTURERS.find((m) => m.id === id);
+  if (!manufacturer) return undefined;
+  return buildScorecard(manufacturer.id, manufacturer.name, Date.now());
+}
+
+export interface ManufacturerFlagResult {
+  flagged: ComplianceRecord[];
+  /** Ids that couldn't be written to — static-seed records with no backing run. */
+  skipped: string[];
+  /** Already flagged before this call, so not counted as newly actioned. */
+  alreadyFlagged: string[];
+}
+
+/**
+ * Flag for Enforcement at manufacturer scope (09 §4) — Enforcement Officer
+ * and Admin only, per the Role Permission Matrix.
+ *
+ * There is no manufacturer-level entity to flag: `flaggedForEnforcement`
+ * lives on the record. So this fans out over the manufacturer's qualifying
+ * records (Non-Compliant, inside the threshold window) exactly as
+ * `bulkSetNeedsReview` fans out over a selection, and the manufacturer's flag
+ * state is *derived* from its products rather than stored a second time where
+ * the two could disagree.
+ *
+ * Each affected record gets a real `"Flagged for Enforcement"` audit event
+ * noting it came from a manufacturer-level action, so page 6's audit trail
+ * tells the true story of why a record an officer never opened is flagged.
+ *
+ * Same accepted limitation as every other mutation in this file: a
+ * static-seed record has no backing run to write to. Those ids come back in
+ * `skipped` so the UI can say so, rather than the click silently no-opping.
+ */
+export function flagManufacturerForEnforcement(
+  manufacturerName: string,
+  userId: string
+): ManufacturerFlagResult {
+  const flagged: ComplianceRecord[] = [];
+  const skipped: string[] = [];
+  const alreadyFlagged: string[] = [];
+
+  for (const candidate of recentNonCompliantRecords(manufacturerName, Date.now())) {
+    if (candidate.flaggedForEnforcement) {
+      alreadyFlagged.push(candidate.id);
+      continue;
+    }
+
+    const run = findRunByRecordId(candidate.id);
+    if (!run?.record) {
+      skipped.push(candidate.id);
+      continue;
+    }
+    const record = run.record;
+
+    record.flaggedForEnforcement = true;
+    record.lastUpdatedAt = new Date().toISOString();
+    record.auditTrail.push({
+      id: nextAuditEventId(record),
+      type: "Flagged for Enforcement",
+      at: record.lastUpdatedAt,
+      byUserId: userId,
+      note: `Manufacturer-level enforcement action: ${manufacturerName}`,
+    });
+
+    flagged.push(record);
+  }
+
+  return { flagged, skipped, alreadyFlagged };
 }
 
 /**

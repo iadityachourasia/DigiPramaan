@@ -241,27 +241,33 @@ export function ComplianceTrendChart({
         </ResponsiveContainer>
       </div>
 
-      <table className="ux4g-sr-only">
-        <caption>{labels.heading}</caption>
-        <thead>
-          <tr>
-            <th scope="col">{labels.dateColumn}</th>
-            <th scope="col">{labels.compliant}</th>
-            <th scope="col">{labels.nonCompliant}</th>
-            <th scope="col">{labels.totalScans}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.map((point) => (
-            <tr key={point.date}>
-              <th scope="row">{point.date}</th>
-              <td>{point.compliant}</td>
-              <td>{point.nonCompliant}</td>
-              <td>{point.totalScans}</td>
+      {/* The sr-only class sits on a wrapper div, not the table itself: a table's
+          used width is driven by its content, so `width: 1px` does not actually
+          constrain it and the hidden table pushed the whole page into horizontal
+          scroll on a 375px screen. A div honours the width and clips it. */}
+      <div className="ux4g-sr-only">
+        <table>
+          <caption>{labels.heading}</caption>
+          <thead>
+            <tr>
+              <th scope="col">{labels.dateColumn}</th>
+              <th scope="col">{labels.compliant}</th>
+              <th scope="col">{labels.nonCompliant}</th>
+              <th scope="col">{labels.totalScans}</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {data.map((point) => (
+              <tr key={point.date}>
+                <th scope="row">{point.date}</th>
+                <td>{point.compliant}</td>
+                <td>{point.nonCompliant}</td>
+                <td>{point.totalScans}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

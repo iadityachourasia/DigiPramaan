@@ -46,6 +46,7 @@ export const API = {
   manufacturers: {
     list: "/manufacturers",
     scorecard: (id: string) => `/manufacturers/${id}/scorecard` as const,
+    flagEnforcement: (id: string) => `/manufacturers/${id}/flag-enforcement` as const,
   },
 
   ecommerce: {

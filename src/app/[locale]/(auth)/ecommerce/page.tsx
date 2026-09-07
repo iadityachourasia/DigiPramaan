@@ -1,6 +1,9 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import type { Metadata } from "next";
 
+import { EcommerceView } from "@/components/ecommerce/EcommerceView";
+import { PageHeader } from "@/components/shared";
+
 /**
  * E-commerce Listing Scanner — page 8. USP page.
  * Spec: Pages_Userflow/08-ecommerce-listing-scanner.md
@@ -12,8 +15,9 @@ export async function generateMetadata({
   params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
   const { locale } = await params;
-  const t = await getTranslations({ locale, namespace: "metadata" });
-  return { title: `E-commerce Scanner | ${t("defaultTitle")}` };
+  const t = await getTranslations({ locale, namespace: "ecommerce" });
+  const tMeta = await getTranslations({ locale, namespace: "metadata" });
+  return { title: `${t("meta.title")} | ${tMeta("defaultTitle")}` };
 }
 
 export default async function EcommercePage({
@@ -23,27 +27,12 @@ export default async function EcommercePage({
 }) {
   const { locale } = await params;
   setRequestLocale(locale);
-  const t = await getTranslations();
+  const t = await getTranslations("ecommerce");
 
   return (
     <main id="main-content" className="ux4g-py-l ux4g-px-l">
-      <h1 className="ux4g-heading-xl-strong ux4g-mb-l">
-        {t("navigation.ecommerceScanner")}
-      </h1>
-
-      {/* URL input — 08 §2 */}
-      <section aria-labelledby="input-heading" className="ux4g-mb-xl">
-        <h2 id="input-heading" className="ux4g-heading-m-strong ux4g-mb-m">
-          Scan a product listing
-        </h2>
-      </section>
-
-      {/* Batch history — 08 §3 */}
-      <section aria-labelledby="batch-heading">
-        <h2 id="batch-heading" className="ux4g-heading-m-strong ux4g-mb-m">
-          Previous scans
-        </h2>
-      </section>
+      <PageHeader title={t("heading")} description={t("description")} />
+      <EcommerceView />
     </main>
   );
 }

@@ -175,6 +175,15 @@ export interface ComplianceRecord {
   /** Original listing URL when source is E-commerce-Sourced. */
   ecommerceListingUrl?: string;
 
+  /**
+   * The E-commerce Listing Scanner batch this record came from (page 8's
+   * bulk mode). Present only for records created from a batch scan — a
+   * single-listing scan has a `ecommerceListingUrl` but no batch. Backs
+   * 08's "completed batch results appear in Compliance Records, filterable
+   * by this specific batch".
+   */
+  batchId?: string;
+
   /** ISO 8601. */
   scannedAt: string;
   lastUpdatedAt: string;
@@ -223,6 +232,13 @@ export interface RecordFilters {
    * approximation used elsewhere for the same gap).
    */
   violationCategoryIds: ViolationCategoryId[];
+  /**
+   * Deep-link-only filter (08's bulk mode links here from a completed
+   * batch). Unlike every other dimension this one has no dropdown — a batch
+   * id isn't something a user picks from a list, it's arrived at from the
+   * batch itself — but it still renders as a removable chip like the rest.
+   */
+  batchIds: string[];
 }
 
 export const RECORD_SORT_OPTIONS = [

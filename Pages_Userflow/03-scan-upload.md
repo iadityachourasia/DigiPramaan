@@ -120,8 +120,12 @@ whole scan.
 ### Step 4 — Metadata & Manual Entry
 
 Unchanged from prior scope:
-- **Metadata**: product category (dropdown, routes to the correct
-  declaration checklist), manufacturer (optional autocomplete text),
+- **Metadata**: product name (optional free text — when blank the record
+  falls back to "{manufacturer} — {category}"; added so physically-captured
+  records read the same as e-commerce-sourced ones, which carry a real
+  listing title, where the two sit side by side in the Manufacturer
+  Scorecard's products table), product category (dropdown, routes to the
+  correct declaration checklist), manufacturer (optional autocomplete text),
   inspection region (dropdown/text), e-commerce listing URL (optional, with
   the clarifying caption from the scope note above)
 - **Manual Entry**: a form to enter declaration fields directly without OCR,

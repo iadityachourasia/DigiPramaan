@@ -9,6 +9,7 @@ import { useRouter } from "@/i18n/navigation";
 import { createScan } from "@/lib/api/scans";
 import { ROUTES } from "@/lib/constants";
 import { useAuth, useCaptureSlots, useMobileHandoffSession, usePermission } from "@/lib/hooks";
+import { PRODUCT_NAME_MAX_LENGTH } from "@/lib/validations/scan";
 import {
   CAPTURE_SLOT_ANGLES,
   DEFAULT_MAX_UPLOAD_MB,
@@ -309,6 +310,11 @@ export function ScanWizard() {
           {...(metadataDefaults ? { defaultValues: metadataDefaults } : {})}
           labels={{
             heading: t("metadata.heading"),
+            productNameLabel: t("metadata.productNameLabel"),
+            productNameHint: t("metadata.productNameHint"),
+            productNameTooLong: t("metadata.productNameTooLongError", {
+              max: PRODUCT_NAME_MAX_LENGTH,
+            }),
             categoryLabel: t("metadata.categoryLabel"),
             categoryRequired: t("metadata.categoryRequiredError"),
             manufacturerLabel: t("metadata.manufacturerLabel"),

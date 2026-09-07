@@ -5,6 +5,15 @@
  * product describes to its users: three or more Non-Compliant records inside 90
  * days. 09 §2 asks the system to be upfront that this is a threshold and not a
  * model, so it is a plain count here and nothing more.
+ *
+ * NOT THE LIVE PATH. These constants are computed once, at module load, from
+ * the static seeds only — the page reads
+ * `computeManufacturerScorecards()` in `lib/server/scan-pipeline-store.ts`
+ * instead, which runs the same maths over the live+static merge so a
+ * manufacturer scanned through the pipeline appears on their own scorecard.
+ * What survives here is the seed-only fixture the unit tests assert against
+ * (including the deliberate single-scan manufacturer, which is the thin-data
+ * case 09 §4 wants labelled rather than drawn as a flat line).
  */
 
 import {

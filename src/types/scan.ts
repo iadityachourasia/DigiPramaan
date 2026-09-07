@@ -210,9 +210,24 @@ export interface ScanMetadata {
    */
   region: string;
   /**
-   * Optional. Notes that a physically photographed product is ALSO listed online.
-   * 00-README.md §E: this is not the e-commerce scanning path. A scan that starts
-   * from an online listing with no physical photo belongs to page 8 instead.
+   * The product's own name, when the intake path actually knows it.
+   *
+   * Page 3's capture wizard has no product-name field, so a physically
+   * scanned record's name is synthesized from manufacturer + category (see
+   * `buildFinalRecord`, and the TODO there). The E-commerce Listing Scanner
+   * (page 8) is the first intake path with a real title to pass — a scraped
+   * listing's own product title — so this optional field carries it when
+   * present, and the synthesized fallback applies only when it isn't.
+   */
+  productName?: string;
+  /**
+   * The listing URL behind this scan. Set by BOTH intake paths, distinguished
+   * by the record's `source`:
+   *   - Officer-Scanned: page 3's optional field, noting that a physically
+   *     photographed product is ALSO listed online (00-README.md §E).
+   *   - E-commerce-Sourced: page 8's origin URL — the listing the scan was
+   *     scraped from, with no physical photo involved at all.
+   * `ComplianceRecord.ecommerceListingUrl` receives whichever applies.
    */
   ecommerceListingUrl?: string;
 }

@@ -61,6 +61,7 @@ export interface RecordsFiltersProps {
     manufacturerChipLabel: (value: string) => string;
     sourceChipLabel: (value: string) => string;
     violationChipLabel: (value: string) => string;
+    batchChipLabel: (value: string) => string;
     queryChipLabel: (value: string) => string;
     dateFromChipLabel: (value: string) => string;
     dateToChipLabel: (value: string) => string;
@@ -261,6 +262,15 @@ export function RecordsFilters({
               label={labels.violationChipLabel(value)}
               removeLabel={labels.removeFilter(labels.violationChipLabel(value))}
               onRemove={() => onToggleFilterValue("violationCategoryIds", value)}
+            />
+          ))}
+          {/* Deep-link-only (from a completed e-commerce batch) — no dropdown feeds this one. */}
+          {filters.batchIds.map((value) => (
+            <FilterChip
+              key={`batchIds-${value}`}
+              label={labels.batchChipLabel(value)}
+              removeLabel={labels.removeFilter(labels.batchChipLabel(value))}
+              onRemove={() => onToggleFilterValue("batchIds", value)}
             />
           ))}
           <button type="button" className="ux4g-btn ux4g-btn-text-primary ux4g-btn-sm" onClick={onClearAll}>

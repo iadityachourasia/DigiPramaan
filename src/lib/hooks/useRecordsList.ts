@@ -16,7 +16,12 @@ import {
   type ViolationCategoryId,
 } from "@/types";
 
-/** The six multi-value `RecordFilters` fields — each rendered as its own set of chips. */
+/**
+ * The seven multi-value `RecordFilters` fields — each rendered as its own
+ * set of chips. `batchIds` is the one with no dropdown behind it: a batch
+ * id isn't something a user picks from a list, it's arrived at from a
+ * completed e-commerce batch's own link (08 §4 step 6).
+ */
 export const MULTI_FILTER_KEYS = [
   "categories",
   "complianceStatuses",
@@ -24,6 +29,7 @@ export const MULTI_FILTER_KEYS = [
   "manufacturers",
   "sources",
   "violationCategoryIds",
+  "batchIds",
 ] as const;
 export type MultiFilterKey = (typeof MULTI_FILTER_KEYS)[number];
 
@@ -35,6 +41,7 @@ function filtersFromParams(params: URLSearchParams): RecordFilters {
     manufacturers: params.getAll("manufacturers"),
     sources: params.getAll("sources") as SourceTag[],
     violationCategoryIds: params.getAll("violationCategoryIds") as ViolationCategoryId[],
+    batchIds: params.getAll("batchIds"),
   };
   const query = params.get("query");
   if (query) filters.query = query;
