@@ -980,6 +980,55 @@ export function computeAnalyticsSummary(): AnalyticsAggregate {
   return { summary, violationBreakdown, categoryBreakdown, regionBreakdown, sourceBreakdown };
 }
 
+/**
+ * Records a `"Report Generated"` audit event against every record a report
+ * covered (page 10, and 13 §3.1's "Report generated / exported / downloaded,
+ * and by whom" on the per-record timeline).
+ *
+ * `"Report Generated"` has been in the fixed `AuditEventType` vocabulary and
+ * translated in both catalogues since the type was written, with no consumer
+ * until now — page 10 is its first.
+ *
+ * Deliberately no event on re-download. 13 proposes a separate
+ * `report_downloaded` type, but the shipped vocabulary has no such literal
+ * and inventing one here is exactly the drift this codebase avoids
+ * everywhere else (see `bulkSetNeedsReview` making the same call for the
+ * un-flag direction).
+ *
+ * Same accepted limitation as every other mutation in this file: a
+ * static-seed record has no backing run to write to, and comes back in
+ * `skipped` rather than failing silently.
+ */
+export function recordReportGenerated(
+  recordIds: readonly string[],
+  userId: string,
+  reportName: string
+): { updated: string[]; skipped: string[] } {
+  const updated: string[] = [];
+  const skipped: string[] = [];
+  const at = new Date().toISOString();
+
+  for (const recordId of recordIds) {
+    const run = findRunByRecordId(recordId);
+    if (!run?.record) {
+      skipped.push(recordId);
+      continue;
+    }
+    const record = run.record;
+    record.auditTrail.push({
+      id: nextAuditEventId(record),
+      type: "Report Generated",
+      at,
+      byUserId: userId,
+      note: reportName,
+    });
+    record.lastUpdatedAt = at;
+    updated.push(recordId);
+  }
+
+  return { updated, skipped };
+}
+
 /*
  * ---------------------------------------------------------------------------
  * Manufacturer Compliance Scorecard (page 9)

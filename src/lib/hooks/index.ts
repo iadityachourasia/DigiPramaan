@@ -10,6 +10,12 @@ export { useDebounce } from "./useDebounce";
 export { useManufacturers, useManufacturerScorecard } from "./useManufacturers";
 export { useMobileHandoffSession } from "./useMobileHandoffSession";
 export { useRecordDetail } from "./useRecordDetail";
+export {
+  useReportBuilder,
+  useReportHistory,
+  scopeFromParams,
+  type UseReportBuilderResult,
+} from "./useReports";
 export { MULTI_FILTER_KEYS, useRecordsList, type MultiFilterKey } from "./useRecordsList";
 export { useScanPipeline } from "./useScanPipeline";
 export {

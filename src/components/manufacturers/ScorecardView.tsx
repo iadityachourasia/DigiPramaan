@@ -165,9 +165,16 @@ export function ScorecardView({ id, locale }: { id: string; locale: string }) {
   }
 
   const fullHistoryHref = recordsHref({ manufacturers: summary.name });
+  /*
+   * FIXED: was `?manufacturers=<name>&type=scorecard`, which passed a name
+   * where `ReportScope`'s manufacturer variant expects `manufacturerId`. The
+   * id is the stable identity — this page's own route is
+   * /manufacturers/[id] — so the type was right and the URL was wrong. Page
+   * 10 reads this shape in `scopeFromParams`.
+   */
   const exportHref = `${ROUTES.reports}?${new URLSearchParams({
-    manufacturers: summary.name,
     type: "scorecard",
+    manufacturerId: summary.id,
   }).toString()}`;
 
   return (

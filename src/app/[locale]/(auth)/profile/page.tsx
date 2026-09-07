@@ -1,9 +1,17 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import type { Metadata } from "next";
 
+import { ProfileView } from "@/components/profile/ProfileView";
+import { PageHeader } from "@/components/shared";
+
 /**
- * Profile & Settings — page 10 second tab.
- * Spec: Pages_Userflow/10-reports-profile.md §4
+ * Profile & Settings — page 10's second surface.
+ *
+ * Its own route rather than a tab on Reports: 10 §5 says Profile/Settings may
+ * be "visually lower-priority in layout than the Report Builder", and a
+ * separate route is the strongest form of that. Reached from the Reports page
+ * and the app-shell user area — there is deliberately no second sidebar item,
+ * which would contradict the existing combined "Reports & Profile" label.
  */
 
 export async function generateMetadata({
@@ -12,8 +20,9 @@ export async function generateMetadata({
   params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
   const { locale } = await params;
-  const t = await getTranslations({ locale, namespace: "metadata" });
-  return { title: `Profile | ${t("defaultTitle")}` };
+  const t = await getTranslations({ locale, namespace: "profile" });
+  const tMeta = await getTranslations({ locale, namespace: "metadata" });
+  return { title: `${t("meta.title")} | ${tMeta("defaultTitle")}` };
 }
 
 export default async function ProfilePage({
@@ -23,24 +32,12 @@ export default async function ProfilePage({
 }) {
   const { locale } = await params;
   setRequestLocale(locale);
+  const t = await getTranslations("profile");
 
   return (
     <main id="main-content" className="ux4g-py-l ux4g-px-l">
-      <h1 className="ux4g-heading-xl-strong ux4g-mb-l">Profile &amp; Settings</h1>
-
-      {/* User info — name, role, department, last login */}
-      <section aria-labelledby="profile-heading" className="ux4g-mb-xl">
-        <h2 id="profile-heading" className="ux4g-heading-m-strong ux4g-mb-m">
-          Your account
-        </h2>
-      </section>
-
-      {/* Preferences — notification settings, language */}
-      <section aria-labelledby="prefs-heading">
-        <h2 id="prefs-heading" className="ux4g-heading-m-strong ux4g-mb-m">
-          Preferences
-        </h2>
-      </section>
+      <PageHeader title={t("heading")} description={t("description")} />
+      <ProfileView />
     </main>
   );
 }

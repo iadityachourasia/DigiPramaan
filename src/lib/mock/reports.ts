@@ -1,9 +1,15 @@
 /**
  * Download History fixtures (page 10).
  *
- * Both editable formats appear alongside PDF on purpose. The problem statement asks
- * for reports in "PDF and editable formats", and 10-reports-profile.md §2 is explicit
- * that defaulting to PDF-only misses the requirement.
+ * Seeded into `lib/server/report-store.ts` at first read, so Download History has
+ * something in it on a cold start and 10 §6's "persists and supports re-download
+ * without regeneration" is demonstrable immediately. The empty-history state is
+ * reached with `?demo=empty`, the same accommodation other pages make for a state
+ * seed data cannot produce.
+ *
+ * Both a single-record and a multi-record scope appear on purpose: the officer
+ * attribution block behaves differently for each (13 §2), and having both seeded
+ * means that difference is visible without generating anything first.
  */
 
 import type { GeneratedReport, ReportAccessibility } from "@/types";
@@ -17,10 +23,7 @@ export const MOCK_REPORTS: readonly GeneratedReport[] = [
     generatedAt: "2026-08-30T16:02:00+05:30",
     generatedByUserId: "usr-001",
     generatedByUserName: "Rohan Deshmukh",
-    downloadUrls: {
-      PDF: "/api/reports/rpt-5001.pdf",
-      DOCX: "/api/reports/rpt-5001.docx",
-    },
+    referenceCode: "LMCS-RPT-5001-8F3A",
     rowCount: 1,
   },
   {
@@ -31,18 +34,27 @@ export const MOCK_REPORTS: readonly GeneratedReport[] = [
     generatedAt: "2026-09-02T11:24:00+05:30",
     generatedByUserId: "usr-003",
     generatedByUserName: "Arindam Banerjee",
-    downloadUrls: { PDF: "/api/reports/rpt-5002.pdf" },
+    referenceCode: "LMCS-RPT-5002-C107",
     rowCount: 3,
   },
   {
     id: "rpt-5003",
-    name: "Non-Compliant records — Maharashtra, August 2026",
+    /*
+     * The filters here have to actually match records, because re-download
+     * re-resolves this scope rather than serving a saved file. An earlier
+     * version of this fixture read "Non-Compliant — Maharashtra, August 2026"
+     * and matched nothing at all: no seeded Non-Compliant record is in
+     * Maharashtra, so re-downloading it produced a report with no records in
+     * it. Dropping the region makes it a real five-record scope, which also
+     * gives the multi-record "Compiled by" attribution something to render.
+     */
+    name: "Non-Compliant records — August 2026",
     scope: {
       kind: "filtered",
       filters: {
         categories: [],
         complianceStatuses: ["Non-Compliant"],
-        regions: ["Maharashtra"],
+        regions: [],
         manufacturers: [],
         sources: [],
         violationCategoryIds: [],
@@ -51,25 +63,30 @@ export const MOCK_REPORTS: readonly GeneratedReport[] = [
         dateTo: "2026-08-31",
       },
     },
-    formats: ["XLSX", "PDF"],
+    /*
+     * Was ["XLSX", "PDF"]. XLSX left `REPORT_FORMATS` when the build settled on
+     * PDF + DOCX, and a history row offering a format the download route cannot
+     * render is a 404 waiting to happen.
+     */
+    formats: ["PDF", "DOCX"],
     generatedAt: "2026-09-01T09:15:00+05:30",
     generatedByUserId: "usr-002",
     generatedByUserName: "Sunita Iyer",
-    downloadUrls: {
-      XLSX: "/api/reports/rpt-5003.xlsx",
-      PDF: "/api/reports/rpt-5003.pdf",
-    },
-    rowCount: 24,
+    referenceCode: "LMCS-RPT-5003-42B9",
+    rowCount: 5,
   },
 ];
 
 /**
- * A-12 / WCAG 1.3.1: a linked PDF must be tagged accessible. The backend reports
- * whether it produced one, so the UI can warn rather than link an untagged document
- * as though it were fine.
+ * A-12 / WCAG 1.3.1: a linked PDF must be tagged accessible, so the UI can warn
+ * rather than link an untagged document as though it were fine.
+ *
+ * All false, and honestly so: jsPDF emits no `/StructTreeRoot`, so nothing this
+ * app generates is a tagged PDF today. Claiming otherwise here would have made
+ * the warning path dead code and the accessibility gap invisible.
  */
 export const MOCK_REPORT_ACCESSIBILITY: Record<string, ReportAccessibility> = {
-  "rpt-5001": { pdfIsTagged: true },
-  "rpt-5002": { pdfIsTagged: true },
-  "rpt-5003": { pdfIsTagged: true },
+  "rpt-5001": { pdfIsTagged: false },
+  "rpt-5002": { pdfIsTagged: false },
+  "rpt-5003": { pdfIsTagged: false },
 };

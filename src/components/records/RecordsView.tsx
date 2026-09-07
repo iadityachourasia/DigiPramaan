@@ -6,13 +6,13 @@ import { useState } from "react";
 import { Pagination } from "@/components/shared";
 import { Alert } from "@/components/ui/Alert";
 import { Select } from "@/components/ui/Select";
-import { useRouter } from "@/i18n/navigation";
+import { Link, useRouter } from "@/i18n/navigation";
 import {
   archiveRecord as archiveRecordRequest,
   bulkSetNeedsReview as bulkSetNeedsReviewRequest,
 } from "@/lib/api/records";
 import { ROUTES } from "@/lib/constants";
-import { useAuth, useRecordsList, usePermission } from "@/lib/hooks";
+import { MULTI_FILTER_KEYS, useAuth, useRecordsList, usePermission } from "@/lib/hooks";
 import { INSPECTION_REGIONS, MOCK_MANUFACTURERS } from "@/lib/mock";
 import {
   COMPLIANCE_STATUSES,
@@ -21,6 +21,7 @@ import {
   VIOLATION_TAXONOMY,
   violationCategory,
   type ComplianceRecord,
+  type RecordFilters,
   type RecordSort,
   type ViolationCategoryId,
 } from "@/types";
@@ -49,6 +50,31 @@ function downloadCsv(records: readonly ComplianceRecord[]) {
   link.download = "compliance-records.csv";
   link.click();
   URL.revokeObjectURL(url);
+}
+
+/**
+ * The Reports page (page 10) link for the *current filter set*.
+ *
+ * Deliberately not part of the bulk bar. The bulk bar is selection-scoped,
+ * and `ReportScope` has no "these specific record ids" variant — a filter set
+ * is reproducible when the report is re-downloaded months later, while a
+ * transient row selection is not. So this reports on what is filtered, and
+ * says so.
+ *
+ * Serialised with the same repeated-key convention `useRecordsList` reads
+ * back (`?regions=A&regions=B`), so the two stay in step by construction
+ * rather than by a second format kept in sync by hand.
+ */
+function reportHref(filters: RecordFilters): string {
+  const params = new URLSearchParams();
+  params.set("type", "filtered");
+  for (const key of MULTI_FILTER_KEYS) {
+    for (const value of filters[key]) params.append(key, value);
+  }
+  if (filters.query) params.set("query", filters.query);
+  if (filters.dateFrom) params.set("dateFrom", filters.dateFrom);
+  if (filters.dateTo) params.set("dateTo", filters.dateTo);
+  return `${ROUTES.reports}?${params.toString()}`;
 }
 
 /**
@@ -223,6 +249,19 @@ export function RecordsView({ locale }: { locale: string }) {
           {t("bulk.skippedBody", { count: skippedCount })}
         </Alert>
       ) : null}
+
+      {/*
+        Filter-scoped, so it sits with the filters rather than in the
+        selection bar below.
+      */}
+      <div className="lmcs-records-toolbar">
+        <Link href={reportHref(filters)} className="ux4g-btn ux4g-btn-outline-primary ux4g-btn-sm">
+          <span className="ux4g-icon-outlined" aria-hidden="true">
+            summarize
+          </span>
+          {t("generateReportFromFilters")}
+        </Link>
+      </div>
 
       {canBulk ? (
         <div className="lmcs-records-bulk-bar">
