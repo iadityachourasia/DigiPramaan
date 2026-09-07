@@ -46,6 +46,7 @@ export const MOCK_REPORTS: readonly GeneratedReport[] = [
         manufacturers: [],
         sources: [],
         violationCategoryIds: [],
+        batchIds: [],
         dateFrom: "2026-08-01",
         dateTo: "2026-08-31",
       },

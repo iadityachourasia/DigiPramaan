@@ -19,7 +19,11 @@ import {
   tooltipStyle,
   type CommonChartTokens,
 } from "@/lib/utils/chartTheme";
-import { violationCategory, type ViolationBreakdownEntry, type ViolationCategoryId } from "@/types";
+import {
+  violationCategory,
+  type ViolationBreakdownEntry,
+  type ViolationCategoryId,
+} from "@/types";
 
 /**
  * ViolationBreakdownChart — the 10-category Canonical Violation Taxonomy
@@ -47,7 +51,11 @@ interface Row {
   count: number;
 }
 
-export function ViolationBreakdownChart({ data, onBarClick, labels }: ViolationBreakdownChartProps) {
+export function ViolationBreakdownChart({
+  data,
+  onBarClick,
+  labels,
+}: ViolationBreakdownChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [tokens, setTokens] = useState<CommonChartTokens>(FALLBACK_COMMON_CHART_TOKENS);
   const [barColor, setBarColor] = useState(FALLBACK_COMMON_CHART_TOKENS.grid);
@@ -75,7 +83,11 @@ export function ViolationBreakdownChart({ data, onBarClick, labels }: ViolationB
             layout="vertical"
             margin={{ top: 8, right: 16, left: 8, bottom: 0 }}
           >
-            <CartesianGrid stroke={tokens.grid} strokeDasharray="3 3" horizontal={false} />
+            <CartesianGrid
+              stroke={tokens.grid}
+              strokeDasharray="3 3"
+              horizontal={false}
+            />
             <XAxis
               type="number"
               stroke={tokens.axis}
@@ -90,8 +102,16 @@ export function ViolationBreakdownChart({ data, onBarClick, labels }: ViolationB
               tick={{ fontSize: tokens.fontSize, fill: tokens.axis }}
               tickLine={false}
             />
-            <Tooltip {...tooltipStyle(tokens)} formatter={(value) => [value, labels.countColumn]} />
-            <Bar dataKey="count" fill={barColor} radius={[0, 4, 4, 0]} isAnimationActive={false}>
+            <Tooltip
+              {...tooltipStyle(tokens)}
+              formatter={(value) => [value, labels.countColumn]}
+            />
+            <Bar
+              dataKey="count"
+              fill={barColor}
+              radius={[0, 4, 4, 0]}
+              isAnimationActive={false}
+            >
               {rows.map((row) => (
                 <Cell
                   key={row.categoryId}
@@ -104,23 +124,29 @@ export function ViolationBreakdownChart({ data, onBarClick, labels }: ViolationB
         </ResponsiveContainer>
       </div>
 
-      <table className="ux4g-sr-only">
-        <caption>{labels.heading}</caption>
-        <thead>
-          <tr>
-            <th scope="col">{labels.categoryColumn}</th>
-            <th scope="col">{labels.countColumn}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.categoryId}>
-              <th scope="row">{row.category}</th>
-              <td>{row.count}</td>
+      {/* The sr-only class sits on a wrapper div, not the table itself: a table's
+          used width is driven by its content, so `width: 1px` does not actually
+          constrain it and the hidden table pushed the whole page into horizontal
+          scroll on a 375px screen. A div honours the width and clips it. */}
+      <div className="ux4g-sr-only">
+        <table>
+          <caption>{labels.heading}</caption>
+          <thead>
+            <tr>
+              <th scope="col">{labels.categoryColumn}</th>
+              <th scope="col">{labels.countColumn}</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.categoryId}>
+                <th scope="row">{row.category}</th>
+                <td>{row.count}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

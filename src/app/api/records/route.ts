@@ -26,6 +26,7 @@ export async function GET(request: Request) {
     violationCategoryIds: params.getAll(
       "violationCategoryIds"
     ) as RecordFilters["violationCategoryIds"],
+    batchIds: params.getAll("batchIds"),
     ...(params.get("query") ? { query: params.get("query")! } : {}),
     ...(params.get("dateFrom") ? { dateFrom: params.get("dateFrom")! } : {}),
     ...(params.get("dateTo") ? { dateTo: params.get("dateTo")! } : {}),

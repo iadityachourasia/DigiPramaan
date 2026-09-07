@@ -19,7 +19,11 @@ import {
   tooltipStyle,
   type CommonChartTokens,
 } from "@/lib/utils/chartTheme";
-import type { CategoryBreakdownEntry, ComplianceStatus, ProductCategory } from "@/types";
+import type {
+  CategoryBreakdownEntry,
+  ComplianceStatus,
+  ProductCategory,
+} from "@/types";
 
 /**
  * CategoryAnalysisChart — violations by product category
@@ -40,7 +44,11 @@ export interface CategoryAnalysisChartProps {
   };
 }
 
-export function CategoryAnalysisChart({ data, onBarClick, labels }: CategoryAnalysisChartProps) {
+export function CategoryAnalysisChart({
+  data,
+  onBarClick,
+  labels,
+}: CategoryAnalysisChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [tokens, setTokens] = useState<CommonChartTokens>(FALLBACK_COMMON_CHART_TOKENS);
   const [compliantColor, setCompliantColor] = useState("#16a34a");
@@ -49,8 +57,12 @@ export function CategoryAnalysisChart({ data, onBarClick, labels }: CategoryAnal
   useEffect(() => {
     if (!containerRef.current) return;
     setTokens(readCommonChartTokens(containerRef.current));
-    setCompliantColor(readToken(containerRef.current, "--ux4g-bg-success-strong", "#16a34a"));
-    setNonCompliantColor(readToken(containerRef.current, "--ux4g-bg-error-strong", "#dc2626"));
+    setCompliantColor(
+      readToken(containerRef.current, "--ux4g-bg-success-strong", "#16a34a")
+    );
+    setNonCompliantColor(
+      readToken(containerRef.current, "--ux4g-bg-error-strong", "#dc2626")
+    );
   }, []);
 
   return (
@@ -98,25 +110,31 @@ export function CategoryAnalysisChart({ data, onBarClick, labels }: CategoryAnal
         </ResponsiveContainer>
       </div>
 
-      <table className="ux4g-sr-only">
-        <caption>{labels.heading}</caption>
-        <thead>
-          <tr>
-            <th scope="col">{labels.categoryColumn}</th>
-            <th scope="col">{labels.compliantSeries}</th>
-            <th scope="col">{labels.nonCompliantSeries}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.map((row) => (
-            <tr key={row.category}>
-              <th scope="row">{row.category}</th>
-              <td>{row.compliant}</td>
-              <td>{row.nonCompliant}</td>
+      {/* The sr-only class sits on a wrapper div, not the table itself: a table's
+          used width is driven by its content, so `width: 1px` does not actually
+          constrain it and the hidden table pushed the whole page into horizontal
+          scroll on a 375px screen. A div honours the width and clips it. */}
+      <div className="ux4g-sr-only">
+        <table>
+          <caption>{labels.heading}</caption>
+          <thead>
+            <tr>
+              <th scope="col">{labels.categoryColumn}</th>
+              <th scope="col">{labels.compliantSeries}</th>
+              <th scope="col">{labels.nonCompliantSeries}</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {data.map((row) => (
+              <tr key={row.category}>
+                <th scope="row">{row.category}</th>
+                <td>{row.compliant}</td>
+                <td>{row.nonCompliant}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

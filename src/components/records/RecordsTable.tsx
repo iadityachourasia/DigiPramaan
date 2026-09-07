@@ -21,6 +21,14 @@ export interface RecordsTableProps {
   onToggleRow: (id: string) => void;
   onToggleAll: () => void;
   showSelection: boolean;
+  /**
+   * Drops the Manufacturer column. The Manufacturer Scorecard (09 §4) asks
+   * for "the exact Compliance Records column shape", but on a page already
+   * scoped to one manufacturer that column repeats the same value down every
+   * row — so the shape is reused with the one redundant column removed,
+   * rather than the table being forked.
+   */
+  hideManufacturerColumn?: boolean;
   canArchive: boolean;
   onArchive: (record: ComplianceRecord) => void;
   onReScan: (record: ComplianceRecord) => void;
@@ -63,6 +71,7 @@ export function RecordsTable({
   onToggleRow,
   onToggleAll,
   showSelection,
+  hideManufacturerColumn = false,
   canArchive,
   onArchive,
   onReScan,
@@ -71,7 +80,7 @@ export function RecordsTable({
   labels,
   onClearFilters,
 }: RecordsTableProps) {
-  const columns: DataTableColumn<ComplianceRecord>[] = [
+  const columns: (DataTableColumn<ComplianceRecord> | null)[] = [
     {
       key: "thumbnail",
       header: labels.columnThumbnail,
@@ -91,11 +100,13 @@ export function RecordsTable({
         </>
       ),
     },
-    {
-      key: "manufacturer",
-      header: labels.columnManufacturer,
-      render: (record) => record.manufacturerName,
-    },
+    hideManufacturerColumn
+      ? null
+      : {
+          key: "manufacturer",
+          header: labels.columnManufacturer,
+          render: (record) => record.manufacturerName,
+        },
     {
       key: "scanDate",
       header: labels.columnScanDate,
@@ -178,7 +189,7 @@ export function RecordsTable({
 
   return (
     <DataTable
-      columns={columns}
+      columns={columns.filter((column): column is DataTableColumn<ComplianceRecord> => column !== null)}
       rows={records}
       getRowKey={(record) => record.id}
       size="m"

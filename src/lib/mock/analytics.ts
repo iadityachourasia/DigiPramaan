@@ -26,6 +26,7 @@ import type {
   TrendPoint,
   ViolationBreakdownEntry,
 } from "@/types";
+import { ROUTES } from "@/lib/constants";
 import { SOURCE_TAGS, VIOLATION_CATEGORY_IDS } from "@/types";
 
 import { MOCK_ACTIVE_RECORDS } from "./records";
@@ -197,7 +198,15 @@ export const MOCK_DASHBOARD_ALERTS: readonly DashboardAlert[] = [
     severity: "error",
     message:
       "Ganga Beverages Ltd has crossed the repeat-violation threshold with 3 Non-Compliant records in 90 days.",
-    href: "/manufacturers/mfr-002",
+    /*
+     * FIXED: was the hardcoded string "/manufacturers/mfr-002". Now built
+     * from `ROUTES`, so this deep link moves with the route rather than
+     * silently rotting if the path changes. The message's "3 Non-Compliant
+     * records in 90 days" stays static illustrative copy — page 2's alerts
+     * are documented as fixtures, and the scorecard itself renders the live
+     * count from `REPEAT_VIOLATION_THRESHOLD`.
+     */
+    href: ROUTES.manufacturerDetail("mfr-002"),
   },
   {
     id: "alert-003",

@@ -225,7 +225,13 @@ One page with tabs, rather than three separate pages:
   pattern as existing Archive actions elsewhere).
 - **Tab: Rule Thresholds** — the existing matrix's stretch item "Manage
   rule thresholds": OCR confidence threshold that triggers Gemini
-  fallback, font-size tolerance if any, compliance score band cutoffs.
+  fallback, font-size tolerance if any, compliance score band cutoffs, and
+  the **repeat-violation threshold** (`REPEAT_VIOLATION_THRESHOLD` in
+  `src/types/manufacturer.ts` — 3 Non-Compliant records within 90 days,
+  what the Manufacturer Scorecard flags on). That one is a frozen constant
+  today; its own doc comment already calls it Admin-editable per BRD §9.5,
+  and this tab is where that edit path belongs rather than a second,
+  competing settings mechanism built for one number.
   Changes here should themselves be audit-logged (add
   `rule_threshold_changed` to `AuditEventType` when this ships).
 - **Tab: System** — active locales, max upload size (already a

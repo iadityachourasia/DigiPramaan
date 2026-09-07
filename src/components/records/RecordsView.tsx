@@ -205,6 +205,7 @@ export function RecordsView({ locale }: { locale: string }) {
             t("filters.chip.violation", {
               value: violationCategory(value as ViolationCategoryId).category,
             }),
+          batchChipLabel: (value) => t("filters.chip.batch", { value }),
           queryChipLabel: (value) => t("filters.chip.query", { value }),
           dateFromChipLabel: (value) => t("filters.chip.dateFrom", { value }),
           dateToChipLabel: (value) => t("filters.chip.dateTo", { value }),

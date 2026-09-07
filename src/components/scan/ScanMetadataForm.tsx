@@ -27,6 +27,9 @@ export interface ScanMetadataFormProps {
   onSubmit: (values: ScanMetadata) => void;
   labels: {
     heading: string;
+    productNameLabel: string;
+    productNameHint: string;
+    productNameTooLong: string;
     categoryLabel: string;
     categoryRequired: string;
     manufacturerLabel: string;
@@ -63,6 +66,7 @@ export function ScanMetadataForm({ onSubmit, labels, formId, defaultValues }: Sc
         categoryRequired: labels.categoryRequired,
         regionRequired: labels.regionRequired,
         ecommerceUrlInvalid: labels.ecommerceUrlInvalid,
+        productNameTooLong: labels.productNameTooLong,
       })
     ),
     ...(defaultValues ? { defaultValues } : {}),
@@ -72,6 +76,7 @@ export function ScanMetadataForm({ onSubmit, labels, formId, defaultValues }: Sc
     onSubmit({
       category: values.category,
       region: values.region,
+      ...(values.productName ? { productName: values.productName } : {}),
       ...(values.manufacturerName ? { manufacturerName: values.manufacturerName } : {}),
       ...(values.ecommerceListingUrl
         ? { ecommerceListingUrl: values.ecommerceListingUrl }
@@ -82,6 +87,14 @@ export function ScanMetadataForm({ onSubmit, labels, formId, defaultValues }: Sc
   return (
     <form id={formId} onSubmit={submit} className="lmcs-form-grid" noValidate>
       <h2 className="ux4g-title-m-strong">{labels.heading}</h2>
+
+      <TextField
+        id="scan-product-name"
+        label={labels.productNameLabel}
+        hint={labels.productNameHint}
+        {...(errors.productName?.message ? { error: errors.productName.message } : {})}
+        {...register("productName")}
+      />
 
       <Select
         id="scan-category"

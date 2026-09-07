@@ -1227,3 +1227,156 @@
   flex-wrap: wrap;
   gap: var(--ux4g-gap-column-m);
 }
+
+/* ─── E-commerce Listing Scanner (src/components/ecommerce/*.tsx) ─── */
+
+.lmcs-ecommerce-mode {
+  display: inline-flex;
+  gap: var(--ux4g-gap-column-2xs);
+}
+
+.lmcs-ecommerce-input-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--ux4g-gap-column-m);
+}
+
+.lmcs-ecommerce-input-row > * {
+  min-width: 14rem;
+}
+
+.lmcs-ecommerce-input-row > *:first-child {
+  flex: 1 1 22rem;
+}
+
+.lmcs-ecommerce-bulk-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ux4g-gap-column-m);
+}
+
+.lmcs-listing-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ux4g-gap-column-m);
+}
+
+.lmcs-listing-preview-img {
+  width: 160px;
+  height: 160px;
+  object-fit: cover;
+  border-radius: var(--ux4g-radius-sm);
+  flex-shrink: 0;
+}
+
+.lmcs-listing-preview-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-2xs);
+  flex: 1 1 18rem;
+}
+
+/* A listing URL is long and unbreakable — let it wrap rather than widen the card. */
+.lmcs-listing-preview-url {
+  overflow-wrap: anywhere;
+}
+
+.lmcs-batch-status-cell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-2xs);
+}
+
+.lmcs-batch-summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-2xs);
+}
+
+.lmcs-batch-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ux4g-gap-column-m);
+}
+
+/* Manufacturer Compliance Scorecard (page 9) */
+
+.lmcs-scorecard-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--ux4g-gap-row-m) var(--ux4g-gap-column-m);
+}
+
+@media (min-width: 640px) {
+  .lmcs-scorecard-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .lmcs-scorecard-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.lmcs-scorecard-card {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+}
+
+.lmcs-scorecard-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-xs);
+}
+
+/* Two stat pairs side by side, so name and numbers read as one block. */
+.lmcs-scorecard-card-stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--ux4g-gap-column-m);
+  margin: 0;
+}
+
+.lmcs-scorecard-card-stats dt,
+.lmcs-scorecard-card-stats dd {
+  margin: 0;
+}
+
+.lmcs-scorecard-card-flag {
+  display: flex;
+  align-items: center;
+  gap: var(--ux4g-gap-column-2xs);
+}
+
+.lmcs-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--ux4g-padding-m);
+  background-color: var(--ux4g-bg-overlay);
+  z-index: var(--ux4g-z-index-40);
+}
+
+.lmcs-dialog {
+  width: 100%;
+  max-width: 32rem;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.lmcs-dialog-record-list {
+  margin: 0;
+  padding-left: var(--ux4g-padding-l);
+}
+
+.lmcs-dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ux4g-gap-column-m);
+}

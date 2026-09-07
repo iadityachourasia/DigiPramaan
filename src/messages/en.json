@@ -498,6 +498,9 @@
     },
     "metadata": {
       "heading": "Product details",
+      "productNameLabel": "Product name (optional)",
+      "productNameHint": "Leave blank to use the manufacturer and category instead.",
+      "productNameTooLongError": "Product name must be {max} characters or fewer.",
       "categoryLabel": "Product category",
       "categoryRequiredError": "Choose a product category.",
       "manufacturerLabel": "Manufacturer",
@@ -639,6 +642,7 @@
         "manufacturer": "Manufacturer: {value}",
         "source": "Source: {value}",
         "violation": "Violation: {value}",
+        "batch": "Batch: {value}",
         "query": "Search: {value}",
         "dateFrom": "From: {value}",
         "dateTo": "To: {value}"
@@ -794,6 +798,173 @@
       "heading": "Anomaly / hotspot alerts",
       "emptyTitle": "No anomalies detected in the current period",
       "view": "View"
+    }
+  },
+  "ecommerce": {
+    "meta": { "title": "E-commerce Listing Scanner" },
+    "heading": "E-commerce Listing Scanner",
+    "description": "Check a product sold online, with no physical pack in hand.",
+    "noAccessTitle": "You do not have access to create scans",
+    "noAccessBody": "Your role has full read access to compliance records, but cannot start a new scan.",
+    "modeLabel": "Scan mode",
+    "mode": {
+      "single": "Single listing",
+      "bulk": "Bulk (category page)"
+    },
+    "scopeNote": {
+      "title": "For listings with no physical photo",
+      "body": "Use this page when the scan starts from an online listing and there is no photograph of the pack. If you have already photographed a product and want to note that it is also sold online, use the e-commerce URL field on Scan / Upload Product instead."
+    },
+    "categoryLabel": "Product category",
+    "regionLabel": "Inspection region",
+    "fetch": "Fetch listing",
+    "fetching": "Fetching…",
+    "single": {
+      "heading": "Scan a product listing",
+      "urlLabel": "Product listing URL",
+      "urlHint": "Paste the link to a single product page.",
+      "scanAction": "Scan Listing",
+      "scanning": "Starting scan…"
+    },
+    "bulk": {
+      "heading": "Scan a category or search page",
+      "urlLabel": "Category or search-results URL",
+      "urlHint": "Paste a category or search page — every product listing found on it is queued.",
+      "queueHeading": "Listings found",
+      "columnListing": "Listing",
+      "columnStatus": "Status",
+      "columnAction": "Action",
+      "selectAll": "Select all listings",
+      "selectRow": "Select {title}",
+      "selectedCount": "{count} of {total} selected",
+      "scanAction": "Scan Selected",
+      "scanning": "Starting scans…",
+      "viewProgress": "View progress",
+      "viewRecord": "View record"
+    },
+    "preview": {
+      "heading": "What we retrieved",
+      "sourceUrl": "Source"
+    },
+    "status": {
+      "queued": "Queued",
+      "scanning": "Scanning",
+      "done": "Done",
+      "failed": "Failed"
+    },
+    "failure": {
+      "invalid_url": {
+        "title": "That URL could not be reached",
+        "body": "Check the link and try again. It must be a full address starting with https://."
+      },
+      "unrecognized": {
+        "title": "Couldn't identify a product on this page",
+        "body": "The page loaded, but no product listing was found on it. Check that the link points at a single product page."
+      },
+      "empty": {
+        "title": "No listings found at this URL",
+        "body": "The page loaded, but no individual product listings were found on it. Check that the link points at a category or search-results page."
+      },
+      "rate_limited": {
+        "title": "The platform blocked this request",
+        "body": "This marketplace rate-limits automated requests. Wait a few minutes and try again — this is a limit set by the platform, not a fault in the scan."
+      }
+    },
+    "batch": {
+      "metaTitle": "Batch",
+      "heading": "Batch progress",
+      "description": "Each listing is scanned independently — one failure does not affect the rest.",
+      "sourceUrl": "Scanned from",
+      "progress": "{done} done, {failed} failed, of {total} listings",
+      "viewInRecords": "View this batch in Compliance Records",
+      "backToScanner": "Back to E-commerce Scanner",
+      "notFoundTitle": "Batch not found",
+      "notFoundBody": "This batch could not be found. It may have expired, or the link may be incorrect."
+    }
+  },
+  "manufacturers": {
+    "meta": { "title": "Manufacturer Scorecards" },
+    "heading": "Manufacturer Compliance Scorecards",
+    "description": "Compliance history grouped by manufacturer, so repeat patterns are visible across products rather than one scan at a time.",
+    "errorTitle": "Scorecards could not be loaded",
+    "errorBody": "Something went wrong loading manufacturer data. Try again.",
+    "retryLabel": "Try again",
+    "exactMatchNote": "Manufacturer names are matched exactly. Two spellings of the same company appear as two manufacturers here, which can undercount a repeat offender.",
+    "search": {
+      "heading": "Search manufacturers",
+      "label": "Search manufacturers",
+      "placeholder": "Manufacturer name"
+    },
+    "grid": {
+      "heading": "Manufacturer scorecards",
+      "emptyTitle": "No manufacturers yet",
+      "emptyBody": "Manufacturers appear here once their products have been scanned.",
+      "noMatchTitle": "No manufacturers match that search",
+      "noMatchBody": "Check the spelling, or clear the search to see all manufacturers."
+    },
+    "card": {
+      "productsScanned": "Products scanned",
+      "complianceRate": "Compliance rate",
+      "lastScanned": "Last scanned",
+      "never": "Never",
+      "repeatViolation": "Repeat-violation threshold crossed"
+    },
+    "detail": {
+      "metaTitle": "Manufacturer Scorecard",
+      "scannedRange": "Scanned from {from} to {to}",
+      "neverScanned": "No scans recorded for this manufacturer yet.",
+      "notFoundTitle": "Manufacturer not found",
+      "notFoundBody": "No manufacturer matches this link. It may be incorrect, or the manufacturer may have been removed.",
+      "backToList": "Back to all manufacturers"
+    },
+    "summary": {
+      "productsScanned": "Products scanned",
+      "complianceRate": "Compliance rate",
+      "complianceRateCaption": "Share of verified products found Compliant",
+      "averageScore": "Average compliance score",
+      "averageScoreCaption": "Mean across {count, plural, one {# verified product} other {# verified products}}"
+    },
+    "flag": {
+      "title": "Repeat violations",
+      "message": "{count, plural, one {# Non-Compliant record} other {# Non-Compliant records}} in the last {days} days.",
+      "errorTitle": "Could not flag for enforcement",
+      "errorBody": "The request failed. Nothing was changed. Try again.",
+      "skippedTitle": "Some records could not be flagged",
+      "skippedBody": "{count, plural, one {# record} other {# records}} could not be updated because they are demonstration seed data with no editable backing record. Every other qualifying record was flagged.",
+      "dialogTitle": "Flag this manufacturer for enforcement?",
+      "dialogBody": "This flags {count, plural, one {# Non-Compliant record} other {# Non-Compliant records}} for {manufacturer}. Each record's audit trail will record that it was flagged as part of a manufacturer-level action. This cannot be undone.",
+      "dialogRecordsHeading": "Records that will be flagged",
+      "dialogConfirm": "Flag for enforcement",
+      "dialogConfirming": "Flagging…",
+      "dialogCancel": "Cancel"
+    },
+    "trend": {
+      "heading": "Compliance rate over time",
+      "dateColumn": "Scan date",
+      "rateColumn": "Compliance rate",
+      "sampleSizeColumn": "Products scanned so far",
+      "thinDataNote": "Only one verified scan so far — not enough history to show a trend. This is a single data point, not a stable record.",
+      "emptyTitle": "No verified scans yet",
+      "emptyBody": "The compliance rate appears here once at least one product from this manufacturer has been verified."
+    },
+    "violations": {
+      "heading": "Violation types",
+      "countColumn": "Violations",
+      "categoryColumn": "Violation category",
+      "emptyTitle": "No violations recorded for this manufacturer"
+    },
+    "products": {
+      "heading": "Products",
+      "emptyTitle": "No records found for this manufacturer",
+      "emptyBody": "Products appear here once they have been scanned."
+    },
+    "actions": {
+      "heading": "Manufacturer actions",
+      "viewFullHistory": "View full history",
+      "flagForEnforcement": "Flag for enforcement",
+      "alreadyFlagged": "Already flagged for enforcement",
+      "exportScorecard": "Export scorecard",
+      "exportNote": "Export opens the Reports page with this manufacturer pre-selected."
     }
   }
 }
