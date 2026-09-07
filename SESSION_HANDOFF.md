@@ -10,9 +10,32 @@ non-negotiables) and, if backend work is the ask, `BACKEND_HANDOFF.md`
 (the complete current-state document — data model, API surface, mock-vs-
 real gap list, recommended architecture).
 
-**Repository state at time of writing:** branch `master`, HEAD `ed5ceba`
-("Add jurisdiction-scoped visibility across Records, Analytics and
-Scorecard (13 §4)"), working tree clean.
+**Repository state at time of writing:** branch `master`, HEAD `885808c`
+("Build the five statutory footer pages (GIGW 3.0)"), working tree clean.
+
+**Full commit history, oldest first** (for orientation — each is a real,
+working checkpoint that passed `npm run verify` + tests before being
+committed):
+
+```
+927d5c5  Baseline: Phase 1 foundation plus route scaffolding
+0ee0e92  Repair design-token regressions and clear the verify gate
+7510012  Add the public landing page, and lift auth above both route groups
+2431d9f  Build the Login page with all seven states, and fix a hidden-error bug
+cd1d994  Role-gate the shell navigation, and fix invisible icons app-wide
+ff29ddc  Build the Dashboard page, and fix two colour bugs it exposed
+e846440  Build Scan/Upload through Product Compliance Detail (pages 3-6)
+08cf3f9  Build Analytics & Violation Trends (page 7)
+0ac8c45  Build the E-commerce Listing Scanner and Manufacturer Scorecard (pages 8-9)
+5cc5a20  Build Reports & Profile with real PDF and DOCX generation (page 10)
+105a671  Build the Citizen Grievance Portal (page 11)
+f7ef9d3  Route every mutation through one central activity log
+ee639f4  Build the Global Activity Log (13 §3.2)
+9860d1c  Add BACKEND_HANDOFF.md, a zero-context backend handoff document
+ed5ceba  Add jurisdiction-scoped visibility across Records, Analytics and Scorecard (13 §4)
+735d9ff  Add SESSION_HANDOFF.md for resuming this build in a fresh session
+885808c  Build the five statutory footer pages (GIGW 3.0)   ← HEAD
+```
 
 ---
 
@@ -30,7 +53,139 @@ Matrix, build order); `01` through `11` are one file per page; `13` is the
 "Addendum" covering extraction transparency, report export, history/audit,
 and Hierarchical Management (jurisdiction). There is no `12` file.
 
-## 2. How this build actually works — the discipline to keep
+## 2. Project structure, annotated
+
+```
+Digi-Pramaan/
+├── CLAUDE.md                    # Build non-negotiables — read every session
+├── BACKEND_HANDOFF.md           # What the system IS: full data model, every API
+│                                 route's exact shape, mock-vs-real gap list,
+│                                 recommended backend architecture. ~2600 lines.
+├── SESSION_HANDOFF.md           # This file — how the work has progressed.
+├── docs/
+│   ├── Design.md                 # Authoritative design contract
+│   ├── UX4G_BRD_Template.md      # The Business Requirements Document — §9.4 is
+│   │                              # the footer/GIGW mandate, §11 is brand/tone,
+│   │                              # §15 is the numbered list of open BRD questions
+│   │                              # (Q-01 through Q-08) referenced throughout the
+│   │                              # code as "BRD §15 Q-0N is unresolved"
+│   └── _archive/                 # Historical/flagged-unreliable — never authoritative
+├── Pages_Userflow/
+│   ├── 00-README.md              # Cross-cutting contract: status model (§A),
+│   │                              # violation taxonomy (§B), Role Permission
+│   │                              # Matrix (§C), fixed vocabulary (§D), build order
+│   ├── 01-login.md … 11-citizen-grievance-portal.md   # One spec file per page
+│   └── 13-history-and-hierarchy.md   # Addendum: extraction transparency (§1),
+│                                       # report export (§2), history/audit (§3),
+│                                       # Hierarchical Management/jurisdiction (§4).
+│                                       # No file numbered 12.
+├── .claude/
+│   └── skills/ux4g-design/       # IMPLEMENTATION_GUIDE.md, DESIGN_SYSTEM.md,
+│                                   # ACCESSIBILITY_AND_QA.md, VISUAL_QA_LOOP.md —
+│                                   # loads automatically; read before any UI work
+├── src/
+│   ├── app/[locale]/
+│   │   ├── (public)/             # No auth. Login, landing, Grievance Portal, and
+│   │   │   │                      # the five statutory pages (accessibility,
+│   │   │   │                      # privacy, terms, rti, help). Shares one layout:
+│   │   │   │                      # PublicMasthead + Footer, no sidebar.
+│   │   │   ├── layout.tsx
+│   │   │   ├── page.tsx           # Landing page
+│   │   │   ├── login/, grievance/
+│   │   │   └── accessibility/, privacy/, terms/, rti/, help/
+│   │   ├── (auth)/                # Behind RequireAuth (client-side only, not a
+│   │   │   │                      # security boundary — see its own doc comment).
+│   │   │   │                      # AppShell: Sidebar + Header + Footer.
+│   │   │   ├── dashboard/         # STATIC FIXTURES ONLY — §6 below is the next task
+│   │   │   ├── scan/, scan/[id]/status/
+│   │   │   ├── extraction/[id]/
+│   │   │   ├── records/, records/[id]/
+│   │   │   ├── analytics/
+│   │   │   ├── ecommerce/, ecommerce/batch/[batchId]/
+│   │   │   ├── manufacturers/, manufacturers/[id]/
+│   │   │   ├── reports/, profile/
+│   │   │   └── activity/          # Global Activity Log (13 §3.2)
+│   │   ├── (capture)/scan/mobile/, scan/mobile/[token]/   # No shell — phone-only
+│   │   └── api/                   # 34 real Route Handlers — see BACKEND_HANDOFF §3
+│   │       ├── records/, records/[id]/{verify,corrections,needs-review,
+│   │       │   flag-enforcement,archive,retry-ocr}/, records/bulk/needs-review/
+│   │       ├── scan-pipelines/, scan-pipelines/[scanId]/retry/[stageId]/
+│   │       ├── mobile-sessions/ (+ [token]/{connect,capture})
+│   │       ├── grievances/, grievances/[reference]/     # THE public endpoint
+│   │       ├── analytics/
+│   │       ├── manufacturers/, manufacturers/[id]/{scorecard,flag-enforcement}/
+│   │       ├── reports/, reports/generate/, reports/scope/, reports/[id]/,
+│   │       │   reports/[id]/download/[format]/, reports/runs/[runId]/(+retry)
+│   │       ├── ecommerce/{scrape,scan,batches}/, ecommerce/batches/[batchId]/
+│   │       └── activity/
+│   ├── types/                     # The domain model — import from "@/types" (barrel)
+│   │   ├── vocabulary.ts          # Every fixed enum: statuses, roles, source tags,
+│   │   │                          # the 10-category violation taxonomy, confidence bands
+│   │   ├── user.ts                # User, Session, Permission, ROLE_PERMISSIONS
+│   │   ├── jurisdiction.ts        # NEW (this session) — Jurisdiction, JurisdictionLevel
+│   │   ├── scan.ts                # UploadedImage, pipeline stages, ScanMetadata,
+│   │   │                          # ExtractedDeclaration, e-commerce scraping types
+│   │   ├── compliance.ts          # ComplianceRecord (the spine of the product),
+│   │   │                          # DeclarationCheck, Violation, ComplianceScore
+│   │   ├── history.ts             # ActivityEvent (17 types), the rich audit log's
+│   │   │                          # own vocabulary — distinct from compliance.ts's
+│   │   │                          # coarser AuditEvent (7 types)
+│   │   ├── grievance.ts           # Citizen portal types, PII-separation design
+│   │   ├── manufacturer.ts, report.ts, analytics.ts
+│   │   └── index.ts               # export * from every module above
+│   ├── lib/
+│   │   ├── server/                # In-memory stores behind the API routes.
+│   │   │   │                      # ALL reset on server restart. See §7.
+│   │   │   ├── scan-pipeline-store.ts   # 1600+ lines, THE primary store.
+│   │   │   │                            # getAllActiveRecords() is the one choke
+│   │   │   │                            # point listRecords/computeAnalyticsSummary/
+│   │   │   │                            # the scorecard chain all read through.
+│   │   │   │                            # scopeRecordsForViewer() and reassignCase()
+│   │   │   │                            # (this session's jurisdiction work) live here.
+│   │   │   ├── audit-store.ts     # The central activity log. ONE write path:
+│   │   │   │                      # emitActivityEvent(). listActivity() backs the
+│   │   │   │                      # Global Activity Log's query surface.
+│   │   │   ├── mobile-session-store.ts   # QR handoff sessions — sound design,
+│   │   │   │                              # see BACKEND_HANDOFF.md §8.3
+│   │   │   ├── grievance-store.ts # Citizen submissions + the demo-grade rate limit
+│   │   │   ├── ecommerce-store.ts, report-store.ts, report-render.ts (REAL PDF/DOCX)
+│   │   ├── api/                   # Client-side fetch wrappers. Some gated by
+│   │   │   │                      # isMockMode(), some (server-authoritative
+│   │   │   │                      # surfaces) never gated — see file-level comments
+│   │   │   ├── records.ts, analytics.ts, manufacturers.ts, activity.ts,
+│   │   │   │   reports.ts, scans.ts, auth.ts, grievances.ts, ecommerce.ts
+│   │   ├── hooks/                 # useRecordsList, useAnalyticsData, useManufacturers,
+│   │   │   │                      # useScanPipeline, useMobileHandoffSession,
+│   │   │   │                      # useAuth/usePermission/useHasRole, useActivityLog
+│   │   ├── mock/                  # Fixture data — "matches the shape the real API
+│   │   │   │                      # is expected to return" per its own header comment
+│   │   │   ├── users.ts           # 5 mock accounts (3 original + 2 jurisdiction test)
+│   │   │   ├── jurisdictions.ts   # NEW (this session) — 19 rows, regionNamesVisibleTo()
+│   │   │   ├── records.ts         # 12 seed ComplianceRecords, hand-built from a
+│   │   │   │                      # compact RecordSeed[] so derived fields can't drift
+│   │   │   ├── reference.ts       # INSPECTION_REGIONS (18 states), MOCK_MANUFACTURERS
+│   │   │   ├── analytics.ts, manufacturers.ts, ecommerce.ts, reports.ts, grievances.ts
+│   │   ├── constants/             # routes.ts (ROUTES + SIDEBAR_NAV), api-endpoints.ts
+│   │   └── utils/                 # format.ts, photoQuality.ts (real canvas analysis),
+│   │                               # shortCode.ts (mobile tokens + grievance refs)
+│   ├── components/                # One directory per page/feature area, plus:
+│   │   ├── shared/                # PageHeader, DataTable, EmptyState, ErrorState,
+│   │   │                          # Pagination, FilterChip, Skeleton, RequireAuth
+│   │   ├── layout/                # AppShell, Sidebar, Header, Footer, PublicMasthead
+│   │   └── ui/                    # Low-level: Select, TextField, Alert, MetricCard…
+│   ├── messages/en.json, hi.json  # ALL user-facing strings. Structural parity
+│   │                               # enforced by npm run i18n:check. Hindi stays
+│   │                               # mostly untranslated placeholders (1009 keys) —
+│   │                               # that's expected, the check is structural only.
+│   └── styles/                    # tokens.css (reference only, not imported),
+│                                    # layout.css, typography.css, home.css
+├── tests/
+│   ├── unit/          # vitest — audit-store, jurisdiction, mock-data, format, vocabulary
+│   └── e2e/           # playwright — login, dashboard, shell (nav/role gating)
+└── scripts/           # verify-tokens.mjs, sync-locales.mjs, visual-qa.mjs, generate-placeholders.mjs
+```
+
+## 3. How this build actually works — the discipline to keep
 
 This matters as much as the code. Every substantial change in this
 project's history followed the same cycle, and departing from it is a
@@ -70,24 +225,29 @@ regression in process even if the code is fine:
    mocked, what's a placeholder, what's a known limitation — and new work
    should match that voice, not paper over gaps.
 
-## 3. What's built — current status
+## 4. What's built — current status
 
-All 11 numbered pages plus the two unnumbered ones from spec addendum 13
-are built: Login, Dashboard, Scan/Upload (+ Mobile Capture + Processing
-Pipeline Tracker), Extraction & Verification, Compliance Records, Product
-Compliance Detail, Analytics, E-commerce Listing Scanner, Manufacturer
-Scorecard, Reports & Profile, Citizen Grievance Portal, and the Global
-Activity Log. **Not built:** the Admin Console (13 §4.3) and the five
-statutory footer pages (accessibility/privacy/terms/rti/help — linked,
-404 today).
+All 11 numbered pages plus the two unnumbered ones from spec addendum 13,
+**plus the five statutory footer pages**, are built: Login, Dashboard,
+Scan/Upload (+ Mobile Capture + Processing Pipeline Tracker), Extraction &
+Verification, Compliance Records, Product Compliance Detail, Analytics,
+E-commerce Listing Scanner, Manufacturer Scorecard, Reports & Profile,
+Citizen Grievance Portal, the Global Activity Log, and Accessibility
+Statement / Privacy Policy / Terms of Use / Right to Information / Help.
+**Not built:** only the Admin Console (13 §4.3) and Jurisdiction Session 2
+(Dashboard's live-wiring + scoping + roll-up table, see §6) remain.
 
 Full per-page status, access-control detail (nav-hiding vs. genuine
 page-level enforcement, checked per page), and the complete data model and
 API surface are in **`BACKEND_HANDOFF.md`** — do not re-derive this by
 re-reading every file; that document was built exactly that way and is
-current as of `ee639f4`. Two things changed since it was written (below).
+current as of `ee639f4`. Three things changed since it was written (§5
+below): the document itself was added, jurisdiction scoping landed, and
+the five statutory pages were built (BACKEND_HANDOFF.md's own §1 still
+lists them as not built — that line is now stale, everything else in it
+still holds).
 
-## 4. The most recent two pieces of work
+## 5. Recent work, chronological order
 
 ### a) `BACKEND_HANDOFF.md` (commit `9860d1c`)
 
@@ -112,7 +272,7 @@ Spec: `Pages_Userflow/13-history-and-hierarchy.md` §4 (Hierarchical
 Management). This added `Jurisdiction` as an organizational dimension
 orthogonal to role, and scoped **Compliance Records, Analytics, and the
 Manufacturer Scorecard** by it. **Dashboard was deliberately left
-untouched** — see §5 below, this is the very next task.
+untouched** — see §6 below, this is the very next task.
 
 **The reconciliation that shaped everything:** every existing `region`
 value (`INSPECTION_REGIONS`, every seed record, every mock user's
@@ -202,7 +362,52 @@ live data wiring for this work to have touched. **Worth a glance early in
 Session 2**, since that's exactly where Dashboard's data layer gets
 rebuilt.
 
-## 5. The next task — Jurisdiction Session 2
+### c) The five statutory footer pages (commit `885808c`)
+
+Spec: BRD §9.4 / GIGW 3.0. `Footer.tsx` has linked to
+`/accessibility`, `/privacy`, `/terms`, `/rti`, `/help` since the shell
+was built — all five 404'd until this commit. Small, self-contained, no
+plan-mode cycle was used for this one (the user asked for it directly
+rather than via "Plan mode —").
+
+Each page reuses the existing `(public)` route group's layout (no new
+layout component) — a thin async Server Component per page
+(`generateMetadata` + a `<main>` of `<section>` blocks), following the
+Citizen Grievance Portal's exact markup shape. No spec file covers their
+actual content, so each follows standard GIGW/RTI Act conventions rather
+than generic filler:
+
+- **Accessibility Statement** states the real WCAG 2.1 AA target (BRD
+  §3) and names one genuine, already-documented gap rather than
+  boilerplate: generated PDF reports are not tagged-accessible
+  (`ReportAccessibility.pdfIsTagged` is always `false` — see
+  `BACKEND_HANDOFF.md` §2.7), with DOCX offered as the accessible
+  alternative.
+- **Privacy Policy** accurately describes the real PII-separation design
+  already built into `grievance-store.ts` (a citizen's name/contact are
+  kept separate from the compliance record their report creates, and only
+  a boolean travels onto it) rather than a generic "we protect your data"
+  paragraph.
+- **Right to Information** references the real `rtionline.gov.in`
+  Government of India RTI portal (plain text, not a link) and names the
+  CPIO/Appellate Authority by **designation only**, matching this
+  codebase's existing discipline of never inventing a real person's name
+  (the same reasoning `CITIZEN_ACTOR_ID` documents in `grievance.ts`).
+- **Terms of Use** covers the standard six clauses every Government of
+  India site carries: acceptance, permitted use, hyperlinking policy,
+  content ownership, disclaimer, governing law.
+- **Help** is organised by audience (Officer/Admin, Reviewer, member of
+  the public) since those are the only three the system actually has, and
+  links out to Login and the Grievance Portal as real actions.
+
+All content lives in a new `staticPages` namespace in both
+`src/messages/en.json` and `hi.json` (English content only — Hindi stays
+placeholder, per the existing convention). Verified live in both themes
+and at 375px (no horizontal overflow), and that every footer link now
+resolves instead of 404ing, from both the public and authenticated
+shells.
+
+## 6. The next task — Jurisdiction Session 2
 
 This was planned but not started. The plan (confirmed by the user, not
 yet executed):
@@ -254,7 +459,7 @@ State reconciliation, no District data, the EO own-cases rule shipping
 now, `assignedOfficerUserId` existing) — those were deliberated and
 confirmed; treat them as settled unless new evidence contradicts them.
 
-## 6. Established code conventions worth knowing before touching anything
+## 7. Established code conventions worth knowing before touching anything
 
 - **`src/lib/server/*.ts`** are in-memory stores behind real Next.js
   Route Handlers — `scan-pipeline-store.ts` (the primary one,
@@ -293,7 +498,7 @@ confirmed; treat them as settled unless new evidence contradicts them.
   loading flag from a stale-key comparison, a demo state from the URL)
   rather than write it synchronously inside a non-mount effect.
 
-## 7. Known technical debt (see `BACKEND_HANDOFF.md` §7 for the full list)
+## 8. Known technical debt (see `BACKEND_HANDOFF.md` §7 for the full list)
 
 - One flaky Playwright test, `tests/e2e/dashboard.spec.ts:47` ("the
   weekly/monthly toggle switches pressed state") on `mobile-390`. Under a
@@ -319,12 +524,12 @@ confirmed; treat them as settled unless new evidence contradicts them.
   app-wide gap, not something any single session is expected to close
   alone.
 
-## 8. Commands to resume work
+## 9. Commands to resume work
 
 ```bash
 npm run verify        # tokens + i18n sync + typecheck + lint
-npx vitest run         # unit tests (86 passing as of ed5ceba)
-npx playwright test     # e2e (80/81 passing; 1 known-flaky, see §7)
+npx vitest run         # unit tests (86 passing as of 885808c)
+npx playwright test     # e2e (80/81 passing; 1 known-flaky, see §8)
 ```
 
 Dev server: use the `preview_start` tool with the `digi-pramaan-dev`
