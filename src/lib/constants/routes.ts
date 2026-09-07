@@ -62,6 +62,12 @@ export const ROUTES = {
   manufacturerDetail: (manufacturerId: string) =>
     `/manufacturers/${manufacturerId}` as const,
 
+  /**
+   * Global Activity Log (13 §3.2). Unnumbered in the spec's page list, like
+   * the Admin Console and the Processing Pipeline Tracker.
+   */
+  activity: "/activity",
+
   /** Reports (page 10). */
   reports: "/reports",
 
@@ -117,7 +123,7 @@ export interface NavItem {
 /**
  * Sidebar navigation, gated per the Role Permission Matrix.
  *
- * Resulting visibility — Enforcement Officer 7, Admin 7, Reviewer 5:
+ * Resulting visibility — Enforcement Officer 7, Admin 8, Reviewer 6:
  *
  *   Dashboard              everyone      not a matrix row; the landing surface
  *   Scan / Upload          scan.create   Reviewer cannot create scans
@@ -126,10 +132,16 @@ export interface NavItem {
  *   E-commerce Scanner     scan.create   see the note below
  *   Manufacturer Scorecard analytics.view
  *   Reports & Profile      report.generate
+ *   Global Activity Log    activity.view Enforcement Officer cannot see it
  *
- * Reviewer therefore loses exactly the two entries that create scans, which is
- * precisely the boundary §C draws: full read access and reporting, plus the
- * ability to escalate, but no scanning and no verification authority.
+ * Reviewer loses exactly the two entries that create scans, which is precisely
+ * the boundary §C draws: full read access and reporting, plus the ability to
+ * escalate, but no scanning and no verification authority.
+ *
+ * The Activity Log is the only entry that runs the other way — Admin and
+ * Reviewer see it and Enforcement Officer does not, because it is a log of
+ * what officers did (13 §3.2). That is why Admin and Reviewer each gain one
+ * here while Officer stays at seven.
  *
  * NOTE (inference, not a matrix row): the E-commerce Listing Scanner is gated
  * on `scan.create` because it creates compliance records, exactly as a physical
@@ -173,5 +185,16 @@ export const SIDEBAR_NAV: readonly NavItem[] = [
     href: ROUTES.reports,
     icon: "summarize",
     permission: "report.generate",
+  },
+  /*
+   * Admin and Reviewer only, per 13 §3.2 — the one nav entry an Enforcement
+   * Officer does not see. It is a log of what officers did, so that asymmetry
+   * is deliberate.
+   */
+  {
+    labelKey: "navigation.activityLog",
+    href: ROUTES.activity,
+    icon: "history",
+    permission: "activity.view",
   },
 ] as const;

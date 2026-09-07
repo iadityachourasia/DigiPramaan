@@ -152,6 +152,7 @@
     "ecommerceScanner": "E-commerce Listing Scanner",
     "manufacturerScorecard": "Manufacturer Scorecard",
     "reportsProfile": "Reports & Profile",
+    "activityLog": "Activity Log",
     "primaryLandmark": "Main navigation",
     "userMenu": "Account menu",
     "notifications": "Notifications",
@@ -411,7 +412,9 @@
     }
   },
   "scan": {
-    "meta": { "title": "Scan / Upload Product" },
+    "meta": {
+      "title": "Scan / Upload Product"
+    },
     "heading": "Scan / Upload Product",
     "description": "Photograph the front, back and principal display panel of the product. Each image is checked for quality before it counts as captured.",
     "noAccessTitle": "You do not have access to create scans",
@@ -551,7 +554,9 @@
     }
   },
   "extraction": {
-    "meta": { "title": "Declaration Extraction & Verification" },
+    "meta": {
+      "title": "Declaration Extraction & Verification"
+    },
     "heading": "Declaration Extraction & Verification",
     "description": "Review what the pipeline read from this label, correct anything wrong, then confirm.",
     "notFoundTitle": "Record not found",
@@ -611,7 +616,9 @@
   },
   "records": {
     "generateReportFromFilters": "Generate report from these filters",
-    "meta": { "title": "Compliance Records" },
+    "meta": {
+      "title": "Compliance Records"
+    },
     "heading": "Compliance Records",
     "description": "Every scanned product and its compliance history, in one place.",
     "filters": {
@@ -703,7 +710,9 @@
       "contactAvailable": "They left contact details. Ask an administrator if you need to reach them.",
       "contactAnonymous": "Sent anonymously. No contact details were given."
     },
-    "meta": { "title": "Product Compliance Detail" },
+    "meta": {
+      "title": "Product Compliance Detail"
+    },
     "scanIdLabel": "Scan ID",
     "scannedOn": "Scanned {date}",
     "lastUpdated": "Last updated {date}",
@@ -760,7 +769,9 @@
     }
   },
   "analytics": {
-    "meta": { "title": "Analytics & Violation Trends" },
+    "meta": {
+      "title": "Analytics & Violation Trends"
+    },
     "heading": "Analytics & Violation Trends",
     "description": "Where to focus enforcement effort next, across every scan in the system.",
     "errorTitle": "Could not load analytics",
@@ -812,7 +823,9 @@
     }
   },
   "ecommerce": {
-    "meta": { "title": "E-commerce Listing Scanner" },
+    "meta": {
+      "title": "E-commerce Listing Scanner"
+    },
     "heading": "E-commerce Listing Scanner",
     "description": "Check a product sold online, with no physical pack in hand.",
     "noAccessTitle": "You do not have access to create scans",
@@ -894,7 +907,9 @@
     }
   },
   "manufacturers": {
-    "meta": { "title": "Manufacturer Scorecards" },
+    "meta": {
+      "title": "Manufacturer Scorecards"
+    },
     "heading": "Manufacturer Compliance Scorecards",
     "description": "Compliance history grouped by manufacturer, so repeat patterns are visible across products rather than one scan at a time.",
     "errorTitle": "Scorecards could not be loaded",
@@ -978,7 +993,6 @@
       "exportNote": "Export opens the Reports page with this manufacturer pre-selected."
     }
   },
-
   "reports": {
     "meta": {
       "title": "Reports"
@@ -1155,7 +1169,6 @@
       "backToReports": "Back to Reports"
     }
   },
-
   "grievance": {
     "meta": {
       "title": "Report a Product"
@@ -1235,6 +1248,86 @@
         "Under Review": "An officer is working on your report now.",
         "Resolved": "An officer has finished reviewing your report."
       }
+    }
+  },
+  "activity": {
+    "meta": {
+      "title": "Activity Log"
+    },
+    "heading": "Activity log",
+    "description": "Every action taken across all records, by whom and when. Filter by person, action, region or date.",
+    "noAccessTitle": "You do not have access to the activity log",
+    "noAccessBody": "The activity log records what officers did, so it is open to Admins and Reviewers only. Your role has full access to the records themselves.",
+    "showing": "Showing {from}–{to} of {total}",
+    "errorTitle": "Could not load the activity log",
+    "errorBody": "Something went wrong loading the log. Try again.",
+    "retry": "Try again",
+    "actor": {
+      "system": "System",
+      "citizen": "Citizen (public portal)"
+    },
+    "filters": {
+      "heading": "Filter the activity log",
+      "actorLabel": "Person",
+      "typeLabel": "Action",
+      "regionLabel": "Region",
+      "dateFromLabel": "From date",
+      "dateToLabel": "To date",
+      "sortLabel": "Order",
+      "sortNewest": "Newest first",
+      "sortOldest": "Oldest first",
+      "addValue": "Add a filter",
+      "clearAll": "Clear all",
+      "removeFilter": "Remove filter: {label}",
+      "chip": {
+        "actor": "Person: {value}",
+        "type": "Action: {value}",
+        "region": "Region: {value}",
+        "dateFrom": "From: {value}",
+        "dateTo": "To: {value}",
+        "record": "Record: {value}"
+      }
+    },
+    "table": {
+      "caption": "Activity log",
+      "columnWhen": "When",
+      "columnWho": "Who",
+      "columnWhat": "Action",
+      "columnRecord": "Record",
+      "columnRegion": "Region",
+      "columnDetail": "Detail",
+      "viewRecord": "View record {record}",
+      "roleSuffix": "({role})",
+      "changedFrom": "{from} → {to}",
+      "emptyFilteredTitle": "No activity matches these filters",
+      "emptyFilteredBody": "Nothing was recorded matching every filter you have set. Widen the date range or remove a filter.",
+      "emptyTitle": "No activity recorded yet",
+      "emptyBody": "Actions taken on records appear here as they happen."
+    },
+    "pagination": {
+      "navLabel": "Activity log pages",
+      "previous": "Previous",
+      "next": "Next",
+      "pageLabel": "Page {page}"
+    },
+    "eventType": {
+      "scan_created": "Scan created",
+      "image_quality_passed": "Photo passed the quality check",
+      "image_quality_failed": "Photo failed the quality check",
+      "ocr_completed": "Text extraction completed",
+      "ocr_fallback_used": "Fallback extraction used",
+      "ocr_retried": "Extraction re-run",
+      "llm_structuring_completed": "Fields structured",
+      "rule_engine_completed": "Rules evaluated",
+      "field_corrected": "Field corrected",
+      "confirm_and_verify": "Confirmed and verified",
+      "flagged_needs_review": "Flagged as Needs Review",
+      "needs_review_cleared": "Needs Review cleared",
+      "flagged_for_enforcement": "Flagged for enforcement",
+      "report_generated": "Report generated",
+      "report_downloaded": "Report downloaded",
+      "record_archived": "Record archived",
+      "case_reassigned": "Case reassigned"
     }
   }
 }

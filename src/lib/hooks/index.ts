@@ -2,6 +2,11 @@
  * Hooks barrel. Import from "@/lib/hooks" instead of individual files.
  */
 
+export {
+  useActivityLog,
+  ACTIVITY_MULTI_KEYS,
+  type ActivityMultiKey,
+} from "./useActivityLog";
 export { useAnalyticsData } from "./useAnalyticsData";
 export { useAuth, usePermission, useHasRole } from "./useAuth";
 export { useCaptureSlots } from "./useCaptureSlots";

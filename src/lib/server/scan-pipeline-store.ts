@@ -47,7 +47,7 @@ import {
  * function needed directly from its file avoids that without changing what
  * either module exports.
  */
-import { findMockRecord, MOCK_ACTIVE_RECORDS } from "@/lib/mock/records";
+import { findMockRecord, MOCK_ACTIVE_RECORDS, MOCK_RECORDS } from "@/lib/mock/records";
 import { emitActivityEvent, ensureSeeded as ensureAuditSeeded } from "./audit-store";
 import {
   UNIDENTIFIED_MANUFACTURER,
@@ -1128,6 +1128,26 @@ function getAllActiveRecords(): ComplianceRecord[] {
     seen.add(record.id);
     return true;
   });
+}
+
+/**
+ * Every record's human-readable scan id, keyed by record id — live
+ * pipeline-created plus every static seed.
+ *
+ * The Global Activity Log (13 §3.2) stores a record id on each event but a
+ * person recognises the scan id, and the log deliberately keeps an archived
+ * record's events, so this includes archived records where
+ * `getAllActiveRecords` excludes them. Live records must be in here too: a
+ * label map built from the seeds alone renders a raw `rec-…` id for exactly
+ * the records someone created in this session.
+ */
+export function recordScanIdLabels(): Record<string, string> {
+  const labels: Record<string, string> = {};
+  for (const record of MOCK_RECORDS) labels[record.id] = record.scanId;
+  /* Live records last, so a live record that shadows a seed id wins — the
+   * same precedence `getAllActiveRecords` uses. */
+  for (const record of getAllCreatedRecords()) labels[record.id] = record.scanId;
+  return labels;
 }
 
 export function listRecords(

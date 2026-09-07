@@ -11,8 +11,8 @@ import { expect, test, type Page } from "@playwright/test";
 
 const ACCOUNTS = {
   officer: { username: "r.deshmukh", role: "Enforcement Officer", navCount: 7 },
-  admin: { username: "s.iyer", role: "Admin", navCount: 7 },
-  reviewer: { username: "a.banerjee", role: "Reviewer", navCount: 5 },
+  admin: { username: "s.iyer", role: "Admin", navCount: 8 },
+  reviewer: { username: "a.banerjee", role: "Reviewer", navCount: 6 },
 } as const;
 
 const PASSWORD = "Demo@2026";
@@ -58,6 +58,8 @@ test.describe("Role-gated navigation", () => {
       nav.getByRole("link", { name: "Manufacturer Scorecard" })
     ).toBeVisible();
     await expect(nav.getByRole("link", { name: "Reports & Profile" })).toBeVisible();
+    /* Gains the oversight surface an Enforcement Officer does not get. */
+    await expect(nav.getByRole("link", { name: "Activity Log" })).toBeVisible();
   });
 
   test("Enforcement Officer keeps the scan-creating entries", async ({ page }) => {
@@ -70,6 +72,10 @@ test.describe("Role-gated navigation", () => {
     await expect(
       nav.getByRole("link", { name: "E-commerce Listing Scanner" })
     ).toBeVisible();
+
+    /* The one entry that runs the other way: the Activity Log is an oversight
+     * surface about what officers did, so an officer does not get it. */
+    await expect(nav.getByRole("link", { name: "Activity Log" })).toHaveCount(0);
   });
 });
 

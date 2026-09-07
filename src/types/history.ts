@@ -123,3 +123,52 @@ export const ACTIVITY_TO_AUDIT_TYPE: Record<ActivityEventType, AuditEventType | 
   record_archived: null,
   case_reassigned: null,
 };
+
+/* ------------------------------------------------------------------ *
+ * Querying (Global Activity Log, 13 §3.2)
+ * ------------------------------------------------------------------ */
+
+/**
+ * Two actor values that are not users.
+ *
+ * Most events have no `actorUserId` at all — every pipeline stage is machine
+ * work, and a citizen submission has no account by design. Without a way to
+ * name those, the actor filter could not express "show me only what people
+ * did", which is the question this page exists to answer.
+ */
+export const SYSTEM_ACTOR_FILTER = "__system";
+export const CITIZEN_ACTOR_FILTER = "__citizen";
+
+export interface ActivityFilters {
+  /** User ids, plus the two sentinels above. Empty means no actor filter. */
+  actorUserIds: string[];
+  types: ActivityEventType[];
+  regions: string[];
+  /** ISO 8601 dates, compared as strings the way `RecordFilters` already does. */
+  dateFrom?: string;
+  dateTo?: string;
+  /** Deep-link only — arriving from one record's History tab. */
+  recordId?: string;
+}
+
+export const ACTIVITY_SORT_OPTIONS = ["newest", "oldest"] as const;
+export type ActivitySort = (typeof ACTIVITY_SORT_OPTIONS)[number];
+
+export interface ActivityPage {
+  rows: ActivityEvent[];
+  /** Total matching the filters, for "Showing 1-20 of 36". */
+  totalCount: number;
+  page: number;
+  pageSize: number;
+}
+
+/**
+ * Rows above which the log should start defaulting to a bounded date window.
+ *
+ * Deliberately unused today. The seed backfill produces 36 events and a live
+ * scan adds about 7, so loading everything is free — and an accountability
+ * surface that hides most of its own history behind a default filter would be
+ * misleading. Named here rather than left as an undocumented judgement so the
+ * switch-on point is a decision someone can find.
+ */
+export const ACTIVITY_LOG_DEFAULT_WINDOW_THRESHOLD = 2000;
