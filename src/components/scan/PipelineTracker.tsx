@@ -111,7 +111,16 @@ export function PipelineTracker({ stages, onRetry, labels }: PipelineTrackerProp
             </span>
 
             {hasSummary && stage.summary ? (
-              <motion.p className="ux4g-status-pipeline-description" {...reveal}>
+              /* FIXED: the package only places direct `<span>` children in
+                 column 2 (`.ux4g-status-pipeline-step>span{grid-column:2}`),
+                 so this `<p>` was wrapping character-by-character inside the
+                 40px icon track. Setting the column explicitly, the same way
+                 the failure block below sets its own `gridRow`. */
+              <motion.p
+                className="ux4g-status-pipeline-description"
+                style={{ gridColumn: 2 }}
+                {...reveal}
+              >
                 {stage.summary}
               </motion.p>
             ) : null}

@@ -1380,3 +1380,136 @@
   flex-wrap: wrap;
   gap: var(--ux4g-gap-column-m);
 }
+
+/* Reports & Profile (page 10) */
+
+.lmcs-records-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ux4g-gap-column-m);
+}
+
+.lmcs-format-select {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-xs);
+  border: none;
+  margin: 0;
+  padding: 0;
+}
+
+.lmcs-format-options {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--ux4g-gap-row-m) var(--ux4g-gap-column-m);
+}
+
+@media (min-width: 640px) {
+  .lmcs-format-options {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.lmcs-format-option {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-2xs);
+}
+
+.lmcs-report-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ux4g-gap-column-m);
+}
+
+.lmcs-report-scope-summary {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--ux4g-gap-row-2xs);
+}
+
+/* The preview stands in for a printed page, so it reads as a document rather
+   than another panel: a narrower measure and generous inner spacing. */
+.lmcs-report-preview {
+  max-width: 52rem;
+}
+
+.lmcs-report-preview-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-l);
+}
+
+.lmcs-report-preview-masthead {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-2xs);
+  border-bottom: var(--ux4g-border-thin) solid var(--ux4g-border-color-neutral-subtle);
+  padding-bottom: var(--ux4g-padding-m);
+}
+
+.lmcs-report-attribution {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--ux4g-gap-row-xs) var(--ux4g-gap-column-m);
+  margin: 0;
+}
+
+@media (min-width: 640px) {
+  .lmcs-report-attribution {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.lmcs-report-attribution dt,
+.lmcs-report-attribution dd {
+  margin: 0;
+}
+
+.lmcs-report-record-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-m);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lmcs-report-record {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-2xs);
+  border-left: var(--ux4g-border-thick) solid var(--ux4g-border-color-neutral-subtle);
+  padding-left: var(--ux4g-padding-m);
+}
+
+.lmcs-report-violation-list {
+  margin: 0;
+  padding-left: var(--ux4g-padding-l);
+}
+
+.lmcs-profile-fields {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--ux4g-gap-row-m) var(--ux4g-gap-column-m);
+  margin: 0;
+}
+
+@media (min-width: 640px) {
+  .lmcs-profile-fields {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.lmcs-profile-fields dt,
+.lmcs-profile-fields dd {
+  margin: 0;
+}
+
+.lmcs-profile-toggles {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-xs);
+  align-items: flex-start;
+}
