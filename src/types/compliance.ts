@@ -51,14 +51,22 @@ export interface Violation {
  * Audit trail entry (06 §2). The timeline runs Scanned, Extracted, Corrected,
  * Verified, Report Generated, Flagged for Enforcement, Flagged as Needs Review.
  */
-export type AuditEventType =
-  | "Scanned"
-  | "Extracted"
-  | "Corrected"
-  | "Verified"
-  | "Report Generated"
-  | "Flagged for Enforcement"
-  | "Flagged as Needs Review";
+/*
+ * A runtime array with the union derived from it, matching every other fixed
+ * vocabulary here. It was a bare union, which is why nothing could assert that
+ * each value has a label in the message catalogue the way the other
+ * vocabularies do.
+ */
+export const AUDIT_EVENT_TYPES = [
+  "Scanned",
+  "Extracted",
+  "Corrected",
+  "Verified",
+  "Report Generated",
+  "Flagged for Enforcement",
+  "Flagged as Needs Review",
+] as const;
+export type AuditEventType = (typeof AUDIT_EVENT_TYPES)[number];
 
 export interface AuditEvent {
   id: string;

@@ -224,6 +224,16 @@ function buildDeclarations(seed: RecordSeed): ExtractedDeclaration[] {
   });
 }
 
+/**
+ * Seeds still author a minimal trail here, and only here: `ComplianceRecord`
+ * has no `scannedByUserId` or `verifiedAt` field, so this is the one place
+ * that knows which officer did what to a fixture.
+ *
+ * `audit-store.ts` reads these on first access and re-expresses them as
+ * activity events, then overwrites this array with its own projection — so
+ * what finally renders comes from the central log like everything else, and
+ * gains the spread timestamps and resolved names a hand-built array lacked.
+ */
 function buildAuditTrail(seed: RecordSeed): AuditEvent[] {
   const events: AuditEvent[] = [
     {
@@ -233,28 +243,11 @@ function buildAuditTrail(seed: RecordSeed): AuditEvent[] {
       byUserId: seed.scannedByUserId,
       byUserName: mockUserName(seed.scannedByUserId),
     },
-    {
-      id: `${seed.id}-audit-2`,
-      type: "Extracted",
-      at: seed.scannedAt,
-      note: "Automated extraction completed.",
-    },
   ];
-
-  if ((seed.corrected ?? []).length > 0) {
-    events.push({
-      id: `${seed.id}-audit-3`,
-      type: "Corrected",
-      at: seed.lastUpdatedAt,
-      byUserId: seed.scannedByUserId,
-      byUserName: mockUserName(seed.scannedByUserId),
-      note: `Corrected ${(seed.corrected ?? []).length} field(s) against the source image.`,
-    });
-  }
 
   if (seed.verificationStatus === "Verified" && seed.verifiedByUserId) {
     events.push({
-      id: `${seed.id}-audit-4`,
+      id: `${seed.id}-audit-2`,
       type: "Verified",
       at: seed.lastUpdatedAt,
       byUserId: seed.verifiedByUserId,
@@ -264,22 +257,11 @@ function buildAuditTrail(seed: RecordSeed): AuditEvent[] {
 
   if (seed.flaggedForEnforcement) {
     events.push({
-      id: `${seed.id}-audit-5`,
+      id: `${seed.id}-audit-3`,
       type: "Flagged for Enforcement",
       at: seed.lastUpdatedAt,
       byUserId: seed.verifiedByUserId ?? seed.scannedByUserId,
       byUserName: mockUserName(seed.verifiedByUserId ?? seed.scannedByUserId),
-    });
-  }
-
-  if (seed.needsReviewFlag && seed.needsReviewByUserId) {
-    events.push({
-      id: `${seed.id}-audit-6`,
-      type: "Flagged as Needs Review",
-      at: seed.lastUpdatedAt,
-      byUserId: seed.needsReviewByUserId,
-      byUserName: mockUserName(seed.needsReviewByUserId),
-      ...(seed.needsReviewNote !== undefined ? { note: seed.needsReviewNote } : {}),
     });
   }
 

@@ -90,8 +90,11 @@ export function fetchRecords(
   return requestJson(`/api/records?${buildRecordsQuery(filters, sort, page, pageSize)}`);
 }
 
-export function archiveRecord(recordId: string): Promise<ApiResult<ComplianceRecord>> {
-  return postJson(`/api/records/${recordId}/archive`, {});
+export function archiveRecord(
+  recordId: string,
+  userId: string
+): Promise<ApiResult<ComplianceRecord>> {
+  return postJson(`/api/records/${recordId}/archive`, { userId });
 }
 
 export interface BulkNeedsReviewResponse {
@@ -164,8 +167,11 @@ export function flagNeedsReview(
   });
 }
 
-export function retryOcr(recordId: string): Promise<ApiResult<ComplianceRecord>> {
-  return postJson(`/api/records/${recordId}/retry-ocr`, {});
+export function retryOcr(
+  recordId: string,
+  userId: string
+): Promise<ApiResult<ComplianceRecord>> {
+  return postJson(`/api/records/${recordId}/retry-ocr`, { userId });
 }
 
 /* ------------------------------------------------------------------ *
