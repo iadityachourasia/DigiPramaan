@@ -6,6 +6,7 @@ import {
   MOCK_RECORDS,
   MOCK_SCORECARDS,
 } from "@/lib/mock";
+import { recordScanIdLabels } from "@/lib/server/scan-pipeline-store";
 import {
   COMPLIANCE_STATUSES,
   computeComplianceStatus,
@@ -128,5 +129,18 @@ describe("manufacturer scorecards", () => {
     expect(MOCK_SCORECARDS.some((card) => card.complianceTrend.length === 1)).toBe(
       true
     );
+  });
+});
+
+describe("activity log record labels", () => {
+  it("labels every seed record, archived ones included", () => {
+    const labels = recordScanIdLabels();
+    /* Archived records matter specifically: the Global Activity Log keeps an
+     * archived record's events, so a label map built from the active set
+     * would render a raw `rec-…` id on exactly those rows. */
+    for (const record of MOCK_RECORDS) {
+      expect(labels[record.id]).toBe(record.scanId);
+    }
+    expect(MOCK_RECORDS.some((record) => record.archived)).toBe(true);
   });
 });

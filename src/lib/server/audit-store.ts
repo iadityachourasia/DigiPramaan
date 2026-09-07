@@ -44,9 +44,14 @@ import { MOCK_RECORDS } from "@/lib/mock/records";
 import { findMockUser, mockUserName } from "@/lib/mock/users";
 import {
   ACTIVITY_TO_AUDIT_TYPE,
+  CITIZEN_ACTOR_FILTER,
   CITIZEN_ACTOR_ID,
+  SYSTEM_ACTOR_FILTER,
   type ActivityEvent,
   type ActivityEventType,
+  type ActivityFilters,
+  type ActivityPage,
+  type ActivitySort,
   type AuditEvent,
   type ComplianceRecord,
   type DeclarationFieldId,
@@ -107,7 +112,11 @@ export function emitActivityEvent(
     ...(input.fieldId ? { fieldId: input.fieldId } : {}),
     ...(input.oldValue !== undefined ? { oldValue: input.oldValue } : {}),
     ...(input.newValue !== undefined ? { newValue: input.newValue } : {}),
-    ...(input.region ? { region: input.region } : {}),
+    /* `!== undefined`, not truthiness — an empty-string region would
+     * otherwise be dropped and become invisible to the Activity Log's region
+     * filter. No caller produces one today, which is exactly why it would go
+     * unnoticed later. Matches how oldValue/newValue are guarded above. */
+    ...(input.region !== undefined ? { region: input.region } : {}),
   };
 
   events.push(event);
@@ -302,4 +311,97 @@ export function resetAuditStoreForTests(): void {
   events.length = 0;
   sequence = 0;
   seeded = false;
+}
+
+/* ------------------------------------------------------------------ *
+ * Querying — the Global Activity Log (13 §3.2)
+ * ------------------------------------------------------------------ */
+
+/**
+ * Which filter bucket an event's actor falls into.
+ *
+ * An event with no `actorUserId` is machine work; the citizen sentinel is a
+ * person with no account. Both need to be selectable, so both get a stable
+ * filter value here rather than the UI inventing one.
+ */
+function actorFilterValue(event: ActivityEvent): string {
+  if (!event.actorUserId) return SYSTEM_ACTOR_FILTER;
+  if (event.actorUserId === CITIZEN_ACTOR_ID) return CITIZEN_ACTOR_FILTER;
+  return event.actorUserId;
+}
+
+/**
+ * Empty array means the dimension is unfiltered; otherwise OR within a
+ * dimension and AND across them, exactly as `matchesFilters` does for records.
+ */
+function matchesActivityFilters(event: ActivityEvent, filters: ActivityFilters): boolean {
+  if (filters.recordId && event.recordId !== filters.recordId) return false;
+
+  if (filters.actorUserIds.length > 0 && !filters.actorUserIds.includes(actorFilterValue(event))) {
+    return false;
+  }
+  if (filters.types.length > 0 && !filters.types.includes(event.type)) return false;
+
+  if (filters.regions.length > 0) {
+    if (event.region === undefined || !filters.regions.includes(event.region)) return false;
+  }
+
+  /* String comparison on ISO 8601, the same cheap-and-correct approach
+   * `matchesFilters` uses. `dateTo` is inclusive of the whole day, so a range
+   * of a single date finds that day's events rather than nothing. */
+  if (filters.dateFrom && event.createdAt < filters.dateFrom) return false;
+  if (filters.dateTo && event.createdAt > `${filters.dateTo}T23:59:59.999Z`) return false;
+
+  return true;
+}
+
+/**
+ * The Activity Log's one read (13 §3.2).
+ *
+ * Same shape as `listRecords`: filter, sort, slice, and report the unsliced
+ * total so the page can say "Showing 1-20 of 36". A real query rather than
+ * client-side slicing of a fetched array — a filter bar that claims to filter
+ * by region while actually post-processing misrepresents what it did.
+ *
+ * Archived records' events are included on purpose. A log that drops records
+ * once someone archives them is precisely the log an archiver would want, and
+ * `record_archived` is otherwise unreachable — archiving removes the very
+ * record whose event you would go looking for.
+ */
+export function listActivity(
+  filters: ActivityFilters,
+  sort: ActivitySort,
+  page: number,
+  pageSize: number
+): ActivityPage {
+  ensureSeeded();
+
+  const filtered = events.filter((event) => matchesActivityFilters(event, filters));
+
+  /* `id` is monotonic (`act-000001`), so it breaks ties between events sharing
+   * a timestamp — which the seed backfill produces by design. Without it,
+   * pagination could show the same event on two pages. */
+  const sorted = [...filtered].sort((a, b) => {
+    const byTime =
+      new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime() ||
+      a.id.localeCompare(b.id);
+    return sort === "oldest" ? byTime : -byTime;
+  });
+
+  const start = (page - 1) * pageSize;
+
+  return {
+    rows: sorted.slice(start, start + pageSize),
+    totalCount: filtered.length,
+    page,
+    pageSize,
+  };
+}
+
+/** Distinct regions actually present in the log, for the filter's options. */
+export function activityRegions(): string[] {
+  ensureSeeded();
+  const seen = new Set<string>();
+  for (const event of events) if (event.region) seen.add(event.region);
+  return [...seen].sort();
 }

@@ -89,12 +89,19 @@ in a legend, tooltip, or written summary).
 | View Analytics / Manufacturer Scorecard | ✅ | ✅ | ✅ |
 | Manage rule thresholds (stretch feature) | ❌ | ✅ | ❌ |
 | Generate reports | ✅ | ✅ | ✅ |
+| View the Global Activity Log | ❌ | ✅ | ✅ |
 
 Reviewer is a QA/oversight role: full read access and reporting, plus the
 ability to escalate a case to Needs Review, but no verification or
 enforcement authority. Use the full role name "Enforcement Officer" in every
 role-gating reference — never shorten to "Officer" in anything that becomes
 a literal permission check.
+
+The Activity Log row is the only one Admin and Reviewer share while
+Enforcement Officer does not. It is an oversight surface about what officers
+did, so an officer having no access to it is the point rather than an
+oversight. Added when `13-history-and-hierarchy.md` §3.2 introduced that page;
+`Permission` in `src/types/user.ts` carries the matching `activity.view` key.
 
 ## D. Fixed Vocabulary — quick reference
 

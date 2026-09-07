@@ -46,7 +46,16 @@ export type Permission =
   | "record.bulkStatusChange"
   | "analytics.view"
   | "rules.manageThresholds"
-  | "report.generate";
+  | "report.generate"
+  /**
+   * The Global Activity Log (13 §3.2), which the spec grants to Admin and
+   * Reviewer only. That shape — Admin and Reviewer without Enforcement
+   * Officer — exists nowhere else in the matrix: every other row is either all
+   * three roles or excludes Reviewer. `analytics.view` is the nearest
+   * precedent and the one §3.2 itself invokes, but it grants all three, so
+   * reusing it would put an Enforcement Officer on a page the spec restricts.
+   */
+  | "activity.view";
 
 /**
  * Role Permission Matrix, verbatim from 00-README.md §C.
@@ -73,8 +82,9 @@ export const ROLE_PERMISSIONS: Readonly<Record<Role, readonly Permission[]>> = {
     "analytics.view",
     "rules.manageThresholds",
     "report.generate",
+    "activity.view",
   ],
-  Reviewer: ["record.flagNeedsReview", "analytics.view", "report.generate"],
+  Reviewer: ["record.flagNeedsReview", "analytics.view", "report.generate", "activity.view"],
 } as const;
 
 export function can(role: Role, permission: Permission): boolean {
