@@ -8,6 +8,8 @@
  * aggregated by Analytics (page 7) and the Manufacturer Scorecard (page 9).
  */
 
+/* No cycle: grievance.ts imports from scan.ts and vocabulary.ts only. */
+import type { CitizenReportDetails } from "./grievance";
 import type { ExtractionResult, ProductCategory, Scan, UploadedImage } from "./scan";
 import type {
   ComplianceStatus,
@@ -183,6 +185,14 @@ export interface ComplianceRecord {
    * by this specific batch".
    */
   batchId?: string;
+
+  /**
+   * What the citizen reported, present only when `source` is
+   * `Citizen-Reported` (page 11). Their concerns are kept here rather than in
+   * `violations[]`, which holds the rule engine verified findings — a report
+   * is a claim until an officer verifies it.
+   */
+  citizenReport?: CitizenReportDetails;
 
   /** ISO 8601. */
   scannedAt: string;

@@ -39,12 +39,11 @@ export function lookupMockGrievance(
   return MOCK_GRIEVANCE_LOOKUPS.find((entry) => entry.reference === normalized);
 }
 
-/** Reference generator matching the format above, for the submission confirmation. */
-export function generateGrievanceReference(): string {
-  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let suffix = "";
-  for (let index = 0; index < 6; index += 1) {
-    suffix += alphabet[Math.floor(Math.random() * alphabet.length)];
-  }
-  return `LM-${suffix}`;
-}
+/*
+ * The reference generator that used to live here moved to
+ * `lib/utils/shortCode.ts`, where mobile handoff's near-identical generator
+ * also now lives. Both need the same unambiguous alphabet, and the grievance
+ * reference additionally needs `crypto.getRandomValues` rather than
+ * `Math.random()` — it is the only key a citizen holds to their submission.
+ */
+export { generateGrievanceReference } from "@/lib/utils/shortCode";

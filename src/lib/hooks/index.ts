@@ -7,6 +7,13 @@ export { useAuth, usePermission, useHasRole } from "./useAuth";
 export { useCaptureSlots } from "./useCaptureSlots";
 export { useComplianceRecord } from "./useComplianceRecord";
 export { useDebounce } from "./useDebounce";
+export {
+  useGrievanceForm,
+  useGrievanceLookup,
+  type GrievanceFields,
+  type UseGrievanceFormResult,
+  type UseGrievanceLookupResult,
+} from "./useGrievanceForm";
 export { useManufacturers, useManufacturerScorecard } from "./useManufacturers";
 export { useMobileHandoffSession } from "./useMobileHandoffSession";
 export { useRecordDetail } from "./useRecordDetail";

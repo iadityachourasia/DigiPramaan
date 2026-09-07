@@ -34,6 +34,7 @@ export function RecordDetailView({ recordId, locale }: RecordDetailViewProps) {
   const tVocab = useTranslations("vocabulary");
   const tDeclarationField = useTranslations("declarationField");
   const tAuditEvent = useTranslations("recordDetail.auditTrail.eventType");
+  const tGrievanceConcern = useTranslations("grievance.concerns");
   const { user } = useAuth();
   const canFlagNeedsReview = usePermission("record.flagNeedsReview");
   const canFlagForEnforcement = usePermission("record.flagForEnforcement");
@@ -120,6 +121,61 @@ export function RecordDetailView({ recordId, locale }: RecordDetailViewProps) {
         <Alert severity="error" title={t("mutationError.title")}>
           {t("mutationError.body")}
         </Alert>
+      ) : null}
+
+      {/*
+        What the citizen said, on a record they created (page 11). Sits above
+        the rule engine findings and is visibly separate from them: these are a
+        member of the public reporting what looked wrong, not verified
+        violations, and the two must not read as the same kind of statement.
+      */}
+      {record.citizenReport ? (
+        <section
+          aria-labelledby="citizen-report-heading"
+          className="ux4g-card ux4g-card-outline lmcs-record-detail-section-muted"
+        >
+          <div className="ux4g-card-body lmcs-page-section-block">
+            <h2 id="citizen-report-heading" className="ux4g-title-m-strong">
+              {t("citizenReport.heading")}
+            </h2>
+            <p className="ux4g-body-s-default ux4g-text-neutral-secondary">
+              {t("citizenReport.caveat")}
+            </p>
+
+            {record.citizenReport.concerns.length > 0 ? (
+              <ul className="lmcs-violation-list">
+                {record.citizenReport.concerns.map((concern) => (
+                  <li key={concern} className="ux4g-body-m-default">
+                    {tGrievanceConcern(concern)}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="ux4g-body-m-default">{t("citizenReport.noConcerns")}</p>
+            )}
+
+            {record.citizenReport.concernNote ? (
+              <p className="ux4g-body-m-default">
+                {t("citizenReport.noteLabel")}: {record.citizenReport.concernNote}
+              </p>
+            ) : null}
+
+            {record.citizenReport.shopNameOrLocation ? (
+              <p className="ux4g-body-s-default">
+                {t("citizenReport.shopLabel")}: {record.citizenReport.shopNameOrLocation}
+              </p>
+            ) : null}
+
+            <p className="ux4g-body-s-default ux4g-text-neutral-secondary">
+              {t("citizenReport.reference")}: {record.citizenReport.reference}
+            </p>
+            <p className="ux4g-body-s-default ux4g-text-neutral-secondary">
+              {record.citizenReport.hasContactDetails
+                ? t("citizenReport.contactAvailable")
+                : t("citizenReport.contactAnonymous")}
+            </p>
+          </div>
+        </section>
       ) : null}
 
       <section aria-labelledby="violations-heading" className="ux4g-card ux4g-card-outline lmcs-record-detail-section-emphasis">

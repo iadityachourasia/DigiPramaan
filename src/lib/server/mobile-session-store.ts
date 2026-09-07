@@ -23,6 +23,7 @@
  * real deployment concern (a real backend replaces this file, not its callers).
  */
 
+import { generateHandoffCode } from "@/lib/utils/shortCode";
 import type {
   CaptureSlotAngle,
   MobileHandoffSession,
@@ -32,15 +33,11 @@ import type {
 
 const SESSION_TTL_MINUTES = 5;
 
-/** Unambiguous alphabet — no 0/O or 1/I/L, so a read-aloud or handwritten code never misreads. */
-const CODE_ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
-
-function generateToken(): string {
-  const chars = Array.from({ length: 8 }, () =>
-    CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)]
-  );
-  return `${chars.slice(0, 4).join("")}-${chars.slice(4).join("")}`;
-}
+/*
+ * The alphabet and generator moved to `lib/utils/shortCode.ts` when the citizen
+ * grievance reference (page 11) needed the same unambiguous character set. Two
+ * copies of one idea was one too many.
+ */
 
 const sessions = new Map<string, MobileHandoffSession>();
 
@@ -53,8 +50,8 @@ function withResolvedStatus(session: MobileHandoffSession): MobileHandoffSession
 }
 
 export function createMobileSession(scanDraftId: string): MobileHandoffSession {
-  let token = generateToken();
-  while (sessions.has(token)) token = generateToken();
+  let token = generateHandoffCode();
+  while (sessions.has(token)) token = generateHandoffCode();
 
   const now = Date.now();
   const session: MobileHandoffSession = {

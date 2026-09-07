@@ -693,6 +693,16 @@
     }
   },
   "recordDetail": {
+    "citizenReport": {
+      "heading": "Reported by a member of the public",
+      "caveat": "What the person who sent this report said was wrong. These are their words, not findings from the rule engine, and nothing here has been verified.",
+      "noConcerns": "They sent a photo without saying what looked wrong.",
+      "noteLabel": "In their words",
+      "shopLabel": "Shop or location",
+      "reference": "Report reference",
+      "contactAvailable": "They left contact details. Ask an administrator if you need to reach them.",
+      "contactAnonymous": "Sent anonymously. No contact details were given."
+    },
     "meta": { "title": "Product Compliance Detail" },
     "scanIdLabel": "Scan ID",
     "scannedOn": "Scanned {date}",
@@ -1143,6 +1153,88 @@
       "lastLogin": "Last signed in: {date}",
       "logout": "Log out",
       "backToReports": "Back to Reports"
+    }
+  },
+
+  "grievance": {
+    "meta": {
+      "title": "Report a Product"
+    },
+    "heading": "Report a packaging concern",
+    "intro": "If a product label looks wrong to you, tell us. Photograph the label and send it in. An enforcement officer will check it against the Legal Metrology (Packaged Commodities) Rules, 2011.",
+    "noAccountNote": "No account and no login. A photo is all we need.",
+    "description": "Report a product label that may not meet Legal Metrology packaging rules. No account needed.",
+    "form": {
+      "heading": "Send a report",
+      "photoHeading": "Photograph the label",
+      "photoHelp": "Get the whole label in frame if you can. This is the only thing we need from you.",
+      "photoLabel": "Label photo",
+      "photoHint": "Required",
+      "photoEmpty": "Add a photo of the label",
+      "photoBrowse": "Take or choose a photo",
+      "photoTake": "Take photo",
+      "photoRetake": "Retake",
+      "photoRemove": "Remove",
+      "photoChecking": "Checking your photo…",
+      "photoAttached": "Photo attached",
+      "photoFormatHint": "JPG or PNG, up to 8 MB",
+      "cameraDenied": "We could not open the camera. You can choose a photo from your device instead.",
+      "photoRequiredTitle": "A photo is needed",
+      "photoRequiredBody": "Attach a photo of the label and we can look into it. Nothing else is required.",
+      "contextHeading": "Anything else you can tell us",
+      "contextHelp": "All of this is optional. A report with just a photo is complete, and is treated exactly the same as one with every field filled in.",
+      "concernsLegend": "What looks wrong?",
+      "noteLabel": "In your own words",
+      "noteHint": "Anything you noticed that the choices above do not cover.",
+      "shopLabel": "Shop name or location",
+      "shopHint": "Helps an officer find the same product on a shelf.",
+      "nameLabel": "Your name",
+      "contactLabel": "Email or phone",
+      "contactHint": "Only so we can follow up if we need to. We will not publish it.",
+      "submit": "Send report",
+      "submitting": "Sending…",
+      "submitErrorTitle": "We could not send your report",
+      "submitErrorBody": "Something went wrong on our side. Your photo and everything you typed are still here, so you can try again without redoing any of it."
+    },
+    "concerns": {
+      "priceNotShown": "Price is not shown",
+      "noManufacturerInfo": "No manufacturer information",
+      "textTooSmall": "Text is too small to read",
+      "other": "Something else"
+    },
+    "quality": {
+      "blurryTitle": "This photo looks blurry",
+      "blurryBody": "You can send it as it is and we will still look at it. A sharper photo just makes the label easier to read.",
+      "darkTitle": "This photo looks dark",
+      "darkBody": "You can send it as it is and we will still look at it. More light on the label would make it easier to read."
+    },
+    "confirmation": {
+      "heading": "Report received",
+      "body": "Thank you. Your report has been logged and will be reviewed.",
+      "referenceLabel": "Your reference",
+      "referenceHelp": "Save this or take a screenshot. You will need it to check your report later.",
+      "submittedAt": "Submitted {date}",
+      "nextHeading": "What happens next",
+      "next1": "Your photo goes through the same label-reading process as one taken by an enforcement officer.",
+      "next2": "An officer reviews what was found and decides whether the label meets the rules.",
+      "next3": "You can check the progress of your report at any time using the reference above.",
+      "contactNote": "You gave us contact details, so we may get in touch if we need to ask you anything."
+    },
+    "lookup": {
+      "heading": "Check a report",
+      "help": "Enter the reference you were given when you sent a report.",
+      "label": "Reference",
+      "hint": "Looks like LM-4K7P2Q",
+      "search": "Check status",
+      "searching": "Checking…",
+      "notFoundTitle": "No report found",
+      "notFoundBody": "We could not find a report with that reference. Please check it and try again.",
+      "lastUpdated": "Last updated {date}",
+      "explain": {
+        "Received": "Your report has been logged and is waiting to be looked at.",
+        "Under Review": "An officer is working on your report now.",
+        "Resolved": "An officer has finished reviewing your report."
+      }
     }
   }
 }
