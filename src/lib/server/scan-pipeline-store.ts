@@ -48,8 +48,8 @@ import {
  * either module exports.
  */
 import { findMockRecord, MOCK_ACTIVE_RECORDS } from "@/lib/mock/records";
+import { emitActivityEvent, ensureSeeded as ensureAuditSeeded } from "./audit-store";
 import {
-  CITIZEN_ACTOR_ID,
   UNIDENTIFIED_MANUFACTURER,
   computeComplianceScore,
   computeComplianceStatus,
@@ -60,8 +60,8 @@ import {
   SOURCE_TAGS,
   VIOLATION_CATEGORY_IDS,
   violationCategory,
+  type ActivityEventType,
   type AnalyticsSummary,
-  type AuditEvent,
   type CaptureSlotAngle,
   type CategoryBreakdownEntry,
   type CitizenReportDetails,
@@ -256,6 +256,8 @@ interface StoredPipelineRun {
   source: SourceTag;
   batchId?: string;
   citizenReport?: CitizenReportDetails;
+  /** Stage events that fired before the record existed. Flushed once it does. */
+  pendingStageEvents?: Array<{ stageId: PipelineStageId; outcome: "completed" | "failed" }>;
   createdAt: string;
   /** Populated once `readyForVerification` completes. */
   record?: ComplianceRecord;
@@ -429,24 +431,13 @@ function buildFinalRecord(run: StoredPipelineRun): ComplianceRecord {
       ],
     },
     evidence: [],
-    auditTrail: [
-      {
-        id: `${run.recordId}-audit-1`,
-        type: "Scanned",
-        at: run.createdAt,
-        byUserId: scannedByUserId,
-        /*
-         * Named explicitly rather than resolved from the id: `mockUserName`
-         * falls back to "System" for an unknown user, which would make a
-         * member of the public reporting a product read as something the
-         * system did by itself.
-         */
-        ...(scannedByUserId === CITIZEN_ACTOR_ID
-          ? { byUserName: "Citizen report (public portal)" }
-          : {}),
-      },
-      { id: `${run.recordId}-audit-2`, type: "Extracted", at: now, note: "Automated extraction completed." },
-    ],
+    /*
+     * Populated by the projection below, not written here. Every audit event
+     * in the product now originates in `audit-store.ts`; this field is the
+     * coarse view of that log which page 6, the PDF renderer and the citizen
+     * status lookup read.
+     */
+    auditTrail: [],
     thumbnail,
     capturedImages,
     scannedAt: run.createdAt,
@@ -464,7 +455,95 @@ function buildFinalRecord(run: StoredPipelineRun): ComplianceRecord {
     record.citizenReport = run.citizenReport;
   }
 
+  /*
+   * The two events every intake path produces. `scan_created` carries the
+   * actor — an officer, or the citizen sentinel for a public submission —
+   * while extraction is machine work and deliberately has none, which is
+   * exactly what `ActivityEvent.actorUserId` being optional is for.
+   */
+  emitActivityEvent(
+    {
+      recordId: record.id,
+      type: "scan_created",
+      actorUserId: scannedByUserId,
+      at: run.createdAt,
+      region: record.region,
+      detail: `Scanned via ${run.source}.`,
+    },
+    record
+  );
+
+  /*
+   * Extraction is NOT logged here. The `textExtraction` stage emits
+   * `ocr_completed` itself, and emitting it in both places put two "Extracted"
+   * rows on page 6's timeline. The stage is the honest owner of that event —
+   * it is the thing that actually ran.
+   */
+
   return record;
+}
+
+/**
+ * Which stages produce an activity event, and of what kind.
+ *
+ * Only the stages that mean something to a person reviewing what happened.
+ * `uploading` and `readyForVerification` are bookkeeping, and the record's own
+ * creation is already logged as `scan_created`, so neither adds anything a
+ * reader would act on.
+ *
+ * All of these are system work with no actor, which is what
+ * `ActivityEvent.actorUserId` being optional exists for. None maps onto a
+ * coarse `AuditEventType`, so none appears on page 6's timeline — they are
+ * there for the Activity Log.
+ */
+const STAGE_EVENT: Partial<Record<PipelineStageId, ActivityEventType>> = {
+  qualityCheck: "image_quality_passed",
+  textExtraction: "ocr_completed",
+  fallbackExtraction: "ocr_fallback_used",
+  structuring: "llm_structuring_completed",
+  ruleEngine: "rule_engine_completed",
+};
+
+/**
+ * Logs one stage transition, but only once the run has a record to hang it
+ * on. Stages run before `buildFinalRecord`, so the earlier ones are emitted
+ * retrospectively by `emitBackloggedStageEvents` rather than dropped.
+ */
+function emitStageEvent(
+  run: StoredPipelineRun,
+  stageId: PipelineStageId,
+  outcome: "completed" | "failed"
+): void {
+  const type = outcome === "failed" ? "image_quality_failed" : STAGE_EVENT[stageId];
+  if (!type) return;
+
+  if (!run.record) {
+    run.pendingStageEvents = [...(run.pendingStageEvents ?? []), { stageId, outcome }];
+    return;
+  }
+
+  /* The record is passed so its coarse projection refreshes — `ocr_completed`
+   * is the event page 6 renders as "Extracted", and without this the row was
+   * logged centrally but never reached the record. */
+  emitActivityEvent(
+    {
+      recordId: run.record.id,
+      type,
+      region: run.record.region,
+      detail:
+        outcome === "failed"
+          ? (FAILURE_REASON[stageId] ?? `Stage ${stageId} failed.`)
+          : stageSummary(run, stageId),
+    },
+    run.record
+  );
+}
+
+/** Flushes the stage events that happened before the record existed. */
+function emitBackloggedStageEvents(run: StoredPipelineRun): void {
+  const pending = run.pendingStageEvents ?? [];
+  delete run.pendingStageEvents;
+  for (const entry of pending) emitStageEvent(run, entry.stageId, entry.outcome);
 }
 
 /** Advances a run as far as elapsed time allows, stopping at a failed or not-yet-elapsed stage. */
@@ -491,6 +570,7 @@ function withAdvancedStages(run: StoredPipelineRun): StoredPipelineRun {
       stage.state = "failed";
       stage.failureReason = FAILURE_REASON[stage.id];
       delete run.forceFailStage;
+      emitStageEvent(run, stage.id, "failed");
       break;
     }
 
@@ -502,7 +582,9 @@ function withAdvancedStages(run: StoredPipelineRun): StoredPipelineRun {
       stage.summary = stageSummary(run, stage.id);
       if (stage.id === "readyForVerification") {
         run.record = buildFinalRecord(run);
+        emitBackloggedStageEvents(run);
       }
+      emitStageEvent(run, stage.id, "completed");
     }
     progressed = true;
   }
@@ -565,14 +647,29 @@ export function completePipelineRunNow(scanId: string): ComplianceRecord | undef
   const run = runs.get(scanId);
   if (!run) return undefined;
 
+  /*
+   * FIXED: this used to rebuild `run.record` unconditionally, so a second call
+   * replaced an existing record and silently discarded everything that had
+   * happened to it. Harmless while the record carried its own audit array and
+   * nothing called this twice; not harmless now that the record is a
+   * projection of a log that would keep the orphaned events.
+   */
+  if (run.record) return run.record;
+
+  const forced: PipelineStageId[] = [];
   for (const stage of run.stages) {
     if (stage.state === "pending" || stage.state === "in_progress") {
       stage.state = "completed";
       stage.summary = stageSummary(run, stage.id);
+      forced.push(stage.id);
     }
   }
 
   run.record = buildFinalRecord(run);
+  /* The stages really did resolve, just all at once — so they log, exactly as
+   * they would have if something had polled them one at a time. */
+  emitBackloggedStageEvents(run);
+  for (const stageId of forced) emitStageEvent(run, stageId, "completed");
   return run.record;
 }
 
@@ -620,12 +717,12 @@ function findRunByRecordId(recordId: string): StoredPipelineRun | undefined {
  * pipeline's own internal use.
  */
 export function getRecordById(id: string): ComplianceRecord | undefined {
+  /* Same reason as `getAllActiveRecords`: a seed reached directly by id must
+   * have its backfilled history in place before anything reads it. */
+  ensureAuditSeeded();
   return getCreatedRecord(id) ?? findMockRecord(id);
 }
 
-function nextAuditEventId(record: ComplianceRecord): string {
-  return `${record.id}-audit-${record.auditTrail.length + 1}`;
-}
 
 export interface CorrectionResult {
   record: ComplianceRecord;
@@ -651,6 +748,10 @@ export function applyCorrection(
   const declaration = record.extraction.declarations.find((d) => d.fieldId === fieldId);
   if (!declaration) return undefined;
 
+  /* Captured before the write — the old value is the whole point of a
+   * correction log, and nothing recorded it until now. */
+  const previousValue = declaration.value ?? "";
+
   declaration.value = value;
   declaration.notDetected = false;
   declaration.corrected = true;
@@ -673,14 +774,19 @@ export function applyCorrection(
   record.complianceStatus = computeComplianceStatus(record);
   record.lastUpdatedAt = new Date().toISOString();
 
-  const event: AuditEvent = {
-    id: nextAuditEventId(record),
-    type: "Corrected",
-    at: record.lastUpdatedAt,
-    byUserId: userId,
-    note: `Corrected ${fieldId}`,
-  };
-  record.auditTrail.push(event);
+  emitActivityEvent(
+    {
+      recordId: record.id,
+      type: "field_corrected",
+      actorUserId: userId,
+      fieldId,
+      oldValue: previousValue,
+      newValue: value,
+      region: record.region,
+      detail: `Corrected ${fieldId}`,
+    },
+    record
+  );
 
   return { record };
 }
@@ -715,13 +821,16 @@ export function verifyRecord(recordId: string, userId: string): VerifyResult | u
   record.complianceScore = computeComplianceScore(record);
   record.lastUpdatedAt = now;
 
-  const event: AuditEvent = {
-    id: nextAuditEventId(record),
-    type: "Verified",
-    at: now,
-    byUserId: userId,
-  };
-  record.auditTrail.push(event);
+  emitActivityEvent(
+    {
+      recordId: record.id,
+      type: "confirm_and_verify",
+      actorUserId: userId,
+      at: now,
+      region: record.region,
+    },
+    record
+  );
 
   return { record, blockedFields: [] };
 }
@@ -762,16 +871,24 @@ export function flagRecordNeedsReview(
   record.complianceStatus = computeComplianceStatus(record);
   record.lastUpdatedAt = new Date().toISOString();
 
-  if (flag) {
-    const event: AuditEvent = {
-      id: nextAuditEventId(record),
-      type: "Flagged as Needs Review",
+  /*
+   * Both directions are logged now. Clearing a flag used to write nothing,
+   * because the coarse vocabulary had no word for it — so an accountability
+   * trail recorded a flag going up and never coming down. `needs_review_cleared`
+   * exists for exactly that, and maps to no coarse type, so page 6's timeline
+   * is unchanged while the central log is complete.
+   */
+  emitActivityEvent(
+    {
+      recordId: record.id,
+      type: flag ? "flagged_needs_review" : "needs_review_cleared",
+      actorUserId: userId,
       at: record.lastUpdatedAt,
-      byUserId: userId,
-      ...(note ? { note } : {}),
-    };
-    record.auditTrail.push(event);
-  }
+      region: record.region,
+      ...(flag && note ? { detail: note } : {}),
+    },
+    record
+  );
 
   return record;
 }
@@ -795,13 +912,16 @@ export function flagRecordForEnforcement(
   record.flaggedForEnforcement = true;
   record.lastUpdatedAt = new Date().toISOString();
 
-  const event: AuditEvent = {
-    id: nextAuditEventId(record),
-    type: "Flagged for Enforcement",
-    at: record.lastUpdatedAt,
-    byUserId: userId,
-  };
-  record.auditTrail.push(event);
+  emitActivityEvent(
+    {
+      recordId: record.id,
+      type: "flagged_for_enforcement",
+      actorUserId: userId,
+      at: record.lastUpdatedAt,
+      region: record.region,
+    },
+    record
+  );
 
   return record;
 }
@@ -813,10 +933,14 @@ export function flagRecordForEnforcement(
  * (§5 of the plan): a retry always succeeds, since nothing here models a
  * second real OCR attempt.
  */
-export function retryExtractionForRecord(recordId: string): ComplianceRecord | undefined {
+export function retryExtractionForRecord(
+  recordId: string,
+  userId: string
+): ComplianceRecord | undefined {
   const run = findRunByRecordId(recordId);
   if (!run?.record) return undefined;
 
+  const correctedBefore = run.record.extraction.declarations.filter((d) => d.corrected).length;
   const fresh = seedDeclarations(run.seeded.fallbackNeeded, false);
   run.seeded = fresh;
   const record = run.record;
@@ -828,6 +952,27 @@ export function retryExtractionForRecord(recordId: string): ComplianceRecord | u
   record.violations = fresh.violations;
   record.complianceStatus = computeComplianceStatus(record);
   record.lastUpdatedAt = new Date().toISOString();
+
+  /*
+   * This replaces every declaration, so any correction an officer had already
+   * made is gone. That was happening silently — no event, and no `userId` on
+   * the signature to attribute it to. The count of discarded corrections goes
+   * in the detail because it is the part someone would later need to explain.
+   */
+  emitActivityEvent(
+    {
+      recordId: record.id,
+      type: "ocr_retried",
+      actorUserId: userId,
+      at: record.lastUpdatedAt,
+      region: record.region,
+      detail:
+        correctedBefore > 0
+          ? `Re-extraction discarded ${correctedBefore} earlier correction(s).`
+          : "Re-extraction requested.",
+    },
+    record
+  );
 
   return record;
 }
@@ -863,6 +1008,7 @@ export function createZeroDeclarationDemoRecord(scannedByUserId: string): Compli
     seeded: seedDeclarations(false, true),
   };
   run.record = buildFinalRecord(run);
+  for (const stage of run.stages) emitStageEvent(run, stage.id, "completed");
   runs.set(run.scanId, run);
   return run.record;
 }
@@ -972,6 +1118,10 @@ function sortRecords(
  * the live pipeline is visible to both rather than only to page 5.
  */
 function getAllActiveRecords(): ComplianceRecord[] {
+  /* Backfills the static seeds' history on first read — see `audit-store.ts`.
+   * Without it a seeded record renders an empty timeline, which reads as
+   * broken rather than as fixture data. */
+  ensureAuditSeeded();
   const seen = new Set<string>();
   return [...getAllCreatedRecords(), ...MOCK_ACTIVE_RECORDS].filter((record) => {
     if (record.archived || seen.has(record.id)) return false;
@@ -1120,13 +1270,17 @@ export function recordReportGenerated(
       continue;
     }
     const record = run.record;
-    record.auditTrail.push({
-      id: nextAuditEventId(record),
-      type: "Report Generated",
-      at,
-      byUserId: userId,
-      note: reportName,
-    });
+    emitActivityEvent(
+      {
+        recordId: record.id,
+        type: "report_generated",
+        actorUserId: userId,
+        at,
+        region: record.region,
+        detail: reportName,
+      },
+      record
+    );
     record.lastUpdatedAt = at;
     updated.push(recordId);
   }
@@ -1295,13 +1449,19 @@ export function flagManufacturerForEnforcement(
 
     record.flaggedForEnforcement = true;
     record.lastUpdatedAt = new Date().toISOString();
-    record.auditTrail.push({
-      id: nextAuditEventId(record),
-      type: "Flagged for Enforcement",
-      at: record.lastUpdatedAt,
-      byUserId: userId,
-      note: `Manufacturer-level enforcement action: ${manufacturerName}`,
-    });
+    /* Same event type as the single-record flag — the fan-out is many of the
+     * same action, not a different one. The detail is what distinguishes it. */
+    emitActivityEvent(
+      {
+        recordId: record.id,
+        type: "flagged_for_enforcement",
+        actorUserId: userId,
+        at: record.lastUpdatedAt,
+        region: record.region,
+        detail: `Manufacturer-level enforcement action: ${manufacturerName}`,
+      },
+      record
+    );
 
     flagged.push(record);
   }
@@ -1314,11 +1474,27 @@ export function flagManufacturerForEnforcement(
  * every other mutation here: a static-seed record has no backing store to
  * write to and this returns `undefined` for one, same as `applyCorrection`.
  */
-export function archiveRecord(recordId: string): ComplianceRecord | undefined {
+export function archiveRecord(recordId: string, userId: string): ComplianceRecord | undefined {
   const run = findRunByRecordId(recordId);
   if (!run?.record) return undefined;
   run.record.archived = true;
   run.record.lastUpdatedAt = new Date().toISOString();
+
+  /* Archiving is Admin-only and removes a record from every default view, and
+   * it logged nothing at all until now. It takes a `userId` for the first time
+   * for this reason — an unattributable destructive-ish action is precisely
+   * what an audit log exists to prevent. */
+  emitActivityEvent(
+    {
+      recordId: run.record.id,
+      type: "record_archived",
+      actorUserId: userId,
+      at: run.record.lastUpdatedAt,
+      region: run.record.region,
+    },
+    run.record
+  );
+
   return run.record;
 }
 
@@ -1367,15 +1543,17 @@ export function bulkSetNeedsReview(
     record.complianceStatus = computeComplianceStatus(record);
     record.lastUpdatedAt = new Date().toISOString();
 
-    if (flag) {
-      record.auditTrail.push({
-        id: nextAuditEventId(record),
-        type: "Flagged as Needs Review",
+    emitActivityEvent(
+      {
+        recordId: record.id,
+        type: flag ? "flagged_needs_review" : "needs_review_cleared",
+        actorUserId: userId,
         at: record.lastUpdatedAt,
-        byUserId: userId,
-        note: "Bulk action",
-      });
-    }
+        region: record.region,
+        detail: "Bulk action",
+      },
+      record
+    );
 
     updated.push(record);
   }

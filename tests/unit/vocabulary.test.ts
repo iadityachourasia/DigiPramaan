@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import en from "@/messages/en.json";
 import {
+  ACTIVITY_TO_AUDIT_TYPE,
+  AUDIT_EVENT_TYPES,
   COMPLIANCE_STATUSES,
   computeComplianceStatus,
   confidenceBand,
@@ -138,6 +140,36 @@ describe("Role Permission Matrix", () => {
     for (const role of ROLES) {
       expect(ROLE_PERMISSIONS[role]).toContain("record.flagNeedsReview");
       expect(ROLE_PERMISSIONS[role]).toContain("report.generate");
+    }
+  });
+});
+
+/**
+ * Every other fixed vocabulary in this file is asserted against the message
+ * catalogue; the audit event types conspicuously were not, which is how a new
+ * type could ship with no label and render as a raw key.
+ */
+describe("audit event vocabulary", () => {
+  it("gives every AuditEventType a label in the catalogue", () => {
+    const labels = en.recordDetail.auditTrail.eventType as Record<string, string>;
+    for (const type of AUDIT_EVENT_TYPES) {
+      expect(labels[type], `missing label for ${type}`).toBeTruthy();
+    }
+  });
+
+  it("has no orphaned labels for types that no longer exist", () => {
+    const labels = Object.keys(en.recordDetail.auditTrail.eventType as Record<string, string>);
+    for (const label of labels) {
+      expect(AUDIT_EVENT_TYPES).toContain(label);
+    }
+  });
+
+  /* The projection is what stops a machine-generated event reaching page 6
+   * with no label to render. Anything mapped must have one. */
+  it("only maps activity types onto audit types the catalogue can render", () => {
+    const labels = en.recordDetail.auditTrail.eventType as Record<string, string>;
+    for (const mapped of Object.values(ACTIVITY_TO_AUDIT_TYPE)) {
+      if (mapped) expect(labels[mapped]).toBeTruthy();
     }
   });
 });

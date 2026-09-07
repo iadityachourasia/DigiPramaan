@@ -11,3 +11,4 @@ export * from "./analytics";
 export * from "./manufacturer";
 export * from "./report";
 export * from "./grievance";
+export * from "./history";

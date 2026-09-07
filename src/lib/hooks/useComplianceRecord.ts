@@ -88,10 +88,12 @@ export function useComplianceRecord(id: string, demoZeroDeclarations?: boolean) 
     [record]
   );
 
-  const retryOcr = useCallback(() => {
+  /* Takes the actor for the first time — re-extraction discards existing
+   * corrections and now says who asked for it. */
+  const retryOcr = useCallback((userId: string) => {
     if (!record) return;
     setPending(true);
-    retryOcrRequest(record.id).then((result) => {
+    retryOcrRequest(record.id, userId).then((result) => {
       setPending(false);
       if (result.ok) setRecord(result.data);
       else setMutationError(true);

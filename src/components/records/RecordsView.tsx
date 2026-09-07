@@ -136,7 +136,10 @@ export function RecordsView({ locale }: { locale: string }) {
   }
 
   async function handleArchive(record: ComplianceRecord) {
-    const result = await archiveRecordRequest(record.id);
+    if (!user) return;
+    /* Archiving now records who did it, so the action needs the signed-in
+     * user the same way the bulk actions already did. */
+    const result = await archiveRecordRequest(record.id, user.id);
     if (result.ok) {
       setArchiveError(false);
       refetch();

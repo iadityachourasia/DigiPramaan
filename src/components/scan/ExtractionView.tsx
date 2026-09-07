@@ -212,7 +212,7 @@ export function ExtractionView({ recordId }: ExtractionViewProps) {
               <button
                 type="button"
                 className="ux4g-btn ux4g-btn-outline-primary"
-                onClick={retryOcr}
+                onClick={() => user && retryOcr(user.id)}
                 disabled={pending}
               >
                 <span className="ux4g-icon-outlined" aria-hidden="true">
