@@ -58,7 +58,6 @@ import {
   confidenceBand,
   DECLARATION_FIELDS,
   PIPELINE_STAGE_IDS,
-  REPEAT_VIOLATION_THRESHOLD,
   SOURCE_TAGS,
   VIOLATION_CATEGORY_IDS,
   violationCategory,
@@ -66,9 +65,12 @@ import {
   type AnalyticsSummary,
   type CaptureSlotAngle,
   type CategoryBreakdownEntry,
+  type DashboardAlert,
+  type DashboardData,
   type CitizenReportDetails,
   type ComplianceRatePoint,
   type ComplianceRecord,
+  type ComplianceScore,
   type DeclarationCheck,
   type DeclarationFieldId,
   type ExtractedDeclaration,
@@ -86,6 +88,7 @@ import {
   type Violation,
   type ViolationBreakdownEntry,
 } from "@/types";
+import { getRuleThresholds, isUserActive } from "./admin-store";
 
 /** Mock processing time per stage. Quality check and Ready-for-verification are instant. */
 const STAGE_DURATION_MS: Record<PipelineStageId, number> = {
@@ -619,7 +622,9 @@ function toPublicRun(run: StoredPipelineRun): { scanId: string; recordId: string
 }
 
 export function createPipelineRun(input: CreatePipelineRunInput) {
-  const fallbackNeeded = input.fallbackOverride === "skipped" ? false : true;
+  const fallbackNeeded = input.fallbackOverride === "skipped"
+    ? false
+    : input.fallbackOverride === "used" || 68 < getRuleThresholds().ocrConfidenceThreshold;
   const seeded = seedDeclarations(fallbackNeeded, input.forceZeroDeclarations ?? false);
   const now = new Date().toISOString();
 
@@ -681,6 +686,11 @@ export function completePipelineRunNow(scanId: string): ComplianceRecord | undef
   const forced: PipelineStageId[] = [];
   for (const stage of run.stages) {
     if (stage.state === "pending" || stage.state === "in_progress") {
+      if (stage.id === "fallbackExtraction" && !run.seeded.fallbackNeeded) {
+        stage.state = "skipped";
+        stage.summary = "Not needed — all fields extracted with high confidence.";
+        continue;
+      }
       stage.state = "completed";
       stage.summary = stageSummary(run, stage.id);
       forced.push(stage.id);
@@ -840,7 +850,17 @@ export function verifyRecord(recordId: string, userId: string): VerifyResult | u
   const now = new Date().toISOString();
   record.verificationStatus = "Verified";
   record.complianceStatus = computeComplianceStatus(record);
-  record.complianceScore = computeComplianceScore(record);
+  const computedScore = computeComplianceScore(record);
+  const thresholds = getRuleThresholds();
+  const band: ComplianceScore["band"] = computedScore.value >= thresholds.excellentMinimum
+    ? "Excellent"
+    : computedScore.value >= thresholds.goodMinimum
+      ? "Good"
+      : computedScore.value >= thresholds.poorMinimum
+        ? "Poor"
+        : "Critical";
+  // The score and band are a verified-time fact. Threshold edits affect only later verification.
+  record.complianceScore = { ...computedScore, band };
   record.lastUpdatedAt = now;
 
   emitActivityEvent(
@@ -1152,6 +1172,121 @@ function getAllActiveRecords(): ComplianceRecord[] {
   });
 }
 
+function dashboardKpis(records: readonly ComplianceRecord[]) {
+  const count = (status: ComplianceRecord["complianceStatus"]) =>
+    records.filter((record) => record.complianceStatus === status).length;
+
+  /* There is no prior-period dataset in this MVP. A neutral delta is honest;
+   * reusing the fixture's illustrative percentages here would make a scoped
+   * dashboard look live while still reporting nationwide historical claims. */
+  return [
+    { id: "productsScanned", value: records.length, deltaPercentage: 0 },
+    {
+      id: "compliant",
+      value: count("Compliant"),
+      percentageOfTotal: records.length === 0 ? 0 : Math.round((count("Compliant") / records.length) * 100),
+      deltaPercentage: 0,
+      routesToStatus: "Compliant",
+    },
+    {
+      id: "nonCompliant",
+      value: count("Non-Compliant"),
+      percentageOfTotal:
+        records.length === 0 ? 0 : Math.round((count("Non-Compliant") / records.length) * 100),
+      deltaPercentage: 0,
+      routesToStatus: "Non-Compliant",
+    },
+    {
+      id: "pending",
+      value: count("Pending"),
+      percentageOfTotal: records.length === 0 ? 0 : Math.round((count("Pending") / records.length) * 100),
+      deltaPercentage: 0,
+      routesToStatus: "Pending",
+    },
+  ] as DashboardData["kpis"];
+}
+
+function bucketDate(iso: string, period: "weekly" | "monthly"): string {
+  const date = new Date(iso);
+  if (period === "monthly") return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-01`;
+  const day = date.getUTCDay();
+  const mondayOffset = day === 0 ? -6 : 1 - day;
+  date.setUTCDate(date.getUTCDate() + mondayOffset);
+  return date.toISOString().slice(0, 10);
+}
+
+function dashboardTrend(records: readonly ComplianceRecord[], period: "weekly" | "monthly") {
+  const buckets = new Map<string, { compliant: number; nonCompliant: number; totalScans: number }>();
+  for (const record of records) {
+    const date = bucketDate(record.scannedAt, period);
+    const bucket = buckets.get(date) ?? { compliant: 0, nonCompliant: 0, totalScans: 0 };
+    bucket.totalScans += 1;
+    if (record.complianceStatus === "Compliant") bucket.compliant += 1;
+    if (record.complianceStatus === "Non-Compliant") bucket.nonCompliant += 1;
+    buckets.set(date, bucket);
+  }
+  return [...buckets.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([date, values]) => ({ date, ...values }));
+}
+
+function dashboardAlerts(records: readonly ComplianceRecord[]): DashboardAlert[] {
+  const alerts: DashboardAlert[] = [];
+  const now = Date.now();
+  for (const manufacturer of MOCK_MANUFACTURERS) {
+    const recentNonCompliant = records.filter(
+      (record) =>
+        record.manufacturerName === manufacturer.name &&
+        record.complianceStatus === "Non-Compliant" &&
+        withinThresholdWindow(record.lastUpdatedAt, now)
+    );
+    const thresholds = getRuleThresholds();
+    if (recentNonCompliant.length >= thresholds.repeatViolationCount) {
+      alerts.push({
+        id: `repeat-violation-${manufacturer.id}`,
+        severity: "error",
+        message: `${manufacturer.name} has crossed the repeat-violation threshold with ${recentNonCompliant.length} Non-Compliant records in ${thresholds.repeatViolationDays} days.`,
+        href: `/manufacturers/${manufacturer.id}`,
+      });
+    }
+  }
+  return alerts;
+}
+
+/**
+ * Dashboard's live read model. It scopes the merged record set once before
+ * every widget is derived, so KPIs, trend, recents, alerts and the roll-up
+ * all describe the exact same viewer-visible population.
+ */
+export function computeDashboardData(viewerId?: string): DashboardData {
+  const records = scopeRecordsForViewer(getAllActiveRecords(), viewerId);
+  const viewer = viewerId ? findMockUser(viewerId) : undefined;
+  const canSeeRegionalDistribution =
+    viewer?.jurisdictionId === "jur-national" &&
+    (viewer.role === "Admin" || viewer.role === "Reviewer");
+  const regionalDistribution = canSeeRegionalDistribution
+    ? computeRegionBreakdown(records).sort((left, right) => {
+        const leftRate = left.totalScanned === 0 ? 0 : left.nonCompliant / left.totalScanned;
+        const rightRate = right.totalScanned === 0 ? 0 : right.nonCompliant / right.totalScanned;
+        return rightRate - leftRate || left.region.localeCompare(right.region);
+      })
+    : [];
+
+  return {
+    kpis: dashboardKpis(records),
+    trends: {
+      weekly: dashboardTrend(records, "weekly"),
+      monthly: dashboardTrend(records, "monthly"),
+    },
+    recentScans: records
+      .slice()
+      .sort((left, right) => new Date(right.scannedAt).getTime() - new Date(left.scannedAt).getTime())
+      .slice(0, 8),
+    alerts: dashboardAlerts(records),
+    regionalDistribution,
+  };
+}
+
 /**
  * Narrows a record set to what one viewer's jurisdiction and role permit
  * (13 §4.2) — the ONE place this rule is implemented. `listRecords`,
@@ -1183,7 +1318,7 @@ function getAllActiveRecords(): ComplianceRecord[] {
  *    §4.2 states no jurisdiction rule for Reviewer at all, so it stays
  *    unscoped rather than inventing a rule nothing asked for.
  */
-function scopeRecordsForViewer(
+export function scopeRecordsForViewer(
   records: ComplianceRecord[],
   viewerId: string | undefined
 ): ComplianceRecord[] {
@@ -1253,6 +1388,22 @@ export interface AnalyticsAggregate {
   sourceBreakdown: SourceBreakdownEntry[];
 }
 
+function computeRegionBreakdown(records: readonly ComplianceRecord[]): RegionBreakdownEntry[] {
+  return Object.values(
+    records.reduce<Record<string, RegionBreakdownEntry>>((acc, record) => {
+      const entry = acc[record.region] ?? {
+        region: record.region,
+        totalScanned: 0,
+        nonCompliant: 0,
+      };
+      entry.totalScanned += 1;
+      if (record.complianceStatus === "Non-Compliant") entry.nonCompliant += 1;
+      acc[record.region] = entry;
+      return acc;
+    }, {})
+  );
+}
+
 /**
  * Summary/violation/category/region/source breakdowns for Analytics &
  * Violation Trends (page 7), computed live over `getAllActiveRecords()` —
@@ -1309,19 +1460,7 @@ export function computeAnalyticsSummary(viewerId?: string): AnalyticsAggregate {
     }, {})
   );
 
-  const regionBreakdown: RegionBreakdownEntry[] = Object.values(
-    all.reduce<Record<string, RegionBreakdownEntry>>((acc, record) => {
-      const entry = acc[record.region] ?? {
-        region: record.region,
-        totalScanned: 0,
-        nonCompliant: 0,
-      };
-      entry.totalScanned += 1;
-      if (record.complianceStatus === "Non-Compliant") entry.nonCompliant += 1;
-      acc[record.region] = entry;
-      return acc;
-    }, {})
-  );
+  const regionBreakdown = computeRegionBreakdown(all);
 
   const sourceBreakdown: SourceBreakdownEntry[] = SOURCE_TAGS.map((source) => ({
     source,
@@ -1419,7 +1558,7 @@ function recordsForManufacturer(name: string, viewerId?: string): ComplianceReco
 
 function withinThresholdWindow(iso: string, now: number): boolean {
   const days = (now - new Date(iso).getTime()) / (1000 * 60 * 60 * 24);
-  return days <= REPEAT_VIOLATION_THRESHOLD.withinDays;
+  return days <= getRuleThresholds().repeatViolationDays;
 }
 
 /**
@@ -1507,8 +1646,12 @@ function buildScorecard(
       lastScannedAt: dates[dates.length - 1] ?? "",
     },
     repeatViolationFlagged:
-      recentNonCompliantCount >= REPEAT_VIOLATION_THRESHOLD.nonCompliantCount,
+      recentNonCompliantCount >= getRuleThresholds().repeatViolationCount,
     recentNonCompliantCount,
+    repeatViolationThreshold: {
+      nonCompliantCount: getRuleThresholds().repeatViolationCount,
+      withinDays: getRuleThresholds().repeatViolationDays,
+    },
     complianceTrend,
     violationBreakdown,
     products,
@@ -1527,6 +1670,28 @@ export function computeManufacturerScorecard(
   const manufacturer = MOCK_MANUFACTURERS.find((m) => m.id === id);
   if (!manufacturer) return undefined;
   return buildScorecard(manufacturer.id, manufacturer.name, Date.now(), viewerId);
+}
+
+/**
+ * Resolves a directory manufacturer at the direct-detail boundary. A known
+ * manufacturer with records that are all outside the viewer's scope is
+ * deliberately distinct from one that has never had a record anywhere.
+ */
+export function resolveManufacturerScorecardForViewer(
+  id: string,
+  viewerId?: string
+): { scorecard?: ManufacturerScorecard; blocked: boolean } {
+  const manufacturer = MOCK_MANUFACTURERS.find((candidate) => candidate.id === id);
+  if (!manufacturer) return { blocked: false };
+
+  const global = recordsForManufacturer(manufacturer.name);
+  const visible = scopeRecordsForViewer(global, viewerId);
+  if (global.length > 0 && visible.length === 0) return { blocked: true };
+
+  return {
+    scorecard: buildScorecard(manufacturer.id, manufacturer.name, Date.now(), viewerId),
+    blocked: false,
+  };
 }
 
 export interface ManufacturerFlagResult {
@@ -1672,7 +1837,10 @@ export function reassignCase(
   if (visibleRegions !== null && !visibleRegions.includes(record.region)) return undefined;
 
   const newOfficer = findMockUser(newOfficerUserId);
-  if (!newOfficer || newOfficer.role !== "Enforcement Officer") return undefined;
+  if (!newOfficer || newOfficer.role !== "Enforcement Officer" || !isUserActive(newOfficer.id)) return undefined;
+  const targetRegions = regionNamesVisibleTo(newOfficer.jurisdictionId);
+  if (targetRegions !== null && !targetRegions.includes(record.region)) return undefined;
+  if (visibleRegions !== null && !visibleRegions.includes(newOfficer.region)) return undefined;
 
   const previousOfficerName = record.assignedOfficerUserId
     ? (findMockUser(record.assignedOfficerUserId)?.fullName ?? record.assignedOfficerUserId)

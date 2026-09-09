@@ -32,9 +32,9 @@ import type { Role } from "./vocabulary";
  *   records raising a flag but not lowering it is worse than none.
  * - `ocr_retried` is added, for Retry OCR (04). It replaces every extracted
  *   declaration and destroys prior corrections, and logged nothing at all.
- * - `case_reassigned` is declared but never emitted. It belongs to the
- *   unbuilt Admin Console's reassignment flow (13 §4.2); it is kept so the
- *   vocabulary matches the spec rather than quietly diverging.
+ * - `case_reassigned` is emitted by the Admin Console's reassignment flow
+ *   (13 §4.2). It is a global activity event; record-trail projection remains
+ *   deliberately separate from that activity stream.
  *
  * There is deliberately no citizen-specific type. A public submission is a
  * `scan_created` like any other; what makes it a citizen report is the absent
@@ -58,12 +58,14 @@ export const ACTIVITY_EVENT_TYPES = [
   "report_downloaded",
   "record_archived",
   "case_reassigned",
+  "rule_threshold_changed",
 ] as const;
 export type ActivityEventType = (typeof ACTIVITY_EVENT_TYPES)[number];
 
 export interface ActivityEvent {
   id: string;
-  recordId: string;
+  /** Absent for system configuration changes, which are not about a record. */
+  recordId?: string;
   type: ActivityEventType;
   /**
    * Absent for system-generated events — every pipeline stage — and for the
@@ -122,6 +124,7 @@ export const ACTIVITY_TO_AUDIT_TYPE: Record<ActivityEventType, AuditEventType | 
   report_downloaded: null,
   record_archived: null,
   case_reassigned: null,
+  rule_threshold_changed: null,
 };
 
 /* ------------------------------------------------------------------ *

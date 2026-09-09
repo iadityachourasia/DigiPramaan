@@ -39,6 +39,8 @@ export interface TrendPanelProps {
     retryLabel: string;
   };
   demoState?: "loading" | "empty" | "error";
+  /** Dashboard's live, viewer-scoped series. Analytics retains its fixture fallback. */
+  dataByPeriod?: Record<TrendPeriod, TrendPoint[]>;
   /** Analytics & Violation Trends' (page 7) drill-down — unused by Dashboard's own usage. */
   onPointClick?: (point: TrendPoint, series: "compliant" | "nonCompliant") => void;
   /**
@@ -57,6 +59,7 @@ const MIN_POINTS_FOR_TREND = 2;
 export function TrendPanel({
   labels,
   demoState,
+  dataByPeriod,
   onPointClick,
   period: controlledPeriod,
   onPeriodChange,
@@ -67,7 +70,7 @@ export function TrendPanel({
     onPeriodChange?.(next);
     if (controlledPeriod === undefined) setInternalPeriod(next);
   };
-  const data = demoState === "empty" ? [] : getTrendForPeriod(period);
+  const data = demoState === "empty" ? [] : (dataByPeriod?.[period] ?? getTrendForPeriod(period));
 
   return (
     <div className="ux4g-card ux4g-card-outline">

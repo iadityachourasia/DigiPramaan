@@ -26,6 +26,7 @@
  */
 
 import { MOCK_REPORTS } from "@/lib/mock/reports";
+import { findMockUser } from "@/lib/mock/users";
 import {
   LARGE_REPORT_ROW_THRESHOLD,
   REPORT_STAGE_IDS,
@@ -45,6 +46,7 @@ import {
   getRecordById,
   listRecords,
   recordReportGenerated,
+  scopeRecordsForViewer,
 } from "./scan-pipeline-store";
 
 /** Mock time per stage. Long enough that each transition reads as its own moment. */
@@ -88,6 +90,14 @@ const reports = new Map<string, GeneratedReport>();
 let seeded = false;
 let sequence = 6000;
 
+/** Test-only seam, mirroring the other stores' `resetXForTests`. */
+export function resetReportStoreForTests(): void {
+  runs.clear();
+  reports.clear();
+  seeded = false;
+  sequence = 6000;
+}
+
 /** Seeds Download History from the fixtures on first read, not at module load. */
 function ensureSeeded(): void {
   if (seeded) return;
@@ -129,22 +139,22 @@ export const EMPTY_REPORT_FILTERS: RecordFilters = {
  * merge pages 5, 7 and 9 read, so a report includes records created through
  * the pipeline rather than only the static seeds.
  */
-export function resolveScopeRecords(scope: ReportScope): ComplianceRecord[] {
+export function resolveScopeRecords(scope: ReportScope, viewerId?: string): ComplianceRecord[] {
   if (scope.kind === "record") {
     const record = getRecordById(scope.recordId);
-    return record ? [record] : [];
+    return record ? scopeRecordsForViewer([record], viewerId) : [];
   }
 
   if (scope.kind === "manufacturer") {
-    return computeManufacturerScorecard(scope.manufacturerId)?.products ?? [];
+    return computeManufacturerScorecard(scope.manufacturerId, viewerId)?.products ?? [];
   }
 
-  return listRecords(scope.filters, "newest", 1, MAX_SCOPE_ROWS).rows;
+  return listRecords(scope.filters, "newest", 1, MAX_SCOPE_ROWS, viewerId).rows;
 }
 
 /** Row count for the large-scope warning, without building the report. */
-export function countScopeRows(scope: ReportScope): number {
-  return resolveScopeRecords(scope).length;
+export function countScopeRows(scope: ReportScope, viewerId?: string): number {
+  return resolveScopeRecords(scope, viewerId).length;
 }
 
 export function isLargeScope(rowCount: number): boolean {
@@ -164,7 +174,7 @@ export function describeScope(
   }
 
   if (scope.kind === "manufacturer") {
-    const name = computeManufacturerScorecard(scope.manufacturerId)?.summary.name;
+    const name = records[0]?.manufacturerName;
     return `Manufacturer scorecard — ${name ?? scope.manufacturerId}`;
   }
 
@@ -245,6 +255,7 @@ function withAdvancedReportStages(run: StoredReportRun): StoredReportRun {
         generatedByUserName: run.generatedByUserName,
         referenceCode: run.referenceCode,
         rowCount: run.recordIds.length,
+        recordIds: run.recordIds,
       };
       run.report = report;
       reports.set(report.id, report);
@@ -286,6 +297,8 @@ export interface CreateReportRunInput {
   formats: ReportFormat[];
   generatedByUserId: string;
   generatedByUserName: string;
+  /** Viewer identity constrains the report's resolved record set. */
+  viewerId?: string;
   /** `?demo=report-fail-<stage>`. */
   forceFailStage?: ReportStageId;
 }
@@ -304,7 +317,7 @@ export interface CreateReportRunResult {
 export function createReportRun(input: CreateReportRunInput): CreateReportRunResult {
   ensureSeeded();
 
-  const records = resolveScopeRecords(input.scope);
+  const records = resolveScopeRecords(input.scope, input.viewerId);
 
   if (input.formats.length === 0) {
     return { blocked: "no-format", rowCount: records.length };
@@ -338,6 +351,26 @@ export function getReportRun(runId: string): ReportRun | undefined {
   return toPublicRun(withAdvancedReportStages(run));
 }
 
+/**
+ * Test-only: forces a run straight to its terminal stage, the same reason
+ * `completePipelineRunNow` exists in scan-pipeline-store.ts — a synchronous
+ * test cannot wait out the real 600+1100+400ms of elapsed-time stage
+ * durations. Backdates the current stage's start on each pass so
+ * `withAdvancedReportStages` sees it as elapsed and completes it; repeated
+ * once per stage, since a freshly-started next stage always begins at the
+ * real "now" and needs its own backdated pass.
+ */
+export function completeReportRunNowForTests(runId: string): ReportRun | undefined {
+  const run = runs.get(runId);
+  if (!run) return undefined;
+  const longAgo = new Date(Date.now() - 100_000).toISOString();
+  for (let i = 0; i < run.stages.length && !run.report; i++) {
+    run.currentStageStartedAt = longAgo;
+    withAdvancedReportStages(run);
+  }
+  return toPublicRun(run);
+}
+
 /** Retry a failed stage. Only a currently-failed stage is accepted. */
 export function retryReportStage(
   runId: string,
@@ -356,18 +389,73 @@ export function retryReportStage(
 
 /* ------------------------------------------------------------------ *
  * Download History
- * ------------------------------------------------------------------ */
+ * ------------------------------------------------------------------ *
+ * Reports are legal/compliance artifacts (13 §4 plan's immutability
+ * invariant): a report's scope, row count, and rendered content are facts
+ * fixed at generation time and must not depend on who reads them later or
+ * when. `rowCount` and `recordIds` on `GeneratedReport` are written once,
+ * in `withAdvancedReportStages`'s finalising branch, and nothing below
+ * this point ever overwrites them.
+ *
+ * "Viewer-aware authorization" is a genuinely separate question from that
+ * — whether a given viewer may see this report at all — and is answered
+ * without touching the report's own data. A viewer may see a report if
+ * they generated it, or if at least one of the report's original,
+ * frozen `recordIds` is still visible to them today under the ordinary
+ * jurisdiction-scoping rule. This deliberately does not re-resolve
+ * `report.scope` against current data for this check — doing that would
+ * reintroduce the exact drift this fix removes, since a filtered scope
+ * re-resolved "now" can match a different set of records than it did at
+ * generation time.
+ */
+function isReportVisibleTo(report: GeneratedReport, viewerId?: string): boolean {
+  if (!viewerId) return true;
+  if (report.generatedByUserId === viewerId) return true;
+  if (!findMockUser(viewerId)) return true;
 
-export function listReports(): GeneratedReport[] {
-  ensureSeeded();
-  return [...reports.values()].sort(
-    (a, b) => new Date(b.generatedAt).getTime() - new Date(a.generatedAt).getTime()
-  );
+  const frozenRecords = report.recordIds
+    .map((id) => getRecordById(id))
+    .filter((record): record is ComplianceRecord => record !== undefined);
+  return scopeRecordsForViewer(frozenRecords, viewerId).length > 0;
 }
 
-export function getReport(reportId: string): GeneratedReport | undefined {
+export function listReports(viewerId?: string): GeneratedReport[] {
   ensureSeeded();
-  return reports.get(reportId);
+  return [...reports.values()]
+    .filter((report) => isReportVisibleTo(report, viewerId))
+    .sort((a, b) => new Date(b.generatedAt).getTime() - new Date(a.generatedAt).getTime());
+}
+
+/**
+ * A known report the viewer cannot see is reported as blocked, not
+ * missing — the same 404-vs-403 shape `resolveManufacturerScorecardForViewer`
+ * already uses, so a route can translate `blocked` to 403 without
+ * disclosing that the report exists to a viewer who should not see it.
+ */
+export function getReportForViewer(
+  reportId: string,
+  viewerId?: string
+): { report?: GeneratedReport; blocked: boolean } {
+  ensureSeeded();
+  const report = reports.get(reportId);
+  if (!report) return { blocked: false };
+  if (!isReportVisibleTo(report, viewerId)) return { blocked: true };
+  return { report, blocked: false };
+}
+
+/**
+ * Resolves a report's content for rendering (detail/preview/download).
+ * Always re-derived from the frozen scope as of *now* — a later
+ * correction to one of the covered records should show up on re-download,
+ * which is `report-store.ts`'s pre-existing, documented trade-off — but
+ * always through the *generating* user's own visibility, never the
+ * current reader's. Without this, the same report id would render
+ * different content to different readers, which is a second, independent
+ * way the immutability invariant was broken: a report's content is one of
+ * the things that "must remain stable" regardless of who downloads it.
+ */
+export function resolveReportContentRecords(report: GeneratedReport): ComplianceRecord[] {
+  return resolveScopeRecords(report.scope, report.generatedByUserId);
 }
 
 /** Resolves a printed reference code back to its report — what the QR is for. */

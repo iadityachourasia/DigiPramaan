@@ -30,6 +30,8 @@ export interface User {
    * seeded anywhere in this build (see `jurisdiction.ts`).
    */
   jurisdictionId: string;
+  /** Deactivated accounts cannot sign in again or receive new cases. */
+  active?: boolean;
   /** The Admin this user reports to, if any. Typed per §4.1; nothing reads it yet — no shared-queue-grant mechanism exists (that's the unbuilt Admin Console, §4.3). */
   reportsToUserId?: string;
   /** ISO 8601. */

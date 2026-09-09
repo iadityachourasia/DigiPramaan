@@ -1,26 +1,35 @@
 import { NextResponse } from "next/server";
 
 import { buildReportDocument } from "@/lib/server/report-render";
-import { getReport, resolveScopeRecords } from "@/lib/server/report-store";
+import { getReportForViewer, resolveReportContentRecords } from "@/lib/server/report-store";
 
 /**
  * GET /api/reports/[id] — one report plus its fully assembled document.
  *
  * The document is what the in-browser preview renders (13 §2), built by the
  * same `buildReportDocument()` the PDF and DOCX read, so the preview cannot
- * drift from what actually downloads.
+ * drift from what actually downloads. Content is resolved through the
+ * *generating* user's own scope, never the requesting viewer's — see
+ * `resolveReportContentRecords`'s own doc comment for why.
  */
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const report = getReport(id);
+  const viewerId = new URL(request.url).searchParams.get("viewerId") ?? undefined;
+  const { report, blocked } = getReportForViewer(id, viewerId);
+  if (blocked) {
+    return NextResponse.json(
+      { error: "Report not found or outside your jurisdiction" },
+      { status: 403 }
+    );
+  }
   if (!report) {
     return NextResponse.json({ error: "Report not found" }, { status: 404 });
   }
 
-  const records = resolveScopeRecords(report.scope);
+  const records = resolveReportContentRecords(report);
   const origin = new URL(request.url).origin;
 
   return NextResponse.json({

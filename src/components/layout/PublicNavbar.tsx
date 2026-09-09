@@ -36,14 +36,14 @@ export function PublicNavbar() {
     <header className="lmcs-navbar">
       <div className="ux4g-container lmcs-navbar-inner">
         <Link href="/" className="lmcs-navbar-brand">
-          <Image
-            src="/images/emblem.svg"
-            alt=""
-            className="lmcs-navbar-emblem"
-            width={32}
-            height={32}
-            unoptimized
-          />
+          <span className="lmcs-brand-mark lmcs-brand-mark-compact">
+            <Image
+              src="/images/digi-pramaan-logo.png"
+              alt=""
+              width={28}
+              height={28}
+            />
+          </span>
           <span className="lmcs-navbar-wordmark">
             <span className="ux4g-title-m-strong">{t("app.name")}</span>
             <span className="ux4g-body-xs-default ux4g-text-neutral-secondary">

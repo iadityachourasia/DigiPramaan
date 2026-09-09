@@ -26,6 +26,7 @@ import {
   type SourceTag,
   type ViolationCategoryId,
 } from "@/types";
+import { useAuth } from "./useAuth";
 
 /** Report stages are ~1s apart, so this matches the pipeline tracker's cadence. */
 const POLL_INTERVAL_MS = 500;
@@ -94,6 +95,7 @@ export function scopeFromParams(params: URLSearchParams): ReportScope | null {
  * and what keeps `react-hooks/set-state-in-effect` satisfied.
  */
 export function useReportHistory(demoState?: string, refreshKey = 0) {
+  const { user } = useAuth();
   const [fetched, setFetched] = useState<GeneratedReport[] | null>(null);
   const [fetchFailed, setFetchFailed] = useState(false);
 
@@ -103,7 +105,7 @@ export function useReportHistory(demoState?: string, refreshKey = 0) {
     if (skipFetch) return;
 
     let cancelled = false;
-    fetchReports().then((result) => {
+    fetchReports(user?.id).then((result) => {
       if (cancelled) return;
       if (result.ok) setFetched(result.data.reports);
       else setFetchFailed(true);
@@ -111,7 +113,7 @@ export function useReportHistory(demoState?: string, refreshKey = 0) {
     return () => {
       cancelled = true;
     };
-  }, [skipFetch, refreshKey]);
+  }, [skipFetch, refreshKey, user?.id]);
 
   if (demoState === "error") return { reports: null, loading: false, error: true };
   if (demoState === "loading") return { reports: null, loading: true, error: false };
@@ -157,6 +159,7 @@ export interface UseReportBuilderResult {
  * source of truth because deep-linking a filter set is the whole point.
  */
 export function useReportBuilder(): UseReportBuilderResult {
+  const { user } = useAuth();
   const searchParams = useSearchParams();
   const demoParam = searchParams.get("demo");
 
@@ -202,7 +205,7 @@ export function useReportBuilder(): UseReportBuilderResult {
     if (!scope) return;
 
     let cancelled = false;
-    fetchScopeCount(scope).then((result) => {
+    fetchScopeCount(scope, user?.id).then((result) => {
       if (cancelled) return;
       if (result.ok) {
         setRowCount(result.data.rowCount);
@@ -215,7 +218,7 @@ export function useReportBuilder(): UseReportBuilderResult {
     };
     // `scopeKey` is the stable identity of `scope`, which is a fresh object each render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scopeKey]);
+  }, [scopeKey, user?.id]);
 
   /** Poll an in-flight run until it settles. */
   useEffect(() => {
@@ -237,7 +240,7 @@ export function useReportBuilder(): UseReportBuilderResult {
     if (!completedReportId) return;
 
     let cancelled = false;
-    fetchReport(completedReportId).then((result) => {
+    fetchReport(completedReportId, user?.id).then((result) => {
       if (cancelled) return;
       if (result.ok) setDetail(result.data);
       else setRequestError(true);
@@ -245,7 +248,7 @@ export function useReportBuilder(): UseReportBuilderResult {
     return () => {
       cancelled = true;
     };
-  }, [completedReportId]);
+  }, [completedReportId, user?.id]);
 
   const setScope = useCallback((next: ReportScope | null) => {
     setScopeOverride(next);

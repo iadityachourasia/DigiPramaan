@@ -11,7 +11,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 const ACCOUNTS = {
   officer: { username: "r.deshmukh", role: "Enforcement Officer", navCount: 7 },
-  admin: { username: "s.iyer", role: "Admin", navCount: 8 },
+  admin: { username: "s.iyer", role: "Admin", navCount: 9 },
   reviewer: { username: "a.banerjee", role: "Reviewer", navCount: 6 },
 } as const;
 

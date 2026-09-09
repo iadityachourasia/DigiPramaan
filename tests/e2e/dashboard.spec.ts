@@ -21,11 +21,11 @@ test.describe("Dashboard KPIs", () => {
     await signInAs(page, "r.deshmukh");
 
     await expect(
-      page.getByRole("link", { name: /Compliant[\s\S]*\+4%/ })
+      page.getByRole("link", { name: /^Compliant\b/ })
     ).toHaveAttribute("href", /\/records\?complianceStatuses=Compliant/);
 
     await expect(
-      page.getByRole("link", { name: /Non-Compliant[\s\S]*\+9%/ })
+      page.getByRole("link", { name: /^Non-Compliant\b/ })
     ).toHaveAttribute("href", /\/records\?complianceStatuses=Non-Compliant/);
 
     /* Products Scanned has no single status, so it links to the plain list. */
@@ -38,7 +38,7 @@ test.describe("Dashboard KPIs", () => {
     page,
   }) => {
     await signInAs(page, "r.deshmukh");
-    const pendingCard = page.getByRole("link", { name: /Pending/ });
+    const pendingCard = page.getByRole("link", { name: /^Pending\b/ });
     await expect(pendingCard).toContainText("Awaiting verification");
   });
 });
@@ -85,13 +85,12 @@ test.describe("Compliance trend", () => {
     const chart = page.locator(".lmcs-chart-svg-wrapper");
 
     /* Weekly-only: the series never reaches this far in the monthly data. */
-    await expect(chart.getByText("2026-07-06")).toBeVisible();
+    await expect(chart.getByText("2026-08-10")).toBeVisible();
 
     await page.getByRole("button", { name: "Monthly" }).click();
 
-    await expect(chart.getByText("2026-07-06")).toHaveCount(0);
-    /* Monthly-only: 12 months back from the series' latest point. */
-    await expect(chart.getByText("2025-10-01")).toBeVisible();
+    await expect(chart.getByText("2026-08-10")).toHaveCount(0);
+    await expect(chart.getByText("2026-08-01")).toBeVisible();
   });
 });
 
@@ -147,10 +146,10 @@ test.describe("Quick actions, role-gated", () => {
   }) => {
     await signInAs(page, "r.deshmukh");
     await expect(
-      page.getByRole("link", { name: "Scan New Product" })
+      page.getByRole("link", { name: "Scan New Product", exact: true })
     ).toBeVisible();
     await expect(
-      page.getByRole("link", { name: "Scan E-commerce Listing" })
+      page.getByRole("link", { name: "Scan E-commerce Listing", exact: true })
     ).toBeVisible();
   });
 
@@ -191,7 +190,7 @@ test.describe("Independent widget states", () => {
     /* KPIs, unaffected. */
     await expect(page.getByRole("link", { name: /Products Scanned/ })).toBeVisible();
     /* Alerts, unaffected. */
-    await expect(page.getByText("MRP Non-Compliance is up 40%")).toBeVisible();
+    await expect(page.getByText("Ganga Beverages Ltd has crossed")).toBeVisible();
   });
 
   test("the error state offers a retry action", async ({ page }) => {

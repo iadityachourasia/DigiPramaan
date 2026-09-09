@@ -153,6 +153,7 @@
     "manufacturerScorecard": "Manufacturer Scorecard",
     "reportsProfile": "Reports & Profile",
     "activityLog": "Activity Log",
+    "adminConsole": "Admin Console",
     "primaryLandmark": "Main navigation",
     "userMenu": "Account menu",
     "notifications": "Notifications",
@@ -716,8 +717,8 @@
     "scanIdLabel": "Scan ID",
     "scannedOn": "Scanned {date}",
     "lastUpdated": "Last updated {date}",
-    "notFoundTitle": "Record not found",
-    "notFoundBody": "This compliance record could not be found. It may not exist, or the link may be incorrect.",
+    "notFoundTitle": "Record not found or outside your jurisdiction",
+    "notFoundBody": "This compliance record could not be found, or it is outside your jurisdiction.",
     "unverifiedBanner": {
       "title": "Not yet verified",
       "body": "This record is still Pending — an officer has not confirmed the extracted data yet. Nothing here is final until verification is complete."
@@ -939,8 +940,8 @@
       "metaTitle": "Manufacturer Scorecard",
       "scannedRange": "Scanned from {from} to {to}",
       "neverScanned": "No scans recorded for this manufacturer yet.",
-      "notFoundTitle": "Manufacturer not found",
-      "notFoundBody": "No manufacturer matches this link. It may be incorrect, or the manufacturer may have been removed.",
+      "notFoundTitle": "Manufacturer not found or outside your jurisdiction",
+      "notFoundBody": "No manufacturer matches this link, or its records are outside your jurisdiction.",
       "backToList": "Back to all manufacturers"
     },
     "summary": {
@@ -1327,8 +1328,23 @@
       "report_generated": "Report generated",
       "report_downloaded": "Report downloaded",
       "record_archived": "Record archived",
-      "case_reassigned": "Case reassigned"
+      "case_reassigned": "Case reassigned",
+      "rule_threshold_changed": "Rule thresholds changed"
     }
+  },
+  "admin": {
+    "title": "Admin Console",
+    "description": "Manage your team and operational rule thresholds.",
+    "noAccessTitle": "Admin access required",
+    "noAccessBody": "You do not have permission to manage team settings or rule thresholds.",
+    "loadError": "We could not load the Admin Console.",
+    "retry": "Try again",
+    "tabsLabel": "Admin Console sections",
+    "tabs": { "team": "Team & Jurisdiction", "thresholds": "Rule Thresholds", "system": "System" },
+    "team": { "heading": "Team & Jurisdiction", "scopeNote": "Only people within your jurisdiction are shown.", "name": "Name", "role": "Role", "jurisdiction": "Jurisdiction", "caseLoad": "Assigned cases", "status": "Status", "action": "Action", "active": "Active", "deactivated": "Deactivated", "deactivate": "Deactivate", "reassignHeading": "Reassign case", "outsideTeamNote": "Cases assigned outside your team are identified by their current officer. New assignments are limited to in-scope active officers.", "caseLabel": "Case", "officerLabel": "New officer", "selectCase": "Select a case", "selectOfficer": "Select an officer", "unassigned": "Unassigned", "reassign": "Reassign case", "reassignConfirm": "Reassign {product} to {officer}?", "confirmReassignmentHeading": "Confirm case reassignment", "confirmDeactivationHeading": "Confirm account deactivation", "confirmReassignmentBody": "Reassign {product} from {currentOfficer} to {newOfficer}?", "confirmReassignment": "Confirm reassignment", "cancel": "Cancel", "sessionNote": "Deactivation prevents future sign-ins and new case assignment. Existing mock sessions cannot be revoked until authentication is server-validated." },
+    "deactivateConfirm": "Deactivate {name}? They will not be able to sign in again or receive new cases.",
+    "thresholds": { "heading": "Rule Thresholds", "freezeNote": "A verified record keeps the score band assigned at verification. Changes apply only to records verified afterwards.", "repeatViolationCount": "Repeat non-compliant records", "repeatViolationDays": "Repeat-violation window (days)", "ocrConfidenceThreshold": "OCR confidence threshold (%)", "excellentMinimum": "Excellent minimum score", "goodMinimum": "Good minimum score", "poorMinimum": "Poor minimum score", "save": "Save thresholds" },
+    "system": { "heading": "System", "locales": "Active languages: English and Hindi", "upload": "Maximum upload size: 10 MB", "readOnly": "System settings are displayed for reference; editing is deferred." }
   },
   "staticPages": {
     "accessibilityStatement": {

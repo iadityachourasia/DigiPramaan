@@ -102,7 +102,7 @@ export function useManufacturerScorecard(id: string, demoState?: string) {
     fetchManufacturerScorecard(id, user?.id).then((result) => {
       if (cancelled) return;
       if (result.ok) setFetched(result.data);
-      else if (result.status === 404) setNotFound(true);
+      else if (result.status === 403 || result.status === 404) setNotFound(true);
       else setFetchFailed(true);
     });
     return () => {

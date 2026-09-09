@@ -41,6 +41,18 @@ export async function generateMetadata({
   return {
     title: t("defaultTitle"),
     description: t("description"),
+    manifest: "/manifest.json",
+    icons: {
+      icon: [
+        { url: "/favicon.ico", sizes: "any" },
+        { url: "/icon0.svg", type: "image/svg+xml" },
+        { url: "/icon1.png", type: "image/png" },
+      ],
+      apple: [{ url: "/apple-icon.png", type: "image/png" }],
+    },
+    appleWebApp: {
+      title: "DigiPramaan",
+    },
   };
 }
 

@@ -73,7 +73,7 @@ function nextId(): string {
  * ------------------------------------------------------------------ */
 
 export interface EmitActivityInput {
-  recordId: string;
+  recordId?: string;
   type: ActivityEventType;
   /** Omitted for system-driven pipeline stages and for citizen submissions. */
   actorUserId?: string;
@@ -103,9 +103,9 @@ export function emitActivityEvent(
 
   const event: ActivityEvent = {
     id: nextId(),
-    recordId: input.recordId,
     type: input.type,
     createdAt: input.at ?? new Date().toISOString(),
+    ...(input.recordId ? { recordId: input.recordId } : {}),
     ...(input.actorUserId ? { actorUserId: input.actorUserId } : {}),
     ...(actorRole ? { actorRole } : {}),
     ...(input.detail ? { detail: input.detail } : {}),
@@ -120,7 +120,7 @@ export function emitActivityEvent(
   };
 
   events.push(event);
-  if (record) record.auditTrail = projectAuditTrail(input.recordId);
+  if (record && input.recordId) record.auditTrail = projectAuditTrail(input.recordId);
   return event;
 }
 

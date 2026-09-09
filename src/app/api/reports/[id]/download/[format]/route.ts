@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { buildReportDocument, renderDocx, renderPdf } from "@/lib/server/report-render";
-import { getReport, resolveScopeRecords } from "@/lib/server/report-store";
+import { getReportForViewer, resolveReportContentRecords } from "@/lib/server/report-store";
 import { REPORT_FORMAT_FILE, REPORT_FORMATS, type ReportFormat } from "@/types";
 
 /**
@@ -16,6 +16,13 @@ import { REPORT_FORMAT_FILE, REPORT_FORMATS, type ReportFormat } from "@/types";
  * *now*, not as they were when first generated. For a live compliance
  * system that is arguably the more useful behaviour, but it is a real
  * difference from a stored artefact.
+ *
+ * That trade-off is scoped through the *generating* user's own visibility
+ * (`resolveReportContentRecords`), never the downloading viewer's — the
+ * same report id must produce the same file for whoever is authorized to
+ * download it, not a different one per reader. Authorization itself — is
+ * this viewer even allowed to download it — is the separate, frozen-scope
+ * check in `getReportForViewer`.
  */
 export async function GET(
   request: Request,
@@ -28,7 +35,14 @@ export async function GET(
     return NextResponse.json({ error: `Unsupported format: ${format}` }, { status: 400 });
   }
 
-  const report = getReport(id);
+  const viewerId = new URL(request.url).searchParams.get("viewerId") ?? undefined;
+  const { report, blocked } = getReportForViewer(id, viewerId);
+  if (blocked) {
+    return NextResponse.json(
+      { error: "Report not found or outside your jurisdiction" },
+      { status: 403 }
+    );
+  }
   if (!report) {
     return NextResponse.json({ error: "Report not found" }, { status: 404 });
   }
@@ -39,7 +53,7 @@ export async function GET(
     );
   }
 
-  const records = resolveScopeRecords(report.scope);
+  const records = resolveReportContentRecords(report);
   const origin = new URL(request.url).origin;
   const doc = buildReportDocument(report, records, origin);
 

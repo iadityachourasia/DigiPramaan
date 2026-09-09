@@ -10,7 +10,8 @@ import { listReports } from "@/lib/server/report-store";
  * this server process, so a client-side mock branch could never see a report
  * generated in another tab.
  */
-export async function GET() {
-  const reports = listReports();
+export async function GET(request: Request) {
+  const viewerId = new URL(request.url).searchParams.get("viewerId") ?? undefined;
+  const reports = listReports(viewerId);
   return NextResponse.json({ reports, total: reports.length });
 }

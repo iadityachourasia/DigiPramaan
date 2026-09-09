@@ -38,7 +38,7 @@ export const API = {
   },
 
   analytics: {
-    dashboard: "/analytics/dashboard",
+    dashboard: "/dashboard",
     trends: "/analytics/trends",
     violations: "/analytics/violations",
   },

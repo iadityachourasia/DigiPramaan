@@ -258,7 +258,7 @@ export function ReportsView({ locale }: { locale: string }) {
               {builder.detail.report.formats.map((format) => (
                 <a
                   key={format}
-                  href={reportDownloadHref(builder.detail!.report.id, format)}
+                  href={reportDownloadHref(builder.detail!.report.id, format, user?.id)}
                   className="ux4g-btn ux4g-btn-primary"
                 >
                   <span className="ux4g-icon-outlined" aria-hidden="true">
@@ -308,6 +308,7 @@ export function ReportsView({ locale }: { locale: string }) {
             reports={visibleReports}
             loading={history.loading}
             locale={locale}
+            {...(user?.id ? { viewerId: user.id } : {})}
             labels={{
               caption: t("history.heading"),
               columnName: t("history.columnName"),

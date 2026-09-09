@@ -8,9 +8,21 @@ import {
   completePipelineRunNow,
   listRecords,
   reassignCase,
+  resolveManufacturerScorecardForViewer,
   resetPipelineStoreForTests,
 } from "@/lib/server/scan-pipeline-store";
 import { MOCK_ACTIVE_RECORDS } from "@/lib/mock/records";
+import { MOCK_MANUFACTURERS, type MockManufacturer } from "@/lib/mock/reference";
+import {
+  completeReportRunNowForTests,
+  createReportRun,
+  resolveScopeRecords,
+} from "@/lib/server/report-store";
+import { GET as getRecordRoute } from "@/app/api/records/[id]/route";
+import { GET as getManufacturerRoute } from "@/app/api/manufacturers/[id]/scorecard/route";
+import { POST as reportScopeRoute } from "@/app/api/reports/scope/route";
+import { GET as getReportRoute } from "@/app/api/reports/[id]/route";
+import { GET as downloadReportRoute } from "@/app/api/reports/[id]/download/[format]/route";
 import type { RecordFilters } from "@/types";
 
 /**
@@ -59,6 +71,13 @@ describe("jurisdiction scoping", () => {
       const page = listRecords(NO_FILTERS, "newest", 1, 100, "no-such-user");
       expect(page.totalCount).toBe(UNSCOPED_ACTIVE_COUNT);
     });
+
+    it("keeps National Admin and Reviewer report scopes unfiltered while preserving Rohan's existing own-cases rule", () => {
+      const scope = { kind: "filtered" as const, filters: NO_FILTERS };
+      expect(resolveScopeRecords(scope, "usr-002")).toHaveLength(UNSCOPED_ACTIVE_COUNT);
+      expect(resolveScopeRecords(scope, "usr-003")).toHaveLength(UNSCOPED_ACTIVE_COUNT);
+      expect(resolveScopeRecords(scope, "usr-001")).toHaveLength(7);
+    });
   });
 
   describe("State jurisdiction — genuine narrowing", () => {
@@ -82,6 +101,121 @@ describe("jurisdiction scoping", () => {
       expect(scoped?.summary.totalProductsScanned).toBe(0);
       expect(scoped?.products).toEqual([]);
     });
+
+    it("keeps every Deccan scorecard aggregate internally scoped for Priya", () => {
+      const scorecard = resolveManufacturerScorecardForViewer("mfr-004", "usr-004").scorecard;
+      expect(scorecard?.products).toHaveLength(1);
+      expect(scorecard?.products[0]?.region).toBe("Maharashtra");
+      expect(scorecard?.summary.totalProductsScanned).toBe(1);
+      const visible = scorecard?.products ?? [];
+      const verified = visible.filter((record) => record.verificationStatus === "Verified");
+      const compliant = verified.filter((record) => record.complianceStatus === "Compliant");
+      const expectedRate = verified.length === 0 ? 0 : Math.round((compliant.length / verified.length) * 100);
+      expect(scorecard?.summary.complianceRatePercentage).toBe(expectedRate);
+      expect(scorecard?.violationBreakdown.reduce((count, entry) => count + entry.count, 0)).toBe(
+        visible[0]?.violations.length
+      );
+      expect(scorecard?.complianceTrend.every((point, index) => point.sampleSize === index + 1)).toBe(true);
+      expect(scorecard?.recentNonCompliantCount).toBe(
+        visible.filter((record) => record.complianceStatus === "Non-Compliant").length
+      );
+    });
+
+    it("blocks a known manufacturer whose records are wholly outside Priya's scope", async () => {
+      const response = await getManufacturerRoute(
+        new Request("http://localhost/api/manufacturers/mfr-002/scorecard?viewerId=usr-004"),
+        { params: Promise.resolve({ id: "mfr-002" }) }
+      );
+      expect(response.status).toBe(403);
+    });
+
+    it("keeps a directory manufacturer with no records anywhere as a valid empty scorecard", () => {
+      const directory = MOCK_MANUFACTURERS as MockManufacturer[];
+      directory.push({ id: "mfr-zero-test", name: "Zero Record Test Manufacturer" });
+      try {
+        const result = resolveManufacturerScorecardForViewer("mfr-zero-test", "usr-004");
+        expect(result.blocked).toBe(false);
+        expect(result.scorecard?.summary.totalProductsScanned).toBe(0);
+        expect(result.scorecard?.products).toEqual([]);
+      } finally {
+        directory.pop();
+      }
+    });
+
+    it("returns the same blocked direct-record response for a non-Maharashtra record", async () => {
+      const response = await getRecordRoute(
+        new Request("http://localhost/api/records/rec-1002?viewerId=usr-004"),
+        { params: Promise.resolve({ id: "rec-1002" }) }
+      );
+      expect(response.status).toBe(403);
+    });
+
+    it("narrows report count, generation, detail, and download to Priya's records", async () => {
+      const scope = { kind: "filtered" as const, filters: NO_FILTERS };
+      const scoped = resolveScopeRecords(scope, "usr-004");
+      expect(scoped).toHaveLength(2);
+      expect(scoped.every((record) => record.region === "Maharashtra")).toBe(true);
+
+      const scopeResponse = await reportScopeRoute(
+        new Request("http://localhost/api/reports/scope", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ scope, viewerId: "usr-004" }),
+        })
+      );
+      expect((await scopeResponse.json()).rowCount).toBe(2);
+
+      const run = createReportRun({
+        scope,
+        formats: ["PDF"],
+        generatedByUserId: "usr-004",
+        generatedByUserName: "Priya Kulkarni",
+        viewerId: "usr-004",
+      });
+      expect(run.rowCount).toBe(2);
+      const runId = run.run?.id;
+      expect(runId).toBeDefined();
+
+      // Generation is time-elapsed based (600 + 1100 + 400ms of simulated
+      // stages) — force it straight to finalising so the report she just
+      // generated actually exists to query, the same way the running app
+      // would once a real poll had waited that out.
+      const completed = completeReportRunNowForTests(runId!);
+      const reportId = completed?.report?.id;
+      expect(reportId).toBeDefined();
+
+      const detailResponse = await getReportRoute(
+        new Request(`http://localhost/api/reports/${reportId}?viewerId=usr-004`),
+        { params: Promise.resolve({ id: reportId! }) }
+      );
+      const detail = (await detailResponse.json()) as { report: { rowCount: number }; document: { records: Array<{ region: string }> } };
+      expect(detail.report.rowCount).toBe(detail.document.records.length);
+      expect(detail.document.records.every((record) => record.region === "Maharashtra")).toBe(true);
+
+      const downloadResponse = await downloadReportRoute(
+        new Request(`http://localhost/api/reports/${reportId}/download/pdf?viewerId=usr-004`),
+        { params: Promise.resolve({ id: reportId!, format: "pdf" }) }
+      );
+      expect(downloadResponse.status).toBe(200);
+      expect(downloadResponse.headers.get("Content-Type")).toBe("application/pdf");
+    });
+
+    it("blocks Priya from a report she did not generate and shares no jurisdiction with", async () => {
+      // rpt-5003 was generated by usr-002 (National) and covers Uttar
+      // Pradesh, Telangana, Delhi and Bihar records only — none of which
+      // Priya's Maharashtra scope can see, and she did not generate it.
+      const detailResponse = await getReportRoute(
+        new Request("http://localhost/api/reports/rpt-5003?viewerId=usr-004"),
+        { params: Promise.resolve({ id: "rpt-5003" }) }
+      );
+      expect(detailResponse.status).toBe(403);
+
+      const downloadResponse = await downloadReportRoute(
+        new Request("http://localhost/api/reports/rpt-5003/download/pdf?viewerId=usr-004"),
+        { params: Promise.resolve({ id: "rpt-5003", format: "pdf" }) }
+      );
+      expect(downloadResponse.status).toBe(403);
+    });
   });
 
   describe("Enforcement Officer own-cases rule — applies regardless of jurisdiction level", () => {
@@ -89,6 +223,32 @@ describe("jurisdiction scoping", () => {
       const page = listRecords(NO_FILTERS, "newest", 1, 100, "usr-001");
       expect(page.totalCount).toBe(7);
       expect(page.rows.every((r) => r.assignedOfficerUserId === "usr-001")).toBe(true);
+    });
+
+    it("applies the same direct-detail restrictions to Vikram", async () => {
+      const recordResponse = await getRecordRoute(
+        new Request("http://localhost/api/records/rec-1001?viewerId=usr-005"),
+        { params: Promise.resolve({ id: "rec-1001" }) }
+      );
+      const manufacturerResponse = await getManufacturerRoute(
+        new Request("http://localhost/api/manufacturers/mfr-004/scorecard?viewerId=usr-005"),
+        { params: Promise.resolve({ id: "mfr-004" }) }
+      );
+      expect(recordResponse.status).toBe(403);
+      expect(manufacturerResponse.status).toBe(403);
+    });
+
+    it("narrows Vikram's report scope to his own cases and blocks an empty generation", () => {
+      const scope = { kind: "filtered" as const, filters: NO_FILTERS };
+      expect(resolveScopeRecords(scope, "usr-005")).toEqual([]);
+      const result = createReportRun({
+        scope,
+        formats: ["PDF"],
+        generatedByUserId: "usr-005",
+        generatedByUserName: "Vikram Jadhav",
+        viewerId: "usr-005",
+      });
+      expect(result).toEqual({ blocked: "zero-records", rowCount: 0 });
     });
 
     it("usr-005 (State jurisdiction, zero seed cases) starts with an honest empty result, not a broken one", () => {

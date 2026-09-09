@@ -61,6 +61,14 @@ export async function login(request: LoginRequest): Promise<LoginResult> {
     const user = findMockUser(match.userId);
     if (!user) return { outcome: "serverUnavailable" };
 
+    try {
+      const status = await fetch(`/api/admin/users/${encodeURIComponent(user.id)}/status`);
+      if (status.status === 403) return { outcome: "invalidCredentials" };
+      if (!status.ok) return { outcome: "serverUnavailable" };
+    } catch {
+      return { outcome: "serverUnavailable" };
+    }
+
     return {
       outcome: "success",
       session: {
