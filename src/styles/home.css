@@ -15,8 +15,6 @@
 :root {
   --lmcs-hero-visual-min: 420px;
   --lmcs-pipeline-node: 44px;
-  --lmcs-masthead-emblem: 28px;
-  --lmcs-navbar-emblem: 32px;
 }
 
 /* ─── Section rhythm ───
@@ -71,10 +69,8 @@
   color: var(--ux4g-text-neutral-secondary);
 }
 
-.lmcs-masthead-emblem {
-  height: var(--lmcs-masthead-emblem);
-  width: auto;
-  flex-shrink: 0;
+.lmcs-brand-mark-masthead {
+  padding: var(--ux4g-padding-3xs);
 }
 
 .lmcs-masthead-actions {
@@ -107,12 +103,6 @@
   gap: var(--ux4g-gap-column-s);
   text-decoration: none;
   color: var(--ux4g-text-neutral-primary);
-}
-
-.lmcs-navbar-emblem {
-  height: var(--lmcs-navbar-emblem);
-  width: auto;
-  flex-shrink: 0;
 }
 
 .lmcs-navbar-wordmark {

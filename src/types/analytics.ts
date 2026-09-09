@@ -12,6 +12,7 @@ import type {
   SourceTag,
   ViolationCategoryId,
 } from "./vocabulary";
+import type { ComplianceRecord } from "./compliance";
 
 /* ------------------------------------------------------------------ *
  * Dashboard (page 2)
@@ -54,6 +55,16 @@ export interface DashboardAlert {
   message: string;
   /** Deep link to a filtered Records view or a Manufacturer Scorecard. */
   href: string;
+}
+
+/** The one scoped response that powers every live Dashboard widget. */
+export interface DashboardData {
+  kpis: KpiMetric[];
+  trends: Record<TrendPeriod, TrendPoint[]>;
+  recentScans: ComplianceRecord[];
+  alerts: DashboardAlert[];
+  /** Present for National Admins and Reviewers only. */
+  regionalDistribution: RegionBreakdownEntry[];
 }
 
 /* ------------------------------------------------------------------ *

@@ -68,6 +68,9 @@ export const ROUTES = {
    */
   activity: "/activity",
 
+  /** Administration — team scope and operational thresholds. */
+  admin: "/admin",
+
   /** Reports (page 10). */
   reports: "/reports",
 
@@ -196,5 +199,11 @@ export const SIDEBAR_NAV: readonly NavItem[] = [
     href: ROUTES.activity,
     icon: "history",
     permission: "activity.view",
+  },
+  {
+    labelKey: "navigation.adminConsole",
+    href: ROUTES.admin,
+    icon: "admin_panel_settings",
+    permission: "rules.manageThresholds",
   },
 ] as const;

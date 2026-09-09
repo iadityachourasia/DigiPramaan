@@ -13,3 +13,4 @@ export * from "./report";
 export * from "./grievance";
 export * from "./history";
 export * from "./jurisdiction";
+export * from "./admin";

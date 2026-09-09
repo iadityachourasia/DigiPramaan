@@ -8,6 +8,7 @@ export {
   type ActivityMultiKey,
 } from "./useActivityLog";
 export { useAnalyticsData } from "./useAnalyticsData";
+export { useDashboardData } from "./useDashboardData";
 export { useAuth, usePermission, useHasRole } from "./useAuth";
 export { useCaptureSlots } from "./useCaptureSlots";
 export { useComplianceRecord } from "./useComplianceRecord";

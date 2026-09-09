@@ -22,6 +22,7 @@ export interface DownloadHistoryTableProps {
   reports: readonly GeneratedReport[];
   loading: boolean;
   locale: string;
+  viewerId?: string;
   labels: {
     caption: string;
     columnName: string;
@@ -42,6 +43,7 @@ export function DownloadHistoryTable({
   reports,
   loading,
   locale,
+  viewerId,
   labels,
 }: DownloadHistoryTableProps) {
   const columns: DataTableColumn<GeneratedReport>[] = [
@@ -96,7 +98,7 @@ export function DownloadHistoryTable({
           {report.formats.map((format) => (
             <a
               key={format}
-              href={reportDownloadHref(report.id, format)}
+              href={reportDownloadHref(report.id, format, viewerId)}
               className="ux4g-btn ux4g-btn-text-primary ux4g-btn-sm"
               aria-label={labels.download(format, report.name)}
             >

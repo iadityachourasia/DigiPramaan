@@ -137,9 +137,9 @@ Digi-Pramaan/
 │   │   ├── server/                # In-memory stores behind the API routes.
 │   │   │   │                      # ALL reset on server restart. See §7.
 │   │   │   ├── scan-pipeline-store.ts   # 1600+ lines, THE primary store.
-│   │   │   │                            # getAllActiveRecords() is the one choke
-│   │   │   │                            # point listRecords/computeAnalyticsSummary/
-│   │   │   │                            # the scorecard chain all read through.
+│   │   │   │                            # getAllActiveRecords() is the shared merge
+│   │   │   │                            # point; scopeRecordsForViewer() is applied
+│   │   │   │                            # after each relevant record-set construction.
 │   │   │   │                            # scopeRecordsForViewer() and reassignCase()
 │   │   │   │                            # (this session's jurisdiction work) live here.
 │   │   │   ├── audit-store.ts     # The central activity log. ONE write path:
@@ -310,11 +310,11 @@ be fabricating data rather than modeling it.
   have nothing to read or write. Populated at creation from the scanning
   officer (absent for Citizen-Reported, which has no officer).
 - `scopeRecordsForViewer()` in `scan-pipeline-store.ts` — the **one**
-  shared scoping function, applied at the single choke point
-  (`getAllActiveRecords()`) that `listRecords`, `computeAnalyticsSummary`,
-  and the manufacturer scorecard chain (`recordsForManufacturer` →
-  `buildScorecard` → both exported scorecard functions) already funnel
-  through. Two rules, in order: jurisdiction narrows by region; then, **regardless
+  shared scoping rule, invoked after each relevant record-set construction:
+  `listRecords`, `computeAnalyticsSummary`, the manufacturer scorecard chain
+  (`recordsForManufacturer` → `buildScorecard` → both exported scorecard
+  functions), direct record detail, and report scope resolution. `getAllActiveRecords()`
+  is the shared live+static merge point, not the scoping choke point. Two rules, in order: jurisdiction narrows by region; then, **regardless
   of jurisdiction level**, an Enforcement Officer sees only
   `assignedOfficerUserId === viewer.id` (per §4.2's literal wording — this
   is why Rohan Deshmukh's own Records view narrowed from 11 to 7 even
@@ -463,8 +463,8 @@ confirmed; treat them as settled unless new evidence contradicts them.
 
 - **`src/lib/server/*.ts`** are in-memory stores behind real Next.js
   Route Handlers — `scan-pipeline-store.ts` (the primary one,
-  `getAllActiveRecords()` is the shared choke point every list/aggregate
-  function reads through), `audit-store.ts` (the central activity log,
+  `getAllActiveRecords()` is the shared merge point and `scopeRecordsForViewer()`
+  is the shared scoping rule), `audit-store.ts` (the central activity log,
   one write path via `emitActivityEvent`), `mobile-session-store.ts`,
   `grievance-store.ts`, `ecommerce-store.ts`, `report-store.ts`. All
   reset on server restart. Each has a `resetXForTests()` seam.

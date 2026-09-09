@@ -9,8 +9,8 @@ import { useAuth } from "@/lib/hooks";
 /**
  * Header — the top bar for authenticated pages.
  *
- * Carries what `02-dashboard.md` §2 requires of the shell: the emblem and app
- * identity, the signed-in user with their role as a badge, notifications with
+ * Carries what `02-dashboard.md` §2 requires of the shell: the app identity,
+ * the signed-in user with their role as a badge, notifications with
  * an unread count, and the sign-out action.
  *
  * The role badge pairs a status token with an icon and a visible text label, so
@@ -55,14 +55,14 @@ export function Header({ onMenuToggle }: HeaderProps) {
         </button>
 
         <div className="lmcs-header-brand">
-          <Image
-            src="/images/emblem.svg"
-            alt={t("app.emblemAlt")}
-            className="lmcs-header-emblem"
-            width={40}
-            height={40}
-            unoptimized
-          />
+          <span className="lmcs-brand-mark lmcs-brand-mark-compact">
+            <Image
+              src="/images/digi-pramaan-logo.png"
+              alt=""
+              width={32}
+              height={32}
+            />
+          </span>
           <div className="lmcs-header-titles">
             <span className="ux4g-title-s-strong">{t("app.name")}</span>
             <span className="ux4g-label-s-default ux4g-text-neutral-secondary">

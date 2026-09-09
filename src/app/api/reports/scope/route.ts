@@ -5,6 +5,7 @@ import type { ReportScope } from "@/types";
 
 interface ScopeBody {
   scope?: unknown;
+  viewerId?: unknown;
 }
 
 /**
@@ -19,6 +20,7 @@ interface ScopeBody {
 export async function POST(request: Request) {
   const body = (await request.json()) as ScopeBody;
   const scope = body.scope as ReportScope | undefined;
+  const viewerId = typeof body.viewerId === "string" ? body.viewerId : undefined;
 
   if (!scope || typeof scope !== "object" || !("kind" in scope)) {
     return NextResponse.json({ error: "A scope is required" }, { status: 400 });
@@ -29,7 +31,7 @@ export async function POST(request: Request) {
    * is about to report on ("Ganga Sparkling Lemon 600 ml") rather than
    * echoing the id from the URL back at them.
    */
-  const records = resolveScopeRecords(scope);
+  const records = resolveScopeRecords(scope, viewerId);
   return NextResponse.json({
     rowCount: records.length,
     large: isLargeScope(records.length),

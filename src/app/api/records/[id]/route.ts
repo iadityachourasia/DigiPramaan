@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import {
   createZeroDeclarationDemoRecord,
   getRecordById,
+  scopeRecordsForViewer,
 } from "@/lib/server/scan-pipeline-store";
 
 /**
@@ -33,6 +34,10 @@ export async function GET(
 
   if (!record) {
     return NextResponse.json({ error: "Record not found" }, { status: 404 });
+  }
+  const viewerId = url.searchParams.get("viewerId") ?? undefined;
+  if (scopeRecordsForViewer([record], viewerId).length === 0) {
+    return NextResponse.json({ error: "Record not found or outside your jurisdiction" }, { status: 403 });
   }
   return NextResponse.json(record);
 }

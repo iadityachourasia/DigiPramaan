@@ -48,14 +48,24 @@ export default async function LoginPage({
     <main id="main-content" tabIndex={-1} className="lmcs-login-page">
       <div className="lmcs-login-card">
         <div className="lmcs-login-header">
-          <Image
-            src="/images/emblem.svg"
-            alt={t("app.emblemAlt")}
-            className="lmcs-login-emblem"
-            width={64}
-            height={64}
-            unoptimized
-          />
+          {/*
+            BRD §9.4 names Login as one of exactly two surfaces requiring the
+            Government of India emblem as a trust signal (the Citizen
+            Grievance Portal is the other, covered by `PublicMasthead` above
+            this page). The product's own identity is already carried by the
+            heading below — this image's job is specifically the government
+            attribution, not the product mark.
+          */}
+          <span className="lmcs-brand-mark lmcs-brand-mark-login">
+            <Image
+              src="/images/emblem.svg"
+              alt={t("app.emblemAlt")}
+              className="lmcs-login-logo"
+              width={64}
+              height={64}
+              unoptimized
+            />
+          </span>
 
           <h1 className="ux4g-heading-l-strong">{t("app.name")}</h1>
           <p className="ux4g-title-s-default ux4g-text-neutral-secondary">

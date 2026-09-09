@@ -54,8 +54,9 @@ export interface ReportListResponse {
   total: number;
 }
 
-export function fetchReports(): Promise<ApiResult<ReportListResponse>> {
-  return requestJson("/api/reports");
+export function fetchReports(viewerId?: string): Promise<ApiResult<ReportListResponse>> {
+  const query = viewerId ? `?viewerId=${encodeURIComponent(viewerId)}` : "";
+  return requestJson(`/api/reports${query}`);
 }
 
 export interface ReportDetailResponse {
@@ -64,8 +65,9 @@ export interface ReportDetailResponse {
   accessibility: ReportAccessibility;
 }
 
-export function fetchReport(id: string): Promise<ApiResult<ReportDetailResponse>> {
-  return requestJson(`/api/reports/${id}`);
+export function fetchReport(id: string, viewerId?: string): Promise<ApiResult<ReportDetailResponse>> {
+  const query = viewerId ? `?viewerId=${encodeURIComponent(viewerId)}` : "";
+  return requestJson(`/api/reports/${id}${query}`);
 }
 
 export interface ScopeCountResponse {
@@ -76,8 +78,11 @@ export interface ScopeCountResponse {
 }
 
 /** How many records a scope covers, for the zero-record block and large-scope warning. */
-export function fetchScopeCount(scope: ReportScope): Promise<ApiResult<ScopeCountResponse>> {
-  return postJson("/api/reports/scope", { scope });
+export function fetchScopeCount(
+  scope: ReportScope,
+  viewerId?: string
+): Promise<ApiResult<ScopeCountResponse>> {
+  return postJson("/api/reports/scope", { scope, ...(viewerId ? { viewerId } : {}) });
 }
 
 export interface GenerateReportParams {
@@ -122,6 +127,11 @@ export function retryReportStage(
  * route sets `Content-Disposition`, so the browser handles the save and no
  * blob juggling is needed on the client.
  */
-export function reportDownloadHref(reportId: string, format: ReportFormat): string {
-  return `/api/reports/${reportId}/download/${format.toLowerCase()}`;
+export function reportDownloadHref(
+  reportId: string,
+  format: ReportFormat,
+  viewerId?: string
+): string {
+  const query = viewerId ? `?viewerId=${encodeURIComponent(viewerId)}` : "";
+  return `/api/reports/${reportId}/download/${format.toLowerCase()}${query}`;
 }

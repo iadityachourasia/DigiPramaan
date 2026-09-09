@@ -104,7 +104,7 @@ export function ActivityTable({
     {
       key: "record",
       header: labels.columnRecord,
-      render: (event) => (
+      render: (event) => event.recordId ? (
         <Link
           href={ROUTES.recordDetail(event.recordId)}
           className="ux4g-btn ux4g-btn-text-primary ux4g-btn-sm"
@@ -112,7 +112,7 @@ export function ActivityTable({
         >
           {recordLabels[event.recordId] ?? event.recordId}
         </Link>
-      ),
+      ) : "—",
     },
     {
       key: "region",

@@ -14,7 +14,6 @@ import { ROUTES } from "@/lib/constants";
 import { useAuth, useManufacturerScorecard, usePermission } from "@/lib/hooks";
 import { formatShortDate } from "@/lib/utils/format";
 import {
-  REPEAT_VIOLATION_THRESHOLD,
   type ComplianceRecord,
   type ViolationCategoryId,
 } from "@/types";
@@ -203,7 +202,7 @@ export function ScorecardView({ id, locale }: { id: string; locale: string }) {
           title={t("flag.title")}
           message={t("flag.message", {
             count: scorecard.recentNonCompliantCount,
-            days: REPEAT_VIOLATION_THRESHOLD.withinDays,
+            days: scorecard.repeatViolationThreshold.withinDays,
           })}
         />
       </section>

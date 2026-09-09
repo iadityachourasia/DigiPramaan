@@ -8,6 +8,7 @@ import {
   flagNeedsReview as flagNeedsReviewRequest,
 } from "@/lib/api/records";
 import type { ComplianceRecord } from "@/types";
+import { useAuth } from "./useAuth";
 
 /**
  * useRecordDetail — data hook for Product Compliance Detail (page 6).
@@ -22,6 +23,7 @@ import type { ComplianceRecord } from "@/types";
  * for `ChecklistRow` vs. `FieldRow`.
  */
 export function useRecordDetail(id: string) {
+  const { user } = useAuth();
   const [record, setRecord] = useState<ComplianceRecord | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [pending, setPending] = useState(false);
@@ -29,7 +31,7 @@ export function useRecordDetail(id: string) {
 
   useEffect(() => {
     let cancelled = false;
-    fetchRecord(id).then((result) => {
+    fetchRecord(id, false, user?.id).then((result) => {
       if (cancelled) return;
       if (result.ok) setRecord(result.data);
       else setNotFound(true);
@@ -37,7 +39,7 @@ export function useRecordDetail(id: string) {
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, user?.id]);
 
   const setNeedsReview = useCallback(
     (userId: string, flag: boolean) => {

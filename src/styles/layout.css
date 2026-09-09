@@ -25,9 +25,7 @@
   --lmcs-sidebar-width: 260px;
   --lmcs-header-height: 56px;
   --lmcs-touch-target: 44px; /* A-09 / WCAG 2.5.5 floor */
-  --lmcs-emblem-header: 40px;
-  --lmcs-emblem-login: 64px;
-  --lmcs-emblem-grievance: 56px;
+  --lmcs-login-logo: 64px;
   --lmcs-login-card-width: 420px;
   --lmcs-state-min-height: 40vh;
   --lmcs-state-icon-lg: 3rem;
@@ -101,6 +99,42 @@
   flex-direction: column;
   gap: var(--ux4g-gap-row-2xs);
   border-bottom: var(--ux4g-border-thin) solid var(--ux4g-border-color-neutral-subtle);
+}
+
+.lmcs-sidebar-brand-row {
+  display: flex;
+  align-items: center;
+  gap: var(--ux4g-gap-column-s);
+}
+
+.lmcs-sidebar-brand-titles {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-2xs);
+}
+
+/* Product mark treatment shared by every navigation and sign-in surface. */
+.lmcs-brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background-color: var(--ux4g-bg-primary-subtle);
+  border: var(--ux4g-border-thin) solid var(--ux4g-border-color-neutral-subtle);
+  border-radius: var(--ux4g-radius-md);
+}
+
+.lmcs-brand-mark img {
+  display: block;
+}
+
+.lmcs-brand-mark-compact {
+  padding: var(--ux4g-padding-2xs);
+}
+
+.lmcs-brand-mark-login {
+  padding: var(--ux4g-padding-s);
+  border-radius: var(--ux4g-radius-lg);
 }
 
 .lmcs-sidebar-nav {
@@ -195,11 +229,6 @@
   display: flex;
   align-items: center;
   gap: var(--ux4g-gap-column-s);
-}
-
-.lmcs-header-emblem {
-  height: var(--lmcs-emblem-header);
-  width: auto;
 }
 
 .lmcs-header-titles {
@@ -383,8 +412,8 @@
   gap: var(--ux4g-gap-row-s);
 }
 
-.lmcs-login-emblem {
-  height: var(--lmcs-emblem-login);
+.lmcs-login-logo {
+  height: var(--lmcs-login-logo);
   width: auto;
 }
 
@@ -423,12 +452,6 @@
 }
 
 /* ─── Grievance Portal ─── */
-
-.lmcs-grievance-emblem {
-  height: var(--lmcs-emblem-grievance);
-  width: auto;
-  margin-bottom: var(--ux4g-margin-m);
-}
 
 /*
  * .lmcs-link is deliberately NOT defined here. It lives in globals.css, built on

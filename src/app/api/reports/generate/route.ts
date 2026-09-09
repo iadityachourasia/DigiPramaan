@@ -53,6 +53,7 @@ export async function POST(request: Request) {
       formats,
       generatedByUserId: userId,
       generatedByUserName: userName,
+      viewerId: userId,
       ...(forceFailStage ? { forceFailStage } : {}),
     })
   );

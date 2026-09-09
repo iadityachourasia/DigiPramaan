@@ -100,8 +100,23 @@ export interface GeneratedReport {
    * report's own Download History entry.
    */
   referenceCode: string;
-  /** Rows covered, used for the large-scope warning before generation. */
+  /**
+   * Rows covered. A frozen, historical fact set once at generation —
+   * never recomputed on a later read. Reports are legal/compliance
+   * artifacts; this count must stay stable regardless of who reads it
+   * later or what has happened to the underlying records since.
+   */
   rowCount: number;
+  /**
+   * The exact record ids this report covered at generation time, frozen
+   * alongside `rowCount` for the same reason. This is what a later
+   * viewer-authorization check tests against — "does this viewer still
+   * have access to any of what this report actually covered" — rather
+   * than re-resolving the report's `scope` against today's data, which
+   * would let the same report mean something different to different
+   * readers.
+   */
+  recordIds: readonly string[];
 }
 
 /*

@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 
-import { computeManufacturerScorecard } from "@/lib/server/scan-pipeline-store";
+import { resolveManufacturerScorecardForViewer } from "@/lib/server/scan-pipeline-store";
 
 /**
  * GET /api/manufacturers/[id]/scorecard — one manufacturer's live scorecard.
- * 404s on an unknown id rather than returning an empty scorecard, so the
- * Dashboard's repeat-violation alert deep link either lands on real data or
- * fails honestly.
+ * Unknown directory ids 404; a known manufacturer whose records are wholly
+ * outside the viewer's scope returns 403 without disclosing that distinction
+ * to the client UI.
  */
 export async function GET(
   request: Request,
@@ -16,7 +16,13 @@ export async function GET(
   /* Scopes this scorecard's numbers to the viewer's jurisdiction and role
    * (13 §4 plan) — see /api/records's own comment for the same convention. */
   const viewerId = new URL(request.url).searchParams.get("viewerId") ?? undefined;
-  const scorecard = computeManufacturerScorecard(id, viewerId);
+  const { scorecard, blocked } = resolveManufacturerScorecardForViewer(id, viewerId);
+  if (blocked) {
+    return NextResponse.json(
+      { error: "Manufacturer not found or outside your jurisdiction" },
+      { status: 403 }
+    );
+  }
   if (!scorecard) {
     return NextResponse.json({ error: "Manufacturer not found" }, { status: 404 });
   }

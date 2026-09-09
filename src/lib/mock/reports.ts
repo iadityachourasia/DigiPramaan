@@ -25,6 +25,7 @@ export const MOCK_REPORTS: readonly GeneratedReport[] = [
     generatedByUserName: "Rohan Deshmukh",
     referenceCode: "LMCS-RPT-5001-8F3A",
     rowCount: 1,
+    recordIds: ["rec-1002"],
   },
   {
     id: "rpt-5002",
@@ -36,6 +37,7 @@ export const MOCK_REPORTS: readonly GeneratedReport[] = [
     generatedByUserName: "Arindam Banerjee",
     referenceCode: "LMCS-RPT-5002-C107",
     rowCount: 3,
+    recordIds: ["rec-1002", "rec-1008", "rec-1009"],
   },
   {
     id: "rpt-5003",
@@ -74,6 +76,7 @@ export const MOCK_REPORTS: readonly GeneratedReport[] = [
     generatedByUserName: "Sunita Iyer",
     referenceCode: "LMCS-RPT-5003-42B9",
     rowCount: 5,
+    recordIds: ["rec-1002", "rec-1004", "rec-1005", "rec-1008", "rec-1009"],
   },
 ];
 

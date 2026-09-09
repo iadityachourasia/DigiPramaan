@@ -129,9 +129,13 @@ export function bulkSetNeedsReview(
  */
 export function fetchRecord(
   id: string,
-  demoZeroDeclarations?: boolean
+  demoZeroDeclarations?: boolean,
+  viewerId?: string
 ): Promise<ApiResult<ComplianceRecord>> {
-  const query = demoZeroDeclarations ? "?demo=zero-declarations" : "";
+  const params = new URLSearchParams();
+  if (demoZeroDeclarations) params.set("demo", "zero-declarations");
+  if (viewerId) params.set("viewerId", viewerId);
+  const query = params.size > 0 ? `?${params.toString()}` : "";
   return requestJson(`/api/records/${id}${query}`);
 }
 

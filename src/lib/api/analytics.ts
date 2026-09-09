@@ -2,16 +2,26 @@
  * analytics.ts — dashboard and analytics API client.
  */
 
-import type { AnalyticsData, KpiMetric } from "@/types";
+import type { AnalyticsData, DashboardData } from "@/types";
 import { API } from "@/lib/constants";
-import { apiGet, isMockMode, type ApiResult } from "./client";
+import { type ApiResult } from "./client";
 
-export async function fetchDashboardKpis(): Promise<ApiResult<KpiMetric[]>> {
-  if (isMockMode()) {
-    const { MOCK_KPIS } = await import("@/lib/mock");
-    return { ok: true, data: [...MOCK_KPIS] };
+/** Dashboard reads a server-derived, viewer-scoped response even in demo mode. */
+export async function fetchDashboardData(viewerId?: string): Promise<ApiResult<DashboardData>> {
+  try {
+    const query = viewerId ? `?viewerId=${encodeURIComponent(viewerId)}` : "";
+    const response = await fetch(`/api${API.analytics.dashboard}${query}`);
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message: `GET /api${API.analytics.dashboard} failed with status ${response.status}`,
+      };
+    }
+    return { ok: true, data: (await response.json()) as DashboardData };
+  } catch {
+    return { ok: false, status: 0, message: "Network error" };
   }
-  return apiGet(API.analytics.dashboard);
 }
 
 /**

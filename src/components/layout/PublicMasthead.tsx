@@ -6,7 +6,7 @@ import { ACTIVE_LOCALES, LOCALE_LABELS } from "@/i18n/routing";
 import { ROUTES } from "@/lib/constants";
 
 /**
- * PublicMasthead — the government identity bar above every public page.
+ * PublicMasthead — the statutory attribution bar above every public page.
  *
  * BRD §9.4 requires "Screen reader access" in the header of all pages and the
  * Department attribution on the public surfaces, so this sits in the `(public)`
@@ -27,15 +27,27 @@ export async function PublicMasthead() {
     <div className="lmcs-masthead">
       <div className="ux4g-container lmcs-masthead-inner">
         <div className="lmcs-masthead-identity">
-          <Image
-            src="/images/emblem.svg"
-            alt={t("app.emblemAlt")}
-            className="lmcs-masthead-emblem"
-            width={28}
-            height={28}
-            unoptimized
-          />
-          <span className="ux4g-body-xs-default">{t("app.government")}</span>
+          {/*
+            BRD §9.4's Department-of-Consumer-Affairs-attribution-plus-emblem
+            requirement is named for exactly two surfaces: this masthead
+            (shown above Login and the Citizen Grievance Portal) and Login's
+            own card header. The product's own name is carried separately by
+            the label beside it — this image is specifically the government
+            trust signal, not a product mark.
+          */}
+          <span className="lmcs-brand-mark lmcs-brand-mark-masthead">
+            <Image
+              src="/images/emblem.svg"
+              alt={t("app.emblemAlt")}
+              width={20}
+              height={20}
+              unoptimized
+            />
+          </span>
+          <span className="ux4g-body-xs-strong">{t("app.name")}</span>
+          <span className="ux4g-body-xs-default ux4g-text-neutral-secondary">
+            {t("app.government")}
+          </span>
         </div>
 
         <div className="lmcs-masthead-actions">

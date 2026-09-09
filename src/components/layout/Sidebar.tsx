@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { useEffect, useMemo } from "react";
 
@@ -86,10 +87,22 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
         aria-label={t("navigation.primaryLandmark")}
       >
         <div className="lmcs-sidebar-brand ux4g-py-m ux4g-px-m">
-          <span className="ux4g-title-s-strong">{t("app.name")}</span>
-          <span className="ux4g-label-s-default ux4g-text-neutral-secondary">
-            {t("app.descriptor")}
-          </span>
+          <div className="lmcs-sidebar-brand-row">
+            <span className="lmcs-brand-mark lmcs-brand-mark-compact">
+              <Image
+                src="/images/digi-pramaan-logo.png"
+                alt=""
+                width={28}
+                height={28}
+              />
+            </span>
+            <div className="lmcs-sidebar-brand-titles">
+              <span className="ux4g-title-s-strong">{t("app.name")}</span>
+              <span className="ux4g-label-s-default ux4g-text-neutral-secondary">
+                {t("app.descriptor")}
+              </span>
+            </div>
+          </div>
         </div>
 
         <ul className="lmcs-sidebar-nav">

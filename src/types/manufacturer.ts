@@ -46,6 +46,11 @@ export interface ManufacturerScorecard {
   repeatViolationFlagged: boolean;
   /** Non-Compliant records inside the threshold window, for the flag's copy. */
   recentNonCompliantCount: number;
+  /** Thresholds used for this scoped scorecard at response time. */
+  repeatViolationThreshold: {
+    nonCompliantCount: number;
+    withinDays: number;
+  };
   complianceTrend: ComplianceRatePoint[];
   violationBreakdown: ViolationBreakdownEntry[];
   /** Same column shape as Compliance Records, filtered to this manufacturer. */

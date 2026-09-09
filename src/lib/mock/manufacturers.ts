@@ -96,6 +96,7 @@ function buildScorecard(id: string, name: string): ManufacturerScorecard {
     repeatViolationFlagged:
       recentNonCompliantCount >= REPEAT_VIOLATION_THRESHOLD.nonCompliantCount,
     recentNonCompliantCount,
+    repeatViolationThreshold: REPEAT_VIOLATION_THRESHOLD,
     complianceTrend,
     violationBreakdown,
     products: [...products],
