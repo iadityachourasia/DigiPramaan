@@ -10,3 +10,5 @@ qa-screenshots/
 playwright-report/
 test-results/
 coverage/
+playwright-error.txt
+playwright-result.json
