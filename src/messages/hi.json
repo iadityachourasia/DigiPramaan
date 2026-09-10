@@ -2,7 +2,7 @@
   "_meta": {
     "note": "Scaffolded locale. Values still identical to en.json are untranslated.",
     "generatedBy": "scripts/sync-locales.mjs",
-    "untranslatedCount": 1060,
+    "untranslatedCount": 1062,
     "untranslated": [
       "app.descriptor",
       "app.department",
@@ -13,10 +13,12 @@
       "vocabulary.complianceStatus.Compliant",
       "vocabulary.complianceStatus.Non-Compliant",
       "vocabulary.complianceStatus.Needs Review",
+      "vocabulary.complianceStatus.Not Applicable",
       "vocabulary.complianceStatusHint.Pending",
       "vocabulary.complianceStatusHint.Compliant",
       "vocabulary.complianceStatusHint.Non-Compliant",
       "vocabulary.complianceStatusHint.Needs Review",
+      "vocabulary.complianceStatusHint.Not Applicable",
       "vocabulary.verificationStatus.Extracted",
       "vocabulary.verificationStatus.Verified",
       "vocabulary.sourceTag.Officer-Scanned",
@@ -1080,13 +1082,15 @@
       "Pending": "Pending",
       "Compliant": "Compliant",
       "Non-Compliant": "Non-Compliant",
-      "Needs Review": "Needs Review"
+      "Needs Review": "Needs Review",
+      "Not Applicable": "Not Applicable"
     },
     "complianceStatusHint": {
       "Pending": "Awaiting verification. Compliance has not been determined yet.",
       "Compliant": "Verified, with no failed declarations.",
       "Non-Compliant": "Verified, with one or more failed declarations.",
-      "Needs Review": "Escalated by a user for a supervisor's judgement."
+      "Needs Review": "Escalated by a user for a supervisor's judgement.",
+      "Not Applicable": "Exempted from these Rules (e.g. a bulk or institutional pack) — not evaluated for compliance."
     },
     "verificationStatus": {
       "Extracted": "Extracted",

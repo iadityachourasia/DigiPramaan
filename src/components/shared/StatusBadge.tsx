@@ -27,6 +27,7 @@ const STATUS_CLASS: Record<ComplianceStatus, string> = {
   Compliant: "ux4g-tag-tonal-success",
   "Non-Compliant": "ux4g-tag-tonal-error",
   "Needs Review": "ux4g-tag-tonal-warning",
+  "Not Applicable": "ux4g-tag-tonal-neutral",
 };
 
 const STATUS_ICON: Record<ComplianceStatus, string> = {
@@ -34,6 +35,7 @@ const STATUS_ICON: Record<ComplianceStatus, string> = {
   Compliant: "check_circle",
   "Non-Compliant": "cancel",
   "Needs Review": "flag",
+  "Not Applicable": "block",
 };
 
 export interface StatusBadgeProps {

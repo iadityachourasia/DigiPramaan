@@ -66,6 +66,14 @@ class ComplianceRecord(Base):
     checklist: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     violations: Mapped[list | None] = mapped_column(JSONB, nullable=True)
 
+    # The full internal ComplianceEvidenceBundle (StructuredExtraction with
+    # manufacturer/packer/importer/brand_owner_or_marketer kept SEPARATE,
+    # unlike `extraction`'s collapsed display shape) — persisted so an
+    # officer correction can re-run the full rule engine without redoing
+    # OCR. Subject to the same application-layer immutability rule as
+    # extraction/checklist/violations above.
+    evidence_bundle: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+
     assigned_officer_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("profiles.id"), nullable=True
     )

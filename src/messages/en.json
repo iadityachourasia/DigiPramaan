@@ -13,13 +13,15 @@
       "Pending": "Pending",
       "Compliant": "Compliant",
       "Non-Compliant": "Non-Compliant",
-      "Needs Review": "Needs Review"
+      "Needs Review": "Needs Review",
+      "Not Applicable": "Not Applicable"
     },
     "complianceStatusHint": {
       "Pending": "Awaiting verification. Compliance has not been determined yet.",
       "Compliant": "Verified, with no failed declarations.",
       "Non-Compliant": "Verified, with one or more failed declarations.",
-      "Needs Review": "Escalated by a user for a supervisor's judgement."
+      "Needs Review": "Escalated by a user for a supervisor's judgement.",
+      "Not Applicable": "Exempted from these Rules (e.g. a bulk or institutional pack) — not evaluated for compliance."
     },
     "verificationStatus": {
       "Extracted": "Extracted",

@@ -15,6 +15,7 @@ import uuid
 from unittest.mock import MagicMock, patch
 
 import pytest
+from botocore.exceptions import ClientError
 from fastapi.testclient import TestClient
 from PIL import Image
 
@@ -41,12 +42,18 @@ def _png_bytes(size: tuple[int, int], color: tuple[int, int, int]) -> bytes:
     return buf.getvalue()
 
 
-def _sharp_label_bytes() -> bytes:
+def _sharp_label_bytes(seed: int = 0) -> bytes:
     img = Image.new("RGB", (800, 800), color=(255, 255, 255))
     pixels = img.load()
     for y in range(0, 800, 4):
         for x in range(800):
             pixels[x, y] = (0, 0, 0)
+    # A single distinguishing pixel keeps the content-hash distinct across
+    # calls (needed wherever a test submits 3 genuinely different images,
+    # since duplicate detection is exact-hash and would otherwise flag
+    # three identical calls to this function as the same photo).
+    if seed:
+        pixels[0, 0] = (seed % 255, 0, 0)
     buf = io.BytesIO()
     img.save(buf, format="PNG")
     return buf.getvalue()
@@ -139,3 +146,70 @@ def test_scan_with_duplicate_images_is_rejected(client_as) -> None:
     message = response.json()["error"]["message"]
     assert "front" in message and "back" in message
     mock_run_pipeline.assert_not_called()
+
+
+def test_partial_b2_failure_rolls_back_db_and_cleans_up_uploaded_objects(client_as) -> None:
+    """Phase 3 reliability fix: if the 2nd of 3 image uploads fails, the
+    1st image's already-uploaded object must be deleted (best-effort) and
+    the DB transaction rolled back — no half-created ScanSession/
+    EvidenceImage state survives."""
+    client = client_as("Enforcement Officer")
+    mock_s3 = MagicMock()
+    mock_s3.put_object.side_effect = [
+        None,
+        ClientError({"Error": {"Code": "InternalError", "Message": "boom"}}, "PutObject"),
+    ]
+
+    with patch("app.api.v1.scans.get_s3_client", return_value=mock_s3), \
+         patch("app.api.v1.scans.run_pipeline") as mock_run_pipeline:
+        response = _post_scan(
+            client,
+            headers={"Authorization": "Bearer fake"},
+            images={
+                "front": ("front.png", _sharp_label_bytes(1), "image/png"),
+                "back": ("back.png", _sharp_label_bytes(2), "image/png"),
+                "side_pdp": ("side_pdp.png", _sharp_label_bytes(3), "image/png"),
+            },
+        )
+
+    assert response.status_code == 502
+    assert mock_s3.put_object.call_count == 2  # never reached the 3rd image
+    mock_s3.delete_object.assert_called_once()
+    mock_run_pipeline.assert_not_called()
+
+
+def test_retry_schedules_background_task_and_returns_immediately(client_as) -> None:
+    """Phase 3 reliability fix: the retry endpoint must persist the reset
+    and schedule run_pipeline via BackgroundTasks rather than running it
+    inline — proven here by patching run_pipeline and asserting it was
+    scheduled (not by proving real async timing, which TestClient's
+    synchronous background-task execution can't demonstrate)."""
+    client = client_as("Enforcement Officer")
+    scan_id = uuid.uuid4()
+
+    class _FakeSession:
+        pass
+
+    session = _FakeSession()
+    session.id = scan_id
+    session.record_id = None
+    session.stages = [{"id": "textExtraction", "state": "pending"}]
+
+    def _override_get_db():
+        db = MagicMock()
+        db.get.return_value = session
+        yield db
+
+    from app.db.session import get_db as real_get_db
+    client.app.dependency_overrides[real_get_db] = _override_get_db
+
+    with patch("app.api.v1.scans.retry_stage", return_value=True) as mock_retry_stage, \
+         patch("app.api.v1.scans.run_pipeline") as mock_run_pipeline:
+        response = client.post(
+            f"/api/v1/scans/{scan_id}/pipeline/textExtraction/retry",
+            headers={"Authorization": "Bearer fake"},
+        )
+
+    assert response.status_code == 200
+    mock_retry_stage.assert_called_once_with(scan_id, "textExtraction")
+    mock_run_pipeline.assert_called_once_with(scan_id)

@@ -24,6 +24,7 @@ ErrorCode = Literal[
     "NOT_FOUND",
     "AUTHENTICATION_ERROR",
     "AUTHORIZATION_ERROR",
+    "CONFLICT",
     "INTERNAL_ERROR",
 ]
 
@@ -32,6 +33,11 @@ _STATUS_TO_CODE: dict[int, ErrorCode] = {
     422: "VALIDATION_ERROR",  # HTTP_422_UNPROCESSABLE_ENTITY / _CONTENT across Starlette versions
     status.HTTP_401_UNAUTHORIZED: "AUTHENTICATION_ERROR",
     status.HTTP_403_FORBIDDEN: "AUTHORIZATION_ERROR",
+    # Added in Phase 3 for the record correction/verification immutability
+    # checks (POST /records/{id}/corrections and /verify both 409 once a
+    # record is Verified) — a real, expected outcome of normal use, not an
+    # edge case worth leaving as a generic INTERNAL_ERROR.
+    status.HTTP_409_CONFLICT: "CONFLICT",
 }
 
 

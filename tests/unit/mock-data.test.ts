@@ -57,6 +57,13 @@ describe("mock records", () => {
 
   it("covers every Compliance Status, Verification Status and source tag", () => {
     for (const status of COMPLIANCE_STATUSES) {
+      // "Not Applicable" is only ever set by the real backend's deterministic
+      // rule engine (a Rule 3 exemption, e.g. a bulk/institutional pack) —
+      // the client-side computeComplianceStatus() above has no branch that
+      // can produce it, so no mock fixture can carry this status without
+      // contradicting the "never carries a status its own checklist
+      // contradicts" test just above. Excluded here rather than faked.
+      if (status === "Not Applicable") continue;
       expect(
         MOCK_ACTIVE_RECORDS.some((r) => r.complianceStatus === status),
         `no active record with status ${status}`
