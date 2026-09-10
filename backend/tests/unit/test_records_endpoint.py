@@ -16,6 +16,7 @@ from app.api.deps.auth import get_current_user
 from app.db.session import get_db
 from app.main import create_app
 from app.services.extraction.schema import ComplianceEvidenceBundle, ExtractedField, StructuredExtraction
+from app.services.rules.types import RuleResult, RuleStatus
 
 TEST_USER_ID = uuid.UUID("33333333-3333-3333-3333-333333333333")
 RECORD_ID = uuid.uuid4()
@@ -73,6 +74,8 @@ def _fake_record(
     verification_status: str = "Extracted",
     with_evidence_bundle: bool = True,
     declarations_overrides: dict | None = None,
+    checklist: list[dict] | None = None,
+    rule_results: list | None = None,
 ):
     class _Record:
         pass
@@ -94,7 +97,7 @@ def _fake_record(
     # — countryOfOrigin is deliberately absent here, matching the real rule
     # engine's behavior of excluding NOT_APPLICABLE results (e.g. a
     # domestic product with no import evidence) from the checklist.
-    r.checklist = [
+    r.checklist = checklist if checklist is not None else [
         {"fieldId": fid, "passed": True, "value": "x"}
         for fid in (
             "manufacturerDetails", "genericName", "netQuantity",
@@ -103,7 +106,9 @@ def _fake_record(
     ]
     r.violations = []
     r.evidence_bundle = (
-        ComplianceEvidenceBundle(structured_extraction=_extraction()).model_dump()
+        ComplianceEvidenceBundle(
+            structured_extraction=_extraction(), rule_results=rule_results or []
+        ).model_dump()
         if with_evidence_bundle else None
     )
     r.scanned_at = None
@@ -196,9 +201,16 @@ def test_correction_without_evidence_bundle_returns_409(client_with_record) -> N
 
 
 def test_verify_with_not_detected_declaration_returns_blocked_fields_not_error(client_with_record) -> None:
-    # genericName is always checklist-relevant (never NOT_APPLICABLE), so a
-    # notDetected genericName genuinely blocks verification.
-    record = _fake_record(declarations_overrides={"genericName": {"notDetected": True}})
+    # An unresolved NEEDS_REVIEW checklist row (passed:false, no
+    # violationCategoryId) is exactly what blocks verification since Phase
+    # 3.1 — a checklist-level signal, not extraction.declarations.notDetected.
+    checklist = [
+        {"fieldId": "manufacturerDetails", "passed": True, "value": "x"},
+        {"fieldId": "genericName", "passed": False, "value": None, "detail": "not detected, ambiguous evidence"},
+    ]
+    record = _fake_record(
+        declarations_overrides={"genericName": {"notDetected": True}}, checklist=checklist,
+    )
     client, mock_db = client_with_record("Enforcement Officer", record)
 
     response = client.post(f"/api/v1/records/{RECORD_ID}/verify", headers={"Authorization": "Bearer fake"})
@@ -274,3 +286,159 @@ def test_legal_status_independent_of_score_at_endpoint_level(client_with_record)
     assert body["complianceStatus"] != "Non-Compliant"
     # complianceScore is independently computed, not derived from complianceStatus.
     assert isinstance(body["complianceScore"]["value"], int)
+
+
+def test_verify_does_not_block_on_a_confirmed_fail(client_with_record) -> None:
+    """A checklist row that's passed:false WITH a violationCategoryId is a
+    CONFIRMED non-compliance finding (automated or officer-resolved), not
+    an open question — it must never block verification. The whole point
+    is to let an officer verify 'yes, this is genuinely non-compliant.'"""
+    checklist = [
+        {"fieldId": "manufacturerDetails", "passed": True, "value": "x"},
+        {
+            "fieldId": "consumerCareDetails", "passed": False, "value": None,
+            "violationCategoryId": "consumer-care-details-missing", "detail": "confirmed absent",
+        },
+    ]
+    record = _fake_record(checklist=checklist)
+    client, mock_db = client_with_record("Enforcement Officer", record)
+
+    response = client.post(f"/api/v1/records/{RECORD_ID}/verify", headers={"Authorization": "Bearer fake"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["blockedFields"] == []
+    assert body["record"]["verificationStatus"] == "Verified"
+    mock_db.commit.assert_called_once()
+
+
+# --- POST /records/{id}/resolutions ---------------------------------------
+
+def _needs_review_rule_result(rule_id: str = "rule_7_font_size") -> RuleResult:
+    return RuleResult(
+        rule_id=rule_id, rule_name="x", field_id="fontSize",
+        status=RuleStatus.INSUFFICIENT_EVIDENCE, message="no calibration", legal_basis="Rule 7",
+    )
+
+
+def test_resolution_pass_updates_status_and_preserves_original_result(client_with_record) -> None:
+    record = _fake_record(rule_results=[_needs_review_rule_result()])
+    client, mock_db = client_with_record("Enforcement Officer", record)
+
+    response = client.post(
+        f"/api/v1/records/{RECORD_ID}/resolutions",
+        json={"rule_id": "rule_7_font_size", "resolved_status": "PASS", "note": "Measured 4.2mm in person."},
+        headers={"Authorization": "Bearer fake"},
+    )
+
+    assert response.status_code == 200
+    mock_db.commit.assert_called_once()
+    saved_bundle = record.evidence_bundle
+    saved_rule = next(r for r in saved_bundle["rule_results"] if r["rule_id"] == "rule_7_font_size")
+    assert saved_rule["status"] == "INSUFFICIENT_EVIDENCE"  # original never overwritten
+    assert saved_rule["resolution"]["resolved_status"] == "PASS"
+    assert saved_rule["resolution"]["resolved_by"] == str(TEST_USER_ID)
+    fontsize_row = next(c for c in record.checklist if c["fieldId"] == "fontSize")
+    assert fontsize_row["passed"] is True
+
+
+def test_resolution_fail_becomes_confirmed_violation(client_with_record) -> None:
+    record = _fake_record(rule_results=[_needs_review_rule_result()])
+    client, mock_db = client_with_record("Enforcement Officer", record)
+
+    response = client.post(
+        f"/api/v1/records/{RECORD_ID}/resolutions",
+        json={"rule_id": "rule_7_font_size", "resolved_status": "FAIL", "note": "Measured 3mm — too small."},
+        headers={"Authorization": "Bearer fake"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["complianceStatus"] == "Non-Compliant"
+    fontsize_row = next(c for c in record.checklist if c["fieldId"] == "fontSize")
+    assert fontsize_row["passed"] is False
+    assert fontsize_row["violationCategoryId"] == "font-size-readability-failure"
+    assert len(record.violations) == 1
+
+
+def test_resolution_on_already_pass_rule_is_rejected(client_with_record) -> None:
+    already_passed = RuleResult(
+        rule_id="rule_6a_manufacturer", rule_name="x", field_id="manufacturerDetails",
+        status=RuleStatus.PASS, message="detected", legal_basis="Rule 6(a)",
+    )
+    record = _fake_record(rule_results=[already_passed])
+    client, mock_db = client_with_record("Enforcement Officer", record)
+
+    response = client.post(
+        f"/api/v1/records/{RECORD_ID}/resolutions",
+        json={"rule_id": "rule_6a_manufacturer", "resolved_status": "FAIL", "note": "x"},
+        headers={"Authorization": "Bearer fake"},
+    )
+
+    assert response.status_code == 422
+    mock_db.commit.assert_not_called()
+
+
+def test_resolution_with_invalid_resolved_status_is_rejected(client_with_record) -> None:
+    record = _fake_record(rule_results=[_needs_review_rule_result()])
+    client, mock_db = client_with_record("Enforcement Officer", record)
+
+    response = client.post(
+        f"/api/v1/records/{RECORD_ID}/resolutions",
+        json={"rule_id": "rule_7_font_size", "resolved_status": "NOT_APPLICABLE", "note": "x"},
+        headers={"Authorization": "Bearer fake"},
+    )
+
+    assert response.status_code == 422
+    mock_db.commit.assert_not_called()
+
+
+def test_resolution_unknown_rule_id_returns_404(client_with_record) -> None:
+    record = _fake_record(rule_results=[_needs_review_rule_result()])
+    client, mock_db = client_with_record("Enforcement Officer", record)
+
+    response = client.post(
+        f"/api/v1/records/{RECORD_ID}/resolutions",
+        json={"rule_id": "not_a_real_rule", "resolved_status": "PASS", "note": "x"},
+        headers={"Authorization": "Bearer fake"},
+    )
+
+    assert response.status_code == 404
+    mock_db.commit.assert_not_called()
+
+
+def test_resolution_on_verified_record_returns_409(client_with_record) -> None:
+    record = _fake_record(verification_status="Verified", rule_results=[_needs_review_rule_result()])
+    client, mock_db = client_with_record("Enforcement Officer", record)
+
+    response = client.post(
+        f"/api/v1/records/{RECORD_ID}/resolutions",
+        json={"rule_id": "rule_7_font_size", "resolved_status": "PASS", "note": "x"},
+        headers={"Authorization": "Bearer fake"},
+    )
+
+    assert response.status_code == 409
+    mock_db.commit.assert_not_called()
+
+
+def test_resolving_the_only_blocking_item_then_unblocks_verify(client_with_record) -> None:
+    """End-to-end at the endpoint level: a record blocked on Rule 7 alone
+    becomes verifiable once an officer resolves it to PASS."""
+    checklist = [{"fieldId": "fontSize", "passed": False, "value": None, "detail": "no calibration"}]
+    record = _fake_record(checklist=checklist, rule_results=[_needs_review_rule_result()])
+    client, mock_db = client_with_record("Enforcement Officer", record)
+
+    blocked = client.post(f"/api/v1/records/{RECORD_ID}/verify", headers={"Authorization": "Bearer fake"})
+    assert blocked.json()["blockedFields"] == ["fontSize"]
+
+    resolved = client.post(
+        f"/api/v1/records/{RECORD_ID}/resolutions",
+        json={"rule_id": "rule_7_font_size", "resolved_status": "PASS", "note": "Measured 4.2mm in person."},
+        headers={"Authorization": "Bearer fake"},
+    )
+    assert resolved.status_code == 200
+
+    verified = client.post(f"/api/v1/records/{RECORD_ID}/verify", headers={"Authorization": "Bearer fake"})
+    body = verified.json()
+    assert body["blockedFields"] == []
+    assert body["record"]["verificationStatus"] == "Verified"

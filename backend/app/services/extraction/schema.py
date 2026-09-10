@@ -18,6 +18,8 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
+from app.services.rules.types import RuleResult
+
 
 class EvidenceRef(BaseModel):
     image_id: str
@@ -68,3 +70,11 @@ class ComplianceEvidenceBundle(BaseModel):
     ocr_blocks: list[dict] = []  # OcrBlock.model_dump() per block, kept loose here
     image_quality_results: list[ImageQualitySummary] = []
     pdp_declarations_detected: list[str] = []
+    # Phase 3.1: the full rule-engine output, persisted alongside the
+    # extraction it was computed from — including any officer resolutions
+    # (RuleResult.resolution). This is the ONLY place resolutions live;
+    # POST /records/{id}/resolutions mutates one entry here in place, and
+    # POST /records/{id}/corrections must carry existing resolutions
+    # forward onto the freshly-recomputed list rather than discarding them
+    # (see rules/aggregate.py's carry_forward_resolutions()).
+    rule_results: list[RuleResult] = []

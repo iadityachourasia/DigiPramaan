@@ -1,19 +1,27 @@
 """
-api/v1/records.py — POST /records/{id}/corrections, POST /records/{id}/verify.
+api/v1/records.py — POST /records/{id}/corrections, POST /records/{id}/verify,
+POST /records/{id}/resolutions.
 
-Both endpoints enforce the immutability rule stated in
+All three enforce the immutability rule stated in
 db/models/compliance_record.py's own docstring: before verification,
-corrections may update extraction/checklist/violations and re-run rules
-freely; once Verified, further writes to those columns are refused (409),
-and a later correction/reinspection must create a NEW ComplianceRecord via
-a new ScanSession — already guaranteed by Phase 2's derive_record_id()
-being a pure hash of scan_session_id, so no code here needs to enforce
-that part.
+corrections/resolutions may update extraction/checklist/violations and
+re-run rules freely; once Verified, further writes to those columns are
+refused (409), and a later correction/reinspection must create a NEW
+ComplianceRecord via a new ScanSession — already guaranteed by Phase 2's
+derive_record_id() being a pure hash of scan_session_id, so no code here
+needs to enforce that part.
 
 Officer identity comes from the authenticated Profile
 (Depends(get_current_user)/require_permission), never a client-supplied
 userId field — a deliberate improvement over the old frontend mock's
 convention of trusting a body field for who made a change.
+
+Phase 3.1 adds POST /records/{id}/resolutions: some rule results are
+legitimately unresolvable by automation (Rule 7 always; Rule 8/9
+sometimes) — this lets an officer resolve a NEEDS_REVIEW/
+INSUFFICIENT_EVIDENCE RuleResult to a final PASS/FAIL without ever
+overwriting the original automated verdict (see rules/types.py's
+RuleResult.resolution / effective_status).
 """
 
 from __future__ import annotations
@@ -30,9 +38,14 @@ from app.db.models import ComplianceRecord, Profile
 from app.db.session import get_db
 from app.services.extraction.adapter import to_extraction_result
 from app.services.extraction.schema import ComplianceEvidenceBundle, ExtractedField
-from app.services.rules.aggregate import compute_compliance_score, compute_legal_status
+from app.services.rules.aggregate import (
+    carry_forward_resolutions,
+    compute_compliance_score,
+    compute_legal_status,
+)
 from app.services.rules.checks import run_all_rule_checks
 from app.services.rules.frontend_adapter import to_checklist_and_violations
+from app.services.rules.types import RuleResolution, RuleStatus
 
 router = APIRouter(tags=["records"], prefix="/records")
 
@@ -57,6 +70,12 @@ _FRONTEND_TO_INTERNAL_FIELD = {
 class CorrectionRequest(BaseModel):
     field_id: str
     value: str
+
+
+class ResolutionRequest(BaseModel):
+    rule_id: str
+    resolved_status: str  # "PASS" or "FAIL" only — validated below
+    note: str
 
 
 def _record_response(record: ComplianceRecord) -> dict:
@@ -117,6 +136,7 @@ def correct_declaration(
         )
 
     bundle = ComplianceEvidenceBundle.model_validate(record.evidence_bundle)
+    previous_rule_results = bundle.rule_results
     internal_attr = _FRONTEND_TO_INTERNAL_FIELD[body.field_id]
     current_field: ExtractedField | None = getattr(bundle.structured_extraction, internal_attr)
     updated_field = ExtractedField(
@@ -132,7 +152,18 @@ def correct_declaration(
     # Re-run the ENTIRE rule engine rather than computing which rules are
     # "affected" by one field — these are pure, cheap functions, and
     # re-running all of them is simpler and safer than partial invalidation.
-    rule_results = run_all_rule_checks(bundle.structured_extraction, category=record.category)
+    # Reuses the SAME image-quality/OCR-block-count evidence already
+    # persisted in the bundle (no re-OCR) so the mandatory-missing
+    # adequate-evidence judgment (checks.py's CORE PRINCIPLE) stays
+    # consistent with what the pipeline originally saw.
+    rule_results = run_all_rule_checks(
+        bundle.structured_extraction, category=record.category,
+        image_quality_results=bundle.image_quality_results, total_ocr_blocks=len(bundle.ocr_blocks),
+    )
+    # A correction to one field must never silently discard an officer's
+    # earlier resolution on an unrelated, still-ambiguous rule.
+    rule_results = carry_forward_resolutions(rule_results, previous_rule_results)
+    bundle.rule_results = rule_results
     legal_status = compute_legal_status(rule_results)
     score_result = compute_compliance_score(rule_results)
     checklist, violations = to_checklist_and_violations(rule_results)
@@ -172,25 +203,26 @@ def verify_record(
     if record.verification_status == "Verified":
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Record is already Verified")
 
-    # A notDetected declaration only blocks verification if the rule engine
-    # actually considers it relevant — i.e. it appears in the checklist.
-    # NOT_APPLICABLE rule results (e.g. countryOfOrigin with no import
-    # evidence) are deliberately excluded from the checklist entirely (see
-    # frontend_adapter.py), so a domestic product's permanently-not-detected
-    # countryOfOrigin must never block verification — the mock's original
-    # blunt "any notDetected blocks" rule would otherwise make every
-    # domestic-product scan permanently unverifiable, which is a real bug,
-    # not fidelity to the existing contract worth preserving.
-    declarations = (record.extraction or {}).get("declarations", [])
-    checklist_field_ids = {c["fieldId"] for c in (record.checklist or [])}
+    # Phase 3.1: block verification on UNRESOLVED review/evidence issues
+    # only — a checklist row with `passed: false` and no `violationCategoryId`
+    # is exactly a still-open NEEDS_REVIEW/INSUFFICIENT_EVIDENCE item (see
+    # frontend_adapter.py's mapping). A row with `passed: false` AND a
+    # `violationCategoryId` is a CONFIRMED failure (automated or
+    # officer-resolved) — that's a legitimate, verifiable NON_COMPLIANT
+    # finding, not something blocking verification; the whole point of this
+    # system is to let an officer verify "yes, this is genuinely
+    # non-compliant." This also naturally never blocks on NOT_APPLICABLE
+    # rules (e.g. a domestic product's countryOfOrigin), since those never
+    # appear in the checklist at all.
     blocked_fields = [
-        d["fieldId"] for d in declarations
-        if d.get("notDetected") and d["fieldId"] in checklist_field_ids
+        c["fieldId"] for c in (record.checklist or [])
+        if not c["passed"] and "violationCategoryId" not in c
     ]
     if blocked_fields:
-        # Matches the one real existing mock contract exactly: a record
-        # with any not-yet-detected declaration is not an error, just not
+        # A record with an unresolved review item is not an error, just not
         # verifiable yet — 200 with the blocking field list, no mutation.
+        # Resolve it via POST /records/{id}/resolutions, or correct the
+        # underlying field, then verify again.
         return {"record": _record_response(record), "blockedFields": blocked_fields}
 
     record.verification_status = "Verified"
@@ -204,3 +236,74 @@ def verify_record(
     db.refresh(record)
 
     return {"record": _record_response(record), "blockedFields": []}
+
+
+@router.post("/{record_id}/resolutions")
+def resolve_review_item(
+    record_id: uuid.UUID,
+    body: ResolutionRequest,
+    db: DbSession = Depends(get_db),
+    current_user: Profile = Depends(require_permission("verification.confirm")),
+) -> dict:
+    """Officer resolution for a rule the automated engine legitimately
+    could not decide (Rule 7 always; Rule 8/9 sometimes) — resolves it to
+    a final PASS or FAIL WITHOUT overwriting the original automated
+    RuleResult.status. Only rules currently NEEDS_REVIEW/
+    INSUFFICIENT_EVIDENCE (by their own unresolved `status`, not
+    `effective_status` — re-resolving an already-resolved item is allowed,
+    the officer may change their mind) can be targeted."""
+    record = db.get(ComplianceRecord, record_id)
+    if record is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Compliance record not found")
+    if record.verification_status == "Verified":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Record is Verified — resolutions require a new inspection",
+        )
+    if record.evidence_bundle is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="No evidence bundle available for this record yet",
+        )
+    if body.resolved_status not in ("PASS", "FAIL"):
+        raise HTTPException(
+            status_code=422,
+            detail="resolved_status must be exactly 'PASS' or 'FAIL'",
+        )
+
+    bundle = ComplianceEvidenceBundle.model_validate(record.evidence_bundle)
+    rule_result = next((r for r in bundle.rule_results if r.rule_id == body.rule_id), None)
+    if rule_result is None:
+        raise HTTPException(status_code=404, detail=f"Unknown rule_id: {body.rule_id}")
+    if rule_result.status not in (RuleStatus.NEEDS_REVIEW, RuleStatus.INSUFFICIENT_EVIDENCE):
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"Rule '{body.rule_id}' is automated status {rule_result.status.value} — only "
+                "NEEDS_REVIEW/INSUFFICIENT_EVIDENCE rules can be officer-resolved"
+            ),
+        )
+
+    rule_result.resolution = RuleResolution(
+        resolved_status=RuleStatus(body.resolved_status),
+        resolved_by=str(current_user.id),
+        resolved_at=datetime.now(timezone.utc).isoformat(),
+        note=body.note,
+    )
+
+    legal_status = compute_legal_status(bundle.rule_results)
+    score_result = compute_compliance_score(bundle.rule_results)
+    checklist, violations = to_checklist_and_violations(bundle.rule_results)
+    if legal_status == "Not Applicable":
+        violations = []
+
+    record.evidence_bundle = bundle.model_dump()
+    record.checklist = checklist
+    record.violations = violations
+    record.compliance_status = legal_status
+    record.compliance_score = score_result["value"]
+    record.compliance_band = score_result["band"]
+    db.commit()
+    db.refresh(record)
+
+    return _record_response(record)
