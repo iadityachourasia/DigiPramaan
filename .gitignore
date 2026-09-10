@@ -12,3 +12,11 @@ test-results/
 coverage/
 playwright-error.txt
 playwright-result.json
+
+# Backend (Python/FastAPI)
+backend/.venv/
+backend/**/__pycache__/
+backend/.pytest_cache/
+backend/.env
+backend/*.egg-info/
+backend/app/seed/demo_profiles.json
