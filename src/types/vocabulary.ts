@@ -38,6 +38,7 @@ export const COMPLIANCE_STATUSES = [
   "Compliant",
   "Non-Compliant",
   "Needs Review",
+  "Not Applicable",
 ] as const;
 export type ComplianceStatus = (typeof COMPLIANCE_STATUSES)[number];
 

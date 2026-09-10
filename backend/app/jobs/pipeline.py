@@ -16,8 +16,15 @@ Phase 2 brief ("do not pretend BackgroundTasks automatically resumes work").
 Stage order: uploading, qualityCheck (both already `completed` by the time
 this runs — see api/v1/scans.py, which does both synchronously before the
 scan_session row is even created) -> textExtraction -> fallbackExtraction
--> structuring -> ruleEngine (skipped, Phase 3) -> complianceScore (skipped,
-Phase 3) -> readyForVerification.
+-> structuring -> ruleEngine -> complianceScore -> readyForVerification.
+
+ruleEngine/complianceScore (Phase 3) run the deterministic Legal Metrology
+rule engine (app/services/rules/) over the structured extraction and write
+a real compliance_status/compliance_score/checklist/violations onto the
+provisional ComplianceRecord — verification_status stays "Extracted" until
+an officer explicitly verifies via POST /records/{id}/verify
+(api/v1/records.py), which only freezes the record; it does not compute
+compliance for the first time.
 """
 
 from __future__ import annotations
@@ -32,9 +39,13 @@ from app.core.object_storage import get_s3_client
 from app.db.models import ComplianceRecord, EvidenceImage, ScanSession
 from app.db.session import SessionLocal
 from app.services.extraction.adapter import to_extraction_result
+from app.services.extraction.schema import ComplianceEvidenceBundle, ImageQualitySummary
 from app.services.ocr.gemini import GeminiOcrProvider, GeminiUnavailableError, structure
 from app.services.ocr.paddle import PaddleOcrProvider
 from app.services.ocr.provider import OcrBlock
+from app.services.rules.aggregate import compute_compliance_score, compute_legal_status
+from app.services.rules.checks import _side_pdp_evidence, run_all_rule_checks
+from app.services.rules.frontend_adapter import to_checklist_and_violations
 
 # A field is "insufficient" enough to justify a Gemini fallback pass on
 # whichever image angle it's normally read from — deliberately not just
@@ -236,14 +247,70 @@ def run_pipeline(scan_session_id: uuid.UUID) -> None:
             )
             _persist(db, session, stages)
 
-        # --- ruleEngine / complianceScore: deferred to Phase 3 ---
-        stages = _with_stage_update(
-            stages, "ruleEngine", state="skipped", summary="Deferred to Phase 3."
-        )
-        stages = _with_stage_update(
-            stages, "complianceScore", state="skipped", summary="Deferred to Phase 3."
-        )
-        _persist(db, session, stages)
+        # --- ruleEngine ---
+        # Runs the same "always recompute the pure/cheap work, only
+        # conditionally persist the stage-state transition" discipline
+        # already established for `structuring` above — rule evaluation is
+        # pure Python over in-memory data, so re-running it on resume is
+        # free, unlike redoing OCR.
+        rule_engine_stage = _find_stage(stages, "ruleEngine")
+        if rule_engine_stage["state"] == "failed":
+            return
+        rule_engine_was_pending = rule_engine_stage["state"] == "pending"
+        if rule_engine_was_pending:
+            stages = _with_stage_update(stages, "ruleEngine", state="in_progress")
+            _persist(db, session, stages)
+
+        try:
+            rule_results = run_all_rule_checks(structured_extraction, category=session.category)
+            bundle = ComplianceEvidenceBundle(
+                structured_extraction=structured_extraction,
+                ocr_blocks=[b.model_dump() for b in all_blocks],
+                image_quality_results=[
+                    ImageQualitySummary(
+                        image_id=str(image.id),
+                        angle=image.angle,
+                        overall_verdict=(image.quality_result or {}).get("overall_verdict", "unknown"),
+                        reason=(image.quality_result or {}).get("reason"),
+                    )
+                    for image in images
+                ],
+                pdp_declarations_detected=_pdp_declarations(structured_extraction),
+            )
+        except Exception as exc:  # noqa: BLE001 - the rule engine is pure/local; any failure here is a real bug
+            stages = _with_stage_update(
+                stages, "ruleEngine", state="failed", failureReason=str(exc)
+            )
+            _persist(db, session, stages, status="failed", error=str(exc))
+            return
+
+        if rule_engine_was_pending:
+            stages = _with_stage_update(
+                stages, "ruleEngine", state="completed",
+                summary=f"{len(rule_results)} rules evaluated; Rule 7 (font size) always requires "
+                        "manual verification — no calibration hardware at MVP.",
+            )
+            _persist(db, session, stages)
+
+        # --- complianceScore ---
+        score_stage = _find_stage(stages, "complianceScore")
+        score_was_pending = score_stage["state"] == "pending"
+        if score_was_pending:
+            stages = _with_stage_update(stages, "complianceScore", state="in_progress")
+            _persist(db, session, stages)
+
+        legal_status = compute_legal_status(rule_results)
+        score_result = compute_compliance_score(rule_results)
+        checklist, violations = to_checklist_and_violations(rule_results)
+        if legal_status == "Not Applicable":
+            violations = []  # an exempt product carries no actionable violations
+
+        if score_was_pending:
+            stages = _with_stage_update(
+                stages, "complianceScore", state="completed",
+                summary=f"Score {score_result['value']} ({score_result['band']}); status {legal_status}.",
+            )
+            _persist(db, session, stages)
 
         # --- readyForVerification: create the provisional record ---
         record_id = derive_record_id(scan_session_id)
@@ -257,23 +324,45 @@ def run_pipeline(scan_session_id: uuid.UUID) -> None:
         record.category = session.category
         record.region = session.region
         record.source = "Officer-Scanned"
-        # Deliberately NOT "Verified"/compliant — Phase 2 produces a
-        # provisional record only; Phase 3's rule engine + officer
-        # verification is what may ever set these.
+        # verification_status stays "Extracted" until an officer explicitly
+        # verifies (see api/v1/records.py) — but compliance_status/score/
+        # checklist/violations now reflect the REAL deterministic rule
+        # engine result immediately, not a "Pending" placeholder. This is a
+        # deliberate Phase 3 semantic shift: the rule engine determines
+        # compliance at pipeline-completion time; verification is a
+        # separate officer sign-off/freeze step, not the determination step.
         record.verification_status = "Extracted"
-        record.compliance_status = "Pending"
+        record.compliance_status = legal_status
+        record.compliance_score = score_result["value"]
+        record.compliance_band = score_result["band"]
         record.extraction = extraction_result
-        record.checklist = None
-        record.violations = None
+        record.checklist = checklist
+        record.violations = violations
+        record.evidence_bundle = bundle.model_dump()
         record.assigned_officer_id = session.created_by
         record.scanned_at = session.created_at
 
         session.record_id = record.id
         stages = _with_stage_update(
             stages, "readyForVerification", state="completed",
-            summary="Provisional record created — awaiting Phase 3 rule evaluation.",
+            summary="Provisional record created — awaiting officer verification.",
         )
         _persist(db, session, stages, status="completed")
+
+
+def _pdp_declarations(extraction) -> list[str]:
+    """Distinct labels for every piece of OCR evidence sourced from the
+    side/PDP image, across all StructuredExtraction fields — reuses the
+    same field-iteration as check_rule_8_pdp_presence (checks.py) so the
+    same evidence isn't scanned twice."""
+    seen: set[str] = set()
+    labels: list[str] = []
+    for evidence in _side_pdp_evidence(extraction):
+        label = evidence.ocr_block_text or ""
+        if label and label not in seen:
+            seen.add(label)
+            labels.append(label)
+    return labels
 
 
 def _reextract_for_resume(images: list[EvidenceImage], settings) -> tuple[list[OcrBlock], dict[str, str]]:
@@ -295,10 +384,20 @@ def _reextract_for_resume(images: list[EvidenceImage], settings) -> tuple[list[O
 
 
 def retry_stage(scan_session_id: uuid.UUID, stage_id: str) -> bool:
-    """Resets exactly one FAILED stage to pending, then re-runs the whole
-    pipeline function (which will fast-forward through already-completed/
-    skipped stages and pick up from the reset one). Returns False if the
-    scan or stage doesn't exist, or the stage isn't currently failed."""
+    """Resets exactly one FAILED stage to pending and persists it — does NOT
+    run the pipeline itself. Returns False if the scan or stage doesn't
+    exist, or the stage isn't currently failed.
+
+    Phase 2's original version of this function called run_pipeline()
+    synchronously right here, which meant the retry HTTP endpoint blocked
+    for as long as the whole re-run took (measured at 60-90+ seconds when
+    OCR/Gemini had to redo work) before returning. Phase 3 fixes this: the
+    caller (the retry route in api/v1/scans.py) persists this fast reset
+    and returns immediately, then schedules run_pipeline() via
+    BackgroundTasks. GET /scans/{id}/pipeline remains the only way to
+    observe progress after that — exactly the same pattern POST /scans
+    already used for the initial run.
+    """
     with SessionLocal() as db:
         session = db.get(ScanSession, scan_session_id)
         if session is None:
@@ -314,5 +413,4 @@ def retry_stage(scan_session_id: uuid.UUID, stage_id: str) -> bool:
         stages = _with_stage_update(stages, stage_id, state="pending", failureReason=None)
         _persist(db, session, stages, status="pending", error=None)
 
-    run_pipeline(scan_session_id)
     return True

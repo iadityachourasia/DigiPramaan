@@ -33,6 +33,11 @@ class ExtractedField(BaseModel):
     not_detected: bool
     evidence: list[EvidenceRef] = []
     extraction_confidence: float = 0.0  # LLM self-reported — informational only
+    # Phase 3 officer-correction metadata. Additive, backward-compatible
+    # defaults — old persisted evidence_bundle/extraction JSON blobs from
+    # before Phase 3 simply default both to False/None on model_validate.
+    corrected: bool = False
+    corrected_by: str | None = None
 
 
 class StructuredExtraction(BaseModel):

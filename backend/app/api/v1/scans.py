@@ -16,6 +16,7 @@ import json
 import uuid
 from datetime import datetime, timezone
 
+from botocore.exceptions import BotoCoreError, ClientError
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session as DbSession
 
@@ -107,21 +108,42 @@ async def create_scan(
     db.flush()  # assigns scan_session.id without committing yet
 
     s3_client = get_s3_client(settings)
-    for angle, image_bytes in image_bytes_by_angle.items():
-        quality = quality_by_angle[angle]
-        ext = _extension_for(uploads[angle])
-        storage_key = f"evidence/{scan_session.id}/{angle}-{quality.content_hash[:12]}.{ext}"
-        s3_client.put_object(Bucket=settings.s3_bucket, Key=storage_key, Body=image_bytes)
+    uploaded_keys: list[str] = []
+    try:
+        for angle, image_bytes in image_bytes_by_angle.items():
+            quality = quality_by_angle[angle]
+            ext = _extension_for(uploads[angle])
+            storage_key = f"evidence/{scan_session.id}/{angle}-{quality.content_hash[:12]}.{ext}"
+            s3_client.put_object(Bucket=settings.s3_bucket, Key=storage_key, Body=image_bytes)
+            uploaded_keys.append(storage_key)
 
-        db.add(
-            EvidenceImage(
-                scan_session_id=scan_session.id,
-                angle=angle,
-                storage_key=storage_key,
-                content_hash=quality.content_hash,
-                quality_result=quality.model_dump(),
+            db.add(
+                EvidenceImage(
+                    scan_session_id=scan_session.id,
+                    angle=angle,
+                    storage_key=storage_key,
+                    content_hash=quality.content_hash,
+                    quality_result=quality.model_dump(),
+                )
             )
-        )
+    except (BotoCoreError, ClientError) as exc:
+        # Partial upload: some images already landed in B2 before this one
+        # failed. Best-effort delete what we already put there (an orphan
+        # here is a wasted object, not incorrect data, so a failure to
+        # delete is logged-and-ignored, not re-raised) and explicitly roll
+        # back the DB transaction so no half-created ScanSession/
+        # EvidenceImage rows survive — the flushed-but-uncommitted
+        # scan_session row from above is discarded too.
+        for key in uploaded_keys:
+            try:
+                s3_client.delete_object(Bucket=settings.s3_bucket, Key=key)
+            except (BotoCoreError, ClientError):
+                pass
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Evidence storage is temporarily unavailable. Please retry the scan.",
+        ) from exc
 
     db.commit()
 
@@ -163,9 +185,16 @@ def get_pipeline(
 def retry_pipeline_stage(
     scan_id: uuid.UUID,
     stage_id: str,
+    background_tasks: BackgroundTasks,
     db: DbSession = Depends(get_db),
     _current_user: Profile = Depends(require_permission("scan.create")),
 ) -> dict:
+    """Resets the failed stage and returns immediately — the actual
+    re-run happens in a BackgroundTask (see jobs/pipeline.py's
+    retry_stage() docstring for why this changed in Phase 3). The response
+    below reflects the just-persisted `pending` state, not eventual
+    completion; GET /scans/{id}/pipeline is the source of truth for
+    progress from here."""
     scan_session = db.get(ScanSession, scan_id)
     if scan_session is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pipeline run not found")
@@ -176,6 +205,8 @@ def retry_pipeline_stage(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="That stage is not currently failed, or does not exist",
         )
+
+    background_tasks.add_task(run_pipeline, scan_id)
 
     db.refresh(scan_session)
     record_id = scan_session.record_id or derive_record_id(scan_session.id)

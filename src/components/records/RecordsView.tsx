@@ -340,6 +340,7 @@ export function RecordsView({ locale }: { locale: string }) {
             Compliant: tVocab("complianceStatus.Compliant"),
             "Non-Compliant": tVocab("complianceStatus.Non-Compliant"),
             "Needs Review": tVocab("complianceStatus.Needs Review"),
+            "Not Applicable": tVocab("complianceStatus.Not Applicable"),
           },
           sourceLabels: {
             "Officer-Scanned": tVocab("sourceTag.Officer-Scanned"),

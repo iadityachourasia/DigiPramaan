@@ -35,6 +35,16 @@ change to a table this migration already owns gets folded back into this
 same file until a second, genuinely independent migration is needed for
 something this file does NOT yet cover (a new table, not a new column on an
 existing one).
+
+Phase 3 addendum: `compliance_records.evidence_bundle` (JSONB) was added to
+the `ComplianceRecord` model after this file was first written — per the
+rule above, it was folded in here (this file's `create_all()` already
+covers it for any fresh database) rather than given its own
+`op.add_column` migration, which would collide with `create_all()` on a
+truly fresh install exactly the way the original `profiles.email` mistake
+did. The one already-migrated dev database this project uses (Supabase)
+had the column added directly via a one-off `ALTER TABLE ... ADD COLUMN`
+run outside Alembic, since `create_all()` never alters an existing table.
 """
 
 from __future__ import annotations
