@@ -7,8 +7,17 @@ from __future__ import annotations
 
 import datetime
 import uuid
+from unittest.mock import MagicMock
 
 from app.services.reports.snapshot import build_report_document
+
+
+def _fake_db_no_cached_explanations() -> MagicMock:
+    """A db whose RuleExplanation query always finds nothing — every
+    violation falls back to the deterministic rule-engine reason."""
+    db = MagicMock()
+    db.query.return_value.filter.return_value.first.return_value = None
+    return db
 
 
 class _FakeRecord:
@@ -35,7 +44,7 @@ class _FakeProfile:
 def test_build_report_document_shape():
     record = _FakeRecord()
     profile = _FakeProfile()
-    doc = build_report_document(record, profile, base_url="http://localhost:3000")
+    doc = build_report_document(record, profile, base_url="http://localhost:3000", db=_fake_db_no_cached_explanations())
 
     assert doc["title"] == "Legal Metrology Compliance Report"
     assert doc["totalRecords"] == 1
@@ -66,17 +75,50 @@ def test_build_report_document_carries_violations():
             {"categoryId": "mrp-non-compliance", "category": "MRP Non-Compliance", "legalBasis": "Rule 6(e)", "detail": "MRP absent"},
         ],
     )
-    doc = build_report_document(record, _FakeProfile(), base_url="http://localhost:3000")
+    doc = build_report_document(
+        record, _FakeProfile(), base_url="http://localhost:3000", db=_fake_db_no_cached_explanations()
+    )
     section = doc["records"][0]
     assert section["violations"] == [
-        {"category": "MRP Non-Compliance", "legalBasis": "Rule 6(e)", "detail": "MRP absent"}
+        {
+            "category": "MRP Non-Compliance", "legalBasis": "Rule 6(e)", "detail": "MRP absent",
+            # No cached Gemini explanation in this test — falls back to the
+            # deterministic rule-engine reason (`detail`), never blank.
+            "explanation": "MRP absent",
+        }
     ]
+
+
+def test_uses_cached_explanation_summary_when_present():
+    """(L) complement: when a cached RuleExplanation exists, its summary is
+    used instead of the deterministic fallback."""
+    record = _FakeRecord(
+        compliance_status="Non-Compliant",
+        violations=[
+            {
+                "categoryId": "mrp-non-compliance", "category": "MRP Non-Compliance",
+                "legalBasis": "Rule 6(e)", "detail": "MRP absent", "ruleId": "rule_6e_mrp",
+            },
+        ],
+    )
+    db = MagicMock()
+    cached = MagicMock()
+    cached.explanation = {"summary": "The MRP declaration could not be found on the label."}
+    db.query.return_value.filter.return_value.first.return_value = cached
+
+    doc = build_report_document(record, _FakeProfile(), base_url="http://localhost:3000", db=db)
+    section = doc["records"][0]
+    assert section["violations"][0]["explanation"] == "The MRP declaration could not be found on the label."
 
 
 def test_two_calls_produce_different_reference_codes():
     """Each generation gets its own reference code — never reused across
     separate reports for the same record."""
     record = _FakeRecord()
-    doc1 = build_report_document(record, _FakeProfile(), base_url="http://localhost:3000")
-    doc2 = build_report_document(record, _FakeProfile(), base_url="http://localhost:3000")
+    doc1 = build_report_document(
+        record, _FakeProfile(), base_url="http://localhost:3000", db=_fake_db_no_cached_explanations()
+    )
+    doc2 = build_report_document(
+        record, _FakeProfile(), base_url="http://localhost:3000", db=_fake_db_no_cached_explanations()
+    )
     assert doc1["referenceCode"] != doc2["referenceCode"]

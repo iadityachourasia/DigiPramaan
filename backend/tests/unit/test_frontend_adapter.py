@@ -33,7 +33,9 @@ def test_rule3_applicability_always_excluded_regardless_of_status() -> None:
 def test_pass_becomes_passing_checklist_row() -> None:
     results = [_result("rule_6a_manufacturer", "manufacturerDetails", RuleStatus.PASS, value="Acme")]
     checklist, violations = to_checklist_and_violations(results)
-    assert checklist == [{"fieldId": "manufacturerDetails", "passed": True, "value": "Acme"}]
+    assert checklist == [{
+        "fieldId": "manufacturerDetails", "passed": True, "value": "Acme", "ruleId": "rule_6a_manufacturer",
+    }]
     assert violations == []
 
 
@@ -46,10 +48,11 @@ def test_fail_becomes_failing_checklist_row_and_a_violation() -> None:
     assert checklist == [{
         "fieldId": "retailSalePrice", "passed": False, "value": "Rs 99",
         "violationCategoryId": "mrp-non-compliance", "detail": "missing tax wording",
+        "ruleId": "rule_6e_mrp",
     }]
     assert violations == [{
         "categoryId": "mrp-non-compliance", "category": "MRP Non-Compliance",
-        "legalBasis": "Rule 6(e)/2(m)", "detail": "missing tax wording",
+        "legalBasis": "Rule 6(e)/2(m)", "detail": "missing tax wording", "ruleId": "rule_6e_mrp",
     }]
 
 

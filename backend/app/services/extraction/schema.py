@@ -65,6 +65,40 @@ class ImageQualitySummary(BaseModel):
     reason: str | None = None
 
 
+class Point(BaseModel):
+    x: float
+    y: float
+
+
+class CalibrationData(BaseModel):
+    """Phase 6 — one officer-submitted manual two-point calibration for one
+    declaration field. Establishes pixels-per-mm scale ONLY; it does not
+    correct for perspective/tilt (that would need >=4 point correspondences
+    for a homography, which this MVP does not collect — see
+    measurement/font_height.py's own docstring on the plausibility-only
+    geometry check this feeds).
+
+    Provenance is append-only: a new calibration for the same field_id
+    never overwrites a prior one — the prior entry is marked
+    `superseded=True` and kept, mirroring the ACTIVE/SUPERSEDED convention
+    `ProductInspectionLink` already established (Phase 4). The "current"
+    calibration for a field is the latest entry with `superseded=False`.
+    """
+
+    field_id: str
+    image_id: str
+    known_dimension_mm: float
+    start_point: Point
+    end_point: Point
+    pixel_length: float
+    pixels_per_mm: float
+    is_embossed: bool = False
+    method: str = "manual_two_point"
+    calibrated_by: str
+    calibrated_at: str  # ISO 8601
+    superseded: bool = False
+
+
 class ComplianceEvidenceBundle(BaseModel):
     structured_extraction: StructuredExtraction
     ocr_blocks: list[dict] = []  # OcrBlock.model_dump() per block, kept loose here
@@ -78,3 +112,5 @@ class ComplianceEvidenceBundle(BaseModel):
     # forward onto the freshly-recomputed list rather than discarding them
     # (see rules/aggregate.py's carry_forward_resolutions()).
     rule_results: list[RuleResult] = []
+    # Phase 6 — append-only history, see CalibrationData's own docstring.
+    calibrations: list[CalibrationData] = []

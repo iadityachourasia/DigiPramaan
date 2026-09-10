@@ -9,6 +9,7 @@ import {
   saveCorrection as saveCorrectionRequest,
   verifyRecord as verifyRecordRequest,
 } from "@/lib/api/records";
+import { submitCalibration, type SubmitCalibrationRequest } from "@/lib/api/scans";
 import type { ComplianceRecord, DeclarationFieldId } from "@/types";
 
 /**
@@ -100,6 +101,24 @@ export function useComplianceRecord(id: string, demoZeroDeclarations?: boolean) 
     });
   }, [record]);
 
+  /** Phase 6 — Rule 7 manual calibration. Resolves `true` on success so the
+   * caller can clear its own local point-selection state. */
+  const calibrate = useCallback(
+    async (request: SubmitCalibrationRequest): Promise<boolean> => {
+      if (!record) return false;
+      setPending(true);
+      const result = await submitCalibration(record.scanId, request);
+      setPending(false);
+      if (!result.ok) {
+        setMutationError(true);
+        return false;
+      }
+      setRecord(result.data);
+      return true;
+    },
+    [record]
+  );
+
   return {
     record,
     notFound,
@@ -110,5 +129,6 @@ export function useComplianceRecord(id: string, demoZeroDeclarations?: boolean) 
     verify,
     flagNeedsReview,
     retryOcr,
+    calibrate,
   };
 }
