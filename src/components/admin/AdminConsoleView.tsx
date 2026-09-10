@@ -34,7 +34,7 @@ export function AdminConsoleView() {
     Promise.all([fetchAdminTeam(user.id), fetchRuleThresholds(user.id)])
       .then(([team, rules]) => { setUsers(team.users); setThresholds(rules); setError(null); })
       .catch((reason: unknown) => setError(reason instanceof Error ? reason.message : t("loadError")));
-    fetchRecords({ categories: [], complianceStatuses: [], regions: [], manufacturers: [], sources: [], violationCategoryIds: [], batchIds: [] }, "newest", 1, 100, user.id)
+    fetchRecords({ categories: [], complianceStatuses: [], regions: [], manufacturers: [], sources: [], violationCategoryIds: [], batchIds: [] }, "newest", 1, 100)
       .then((result) => { if (result.ok) setRecords(result.data.rows); });
   }
   useEffect(() => { load(); // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -38,6 +38,7 @@ from __future__ import annotations
 import re
 
 from app.services.extraction.schema import EvidenceRef, ExtractedField, StructuredExtraction
+from app.services.normalization import parse_quantity_to_base_units
 from app.services.rules.types import RuleResult, RuleStatus
 
 _TAX_INCLUSIVE_PATTERN = re.compile(
@@ -413,21 +414,6 @@ def check_rule_6_3_stub() -> RuleResult:
     )
 
 
-def _parse_quantity_grams_or_ml(value: str | None) -> float | None:
-    if not value:
-        return None
-    match = re.search(r"(\d+(?:\.\d+)?)\s*(kg|g|l|ml)\b", value, re.IGNORECASE)
-    if not match:
-        return None
-    amount = float(match.group(1))
-    unit = match.group(2).lower()
-    if unit == "kg":
-        return amount * 1000
-    if unit == "l":
-        return amount * 1000
-    return amount  # g or ml, already base unit
-
-
 def check_rule_3_applicability(
     category: str | None, net_quantity: ExtractedField | None
 ) -> RuleResult:
@@ -450,7 +436,7 @@ def check_rule_3_applicability(
             message=f"Category '{category}' suggests a Rule 3 exemption (industrial/institutional use).",
         )
 
-    grams = _parse_quantity_grams_or_ml(net_quantity.value if net_quantity else None)
+    grams = parse_quantity_to_base_units(net_quantity.value if net_quantity else None)
     if grams is not None and grams > _BULK_EXEMPTION_THRESHOLD_G:
         return RuleResult(
             rule_id="rule_3_applicability", rule_name="Rule 3 applicability", field_id="rule3Applicability",

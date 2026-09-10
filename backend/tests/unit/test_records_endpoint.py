@@ -7,7 +7,7 @@ TestClient + dependency_overrides convention as test_scans_endpoint.py.
 from __future__ import annotations
 
 import uuid
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -230,7 +230,12 @@ def test_verify_ignores_not_applicable_country_of_origin_and_succeeds(client_wit
     record = _fake_record(declarations_overrides={"countryOfOrigin": {"notDetected": True}})
     client, mock_db = client_with_record("Enforcement Officer", record)
 
-    response = client.post(f"/api/v1/records/{RECORD_ID}/verify", headers={"Authorization": "Bearer fake"})
+    # Phase 4's post-verification intelligence loop is out of scope for
+    # this test (it tests verify_record's OWN blocking logic) — patched out
+    # so it neither runs real queries against the mocked db nor adds its
+    # own commit call to the count asserted below.
+    with patch("app.api.v1.records.run_post_verification_loop"):
+        response = client.post(f"/api/v1/records/{RECORD_ID}/verify", headers={"Authorization": "Bearer fake"})
 
     assert response.status_code == 200
     body = response.json()
@@ -243,7 +248,8 @@ def test_verify_with_everything_detected_succeeds(client_with_record) -> None:
     record = _fake_record()
     client, mock_db = client_with_record("Enforcement Officer", record)
 
-    response = client.post(f"/api/v1/records/{RECORD_ID}/verify", headers={"Authorization": "Bearer fake"})
+    with patch("app.api.v1.records.run_post_verification_loop"):
+        response = client.post(f"/api/v1/records/{RECORD_ID}/verify", headers={"Authorization": "Bearer fake"})
 
     assert response.status_code == 200
     body = response.json()
@@ -303,7 +309,8 @@ def test_verify_does_not_block_on_a_confirmed_fail(client_with_record) -> None:
     record = _fake_record(checklist=checklist)
     client, mock_db = client_with_record("Enforcement Officer", record)
 
-    response = client.post(f"/api/v1/records/{RECORD_ID}/verify", headers={"Authorization": "Bearer fake"})
+    with patch("app.api.v1.records.run_post_verification_loop"):
+        response = client.post(f"/api/v1/records/{RECORD_ID}/verify", headers={"Authorization": "Bearer fake"})
 
     assert response.status_code == 200
     body = response.json()

@@ -31,7 +31,7 @@ export function useRecordDetail(id: string) {
 
   useEffect(() => {
     let cancelled = false;
-    fetchRecord(id, false, user?.id).then((result) => {
+    fetchRecord(id).then((result) => {
       if (cancelled) return;
       if (result.ok) setRecord(result.data);
       else setNotFound(true);
@@ -55,13 +55,20 @@ export function useRecordDetail(id: string) {
   );
 
   const flagForEnforcement = useCallback(
-    (userId: string) => {
+    () => {
       if (!record) return;
       setPending(true);
-      flagForEnforcementRequest(record.id, userId).then((result) => {
+      flagForEnforcementRequest(record.id).then((result) => {
         setPending(false);
-        if (result.ok) setRecord(result.data);
-        else setMutationError(true);
+        if (result.ok) {
+          // The real endpoint returns the case, not the record — refetch
+          // to pick up the fresh activeCaseId/flaggedForEnforcement.
+          fetchRecord(record.id).then((refetched) => {
+            if (refetched.ok) setRecord(refetched.data);
+          });
+        } else {
+          setMutationError(true);
+        }
       });
     },
     [record]

@@ -258,7 +258,7 @@ export function ReportsView({ locale }: { locale: string }) {
               {builder.detail.report.formats.map((format) => (
                 <a
                   key={format}
-                  href={reportDownloadHref(builder.detail!.report.id, format, user?.id)}
+                  href={reportDownloadHref(builder.detail!.report, format, user?.id)}
                   className="ux4g-btn ux4g-btn-primary"
                 >
                   <span className="ux4g-icon-outlined" aria-hidden="true">

@@ -81,6 +81,19 @@ export const ROUTES = {
   grievance: "/grievance",
 
   /**
+   * Product Compliance DNA — Phase 4 USP. Net-new page with no mock
+   * equivalent; calls the real FastAPI backend directly (see
+   * src/lib/api/productDna.ts).
+   */
+  productDna: (productId: string) => `/products/${productId}` as const,
+
+  /**
+   * Case Detail — Compliance Follow-Through, Phase 4 USP. Same real-backend
+   * convention as productDna above.
+   */
+  caseDetail: (caseId: string) => `/cases/${caseId}` as const,
+
+  /**
    * Statutory footer pages required of every Government of India site by
    * BRD §9.4 and GIGW 3.0. The routes are declared here so the Footer links
    * through `Link` and stays locale-aware; the pages themselves are not built

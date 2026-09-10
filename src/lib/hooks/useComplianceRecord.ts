@@ -34,7 +34,7 @@ export function useComplianceRecord(id: string, demoZeroDeclarations?: boolean) 
 
   useEffect(() => {
     let cancelled = false;
-    fetchRecord(id, demoZeroDeclarations).then((result) => {
+    fetchRecord(id).then((result) => {
       if (cancelled) return;
       if (result.ok) setRecord(result.data);
       else setNotFound(true);
@@ -45,10 +45,10 @@ export function useComplianceRecord(id: string, demoZeroDeclarations?: boolean) 
   }, [id, demoZeroDeclarations]);
 
   const applyCorrection = useCallback(
-    (fieldId: DeclarationFieldId, value: string, userId: string) => {
+    (fieldId: DeclarationFieldId, value: string) => {
       if (!record) return;
       setPending(true);
-      saveCorrectionRequest(record.id, fieldId, value, userId).then((result) => {
+      saveCorrectionRequest(record.id, fieldId, value).then((result) => {
         setPending(false);
         if (result.ok) setRecord(result.data);
         else setMutationError(true);
@@ -59,10 +59,10 @@ export function useComplianceRecord(id: string, demoZeroDeclarations?: boolean) 
 
   /** Resolves `true` only when verification actually succeeded (not blocked). */
   const verify = useCallback(
-    async (userId: string): Promise<boolean> => {
+    async (): Promise<boolean> => {
       if (!record) return false;
       setPending(true);
-      const result = await verifyRecordRequest(record.id, userId);
+      const result = await verifyRecordRequest(record.id);
       setPending(false);
       if (!result.ok) {
         setMutationError(true);
@@ -90,10 +90,10 @@ export function useComplianceRecord(id: string, demoZeroDeclarations?: boolean) 
 
   /* Takes the actor for the first time — re-extraction discards existing
    * corrections and now says who asked for it. */
-  const retryOcr = useCallback((userId: string) => {
+  const retryOcr = useCallback(() => {
     if (!record) return;
     setPending(true);
-    retryOcrRequest(record.id, userId).then((result) => {
+    retryOcrRequest(record.id).then((result) => {
       setPending(false);
       if (result.ok) setRecord(result.data);
       else setMutationError(true);

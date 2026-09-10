@@ -5,8 +5,6 @@ import { useCallback, useEffect, useState } from "react";
 import { fetchManufacturers, fetchManufacturerScorecard } from "@/lib/api/manufacturers";
 import type { ManufacturerScorecard } from "@/types";
 
-import { useAuth } from "./useAuth";
-
 /*
  * The `?demo=` states are derived, never written into state by an effect.
  * Writing them synchronously inside the effect is what triggers
@@ -16,7 +14,6 @@ import { useAuth } from "./useAuth";
  */
 
 export function useManufacturers(demoState?: string) {
-  const { user } = useAuth();
   const [fetched, setFetched] = useState<ManufacturerScorecard[] | null>(null);
   const [fetchFailed, setFetchFailed] = useState(false);
 
@@ -28,7 +25,7 @@ export function useManufacturers(demoState?: string) {
     let cancelled = false;
     /* Scopes every scorecard's numbers to the signed-in user's jurisdiction
      * and role (13 §4 plan) — see fetchManufacturers's own doc comment. */
-    fetchManufacturers(user?.id).then((result) => {
+    fetchManufacturers().then((result) => {
       if (cancelled) return;
       if (result.ok) setFetched(result.data.scorecards);
       else setFetchFailed(true);
@@ -36,7 +33,7 @@ export function useManufacturers(demoState?: string) {
     return () => {
       cancelled = true;
     };
-  }, [skipFetch, user?.id]);
+  }, [skipFetch]);
 
   if (demoState === "error") {
     return { scorecards: null, loading: false, error: true };
@@ -85,7 +82,6 @@ function applyDemoShape(
  * renders as "no such manufacturer", not a retryable failure.
  */
 export function useManufacturerScorecard(id: string, demoState?: string) {
-  const { user } = useAuth();
   const [fetched, setFetched] = useState<ManufacturerScorecard | null>(null);
   const [fetchFailed, setFetchFailed] = useState(false);
   const [notFound, setNotFound] = useState(false);
@@ -99,7 +95,7 @@ export function useManufacturerScorecard(id: string, demoState?: string) {
     /* Scopes this scorecard's numbers to the signed-in user's jurisdiction
      * and role (13 §4 plan) — see fetchManufacturerScorecard's own doc
      * comment. */
-    fetchManufacturerScorecard(id, user?.id).then((result) => {
+    fetchManufacturerScorecard(id).then((result) => {
       if (cancelled) return;
       if (result.ok) setFetched(result.data);
       else if (result.status === 403 || result.status === 404) setNotFound(true);
@@ -108,7 +104,7 @@ export function useManufacturerScorecard(id: string, demoState?: string) {
     return () => {
       cancelled = true;
     };
-  }, [id, skipFetch, user?.id]);
+  }, [id, skipFetch]);
 
   useEffect(load, [load]);
 

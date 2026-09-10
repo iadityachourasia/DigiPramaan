@@ -1,44 +1,30 @@
 /**
  * analytics.ts — dashboard and analytics API client.
+ *
+ * Phase 5: fetchDashboardData() cuts over to the real FastAPI backend
+ * (GET /dashboard, apiGet's Bearer-token convention) — the aggregate is
+ * scoped server-side to the authenticated officer, so no viewerId query
+ * param is needed any more (the old mock route trusted a client-supplied
+ * id; the real backend never does). fetchAnalyticsData() stays on the mock
+ * route — the Analytics page (page 7) is outside Phase 5's demo path.
  */
 
 import type { AnalyticsData, DashboardData } from "@/types";
-import { API } from "@/lib/constants";
-import { type ApiResult } from "./client";
+import { apiGet } from "./client";
+import type { ApiResult } from "./client";
 
-/** Dashboard reads a server-derived, viewer-scoped response even in demo mode. */
-export async function fetchDashboardData(viewerId?: string): Promise<ApiResult<DashboardData>> {
-  try {
-    const query = viewerId ? `?viewerId=${encodeURIComponent(viewerId)}` : "";
-    const response = await fetch(`/api${API.analytics.dashboard}${query}`);
-    if (!response.ok) {
-      return {
-        ok: false,
-        status: response.status,
-        message: `GET /api${API.analytics.dashboard} failed with status ${response.status}`,
-      };
-    }
-    return { ok: true, data: (await response.json()) as DashboardData };
-  } catch {
-    return { ok: false, status: 0, message: "Network error" };
-  }
+export function fetchDashboardData(): Promise<ApiResult<DashboardData>> {
+  return apiGet("/dashboard");
 }
 
 /**
  * Summary/violation/category/region/source breakdowns come from
- * `GET /api/analytics` — a real HTTP call, never gated by `isMockMode()`,
- * same reasoning as every other server-authoritative surface in this app:
- * it must see records the live pipeline created, not just the static
- * seeds a client-side mock branch would be limited to (the same bug page
- * 5's `fetchRecords()` had before its own fix). Trend and anomalies still
- * come from the static mock data — see `computeAnalyticsSummary()`'s own
- * doc comment for why those two stay illustrative.
+ * `GET /api/analytics` — the mock route (outside Phase 5's demo path).
+ * Trend and anomalies still come from the static mock data.
  */
 export async function fetchAnalyticsData(viewerId?: string): Promise<ApiResult<AnalyticsData>> {
   const { MOCK_TREND, MOCK_ANOMALIES } = await import("@/lib/mock");
   try {
-    /* Scopes the breakdowns to the viewer's jurisdiction and role (13 §4
-     * plan) — see fetchRecords's own doc comment for the same convention. */
     const query = viewerId ? `?viewerId=${encodeURIComponent(viewerId)}` : "";
     const response = await fetch(`/api/analytics${query}`);
     if (!response.ok) {

@@ -22,6 +22,14 @@ sometimes) — this lets an officer resolve a NEEDS_REVIEW/
 INSUFFICIENT_EVIDENCE RuleResult to a final PASS/FAIL without ever
 overwriting the original automated verdict (see rules/types.py's
 RuleResult.resolution / effective_status).
+
+Phase 4 adds: GET /records/{id} (a plain read, so the new Product DNA/Case
+Detail frontend pages can discover a record's productId/activeCaseId
+without triggering a mutation), POST /records/{id}/flag-enforcement
+(Compliance Follow-Through case creation/reuse), and
+POST /records/{id}/retry-enrichment (re-runs the post-verification
+intelligence loop for an already-Verified record whose Product DNA/Risk
+linkage previously failed or was skipped — see services/intelligence_loop.py).
 """
 
 from __future__ import annotations
@@ -29,25 +37,43 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session as DbSession
 
+from app.api.deps.auth import get_current_user
 from app.api.deps.permissions import require_permission
-from app.db.models import ComplianceRecord, Profile
+from app.db.models import (
+    AuditEvent,
+    CaseStatusHistory,
+    ComplianceRecord,
+    Profile,
+    ProductInspectionLink,
+    ViolationCase,
+)
 from app.db.session import get_db
 from app.services.extraction.adapter import to_extraction_result
 from app.services.extraction.schema import ComplianceEvidenceBundle, ExtractedField
+from app.services.intelligence_loop import (
+    EnrichmentSkipped,
+    recompute_risk_for_record_subjects,
+    run_post_verification_loop,
+)
 from app.services.rules.aggregate import (
     carry_forward_resolutions,
     compute_compliance_score,
     compute_legal_status,
 )
+from app.services.records.serialize import to_frontend_record
 from app.services.rules.checks import run_all_rule_checks
 from app.services.rules.frontend_adapter import to_checklist_and_violations
 from app.services.rules.types import RuleResolution, RuleStatus
+from app.services.scope import apply_officer_scope
 
 router = APIRouter(tags=["records"], prefix="/records")
+logger = structlog.get_logger(__name__)
 
 # The 7 existing DeclarationFieldIds a correction may target, mapped to the
 # StructuredExtraction attribute that actually backs them. `manufacturerDetails`
@@ -78,18 +104,37 @@ class ResolutionRequest(BaseModel):
     note: str
 
 
-def _record_response(record: ComplianceRecord) -> dict:
+def _record_response(record: ComplianceRecord, db: DbSession) -> dict:
     """The subset of the frontend's ComplianceRecord shape this backend
     actually owns and computes. Deliberately NOT the full frontend
     ComplianceRecord (evidence[], auditTrail[], thumbnail, capturedImages,
-    needsReviewFlag, flaggedForEnforcement, etc.) — those depend on data
-    Phase 3 doesn't touch (EvidenceImage aggregation, an audit_event table,
-    needs-review/enforcement-flagging endpoints). A dedicated GET
-    /records/{id} assembling the full shape is a reasonable later addition,
-    not this one."""
+    needsReviewFlag, etc.) — those depend on data this backend doesn't
+    touch (EvidenceImage aggregation, a generic activity feed). A dedicated
+    GET assembling that full shape is a reasonable later addition.
+
+    Phase 4 adds `productId`/`activeCaseId`/`enrichmentStatus`, looked up
+    fresh on every call (cheap single-row lookups) rather than denormalized
+    onto ComplianceRecord — consistent with "no Product FK on
+    compliance_records," the association lives only in
+    ProductInspectionLink/ViolationCase.
+    """
     compliance_score = None
     if record.compliance_score is not None:
         compliance_score = {"value": record.compliance_score, "band": record.compliance_band}
+
+    link = (
+        db.query(ProductInspectionLink)
+        .filter(ProductInspectionLink.compliance_record_id == record.id)
+        .filter(ProductInspectionLink.status == "ACTIVE")
+        .first()
+    )
+    active_case = (
+        db.query(ViolationCase)
+        .filter(ViolationCase.originating_record_id == record.id)
+        .filter(ViolationCase.status != "CLOSED")
+        .first()
+    )
+
     return {
         "id": str(record.id),
         "scanId": str(record.scan_session_id) if record.scan_session_id else None,
@@ -106,6 +151,9 @@ def _record_response(record: ComplianceRecord) -> dict:
         "violations": record.violations,
         "scannedAt": record.scanned_at.isoformat() if record.scanned_at else None,
         "lastUpdatedAt": (record.verified_at or record.scanned_at or datetime.now(timezone.utc)).isoformat(),
+        "productId": str(link.product_id) if link else None,
+        "activeCaseId": str(active_case.id) if active_case else None,
+        "enrichmentStatus": "linked" if link else ("pending" if record.verification_status == "Verified" else None),
     }
 
 
@@ -188,7 +236,7 @@ def correct_declaration(
     db.commit()
     db.refresh(record)
 
-    return _record_response(record)
+    return _record_response(record, db)
 
 
 @router.post("/{record_id}/verify")
@@ -223,7 +271,7 @@ def verify_record(
         # verifiable yet — 200 with the blocking field list, no mutation.
         # Resolve it via POST /records/{id}/resolutions, or correct the
         # underlying field, then verify again.
-        return {"record": _record_response(record), "blockedFields": blocked_fields}
+        return {"record": _record_response(record, db), "blockedFields": blocked_fields}
 
     record.verification_status = "Verified"
     record.verified_by = current_user.id
@@ -235,7 +283,28 @@ def verify_record(
     db.commit()
     db.refresh(record)
 
-    return {"record": _record_response(record), "blockedFields": []}
+    # Phase 4 intelligence loop — the ONLY place this runs (see
+    # services/intelligence_loop.py's own docstring on why). Runs AFTER
+    # the commit above, on its own: a failure here must never undo or
+    # block a verification that has already legally happened. Never
+    # silent, though — an EnrichmentSkipped (no usable manufacturer/generic
+    # name/quantity) or a genuine exception both get recorded as an
+    # AuditEvent so the gap is visible and POST .../retry-enrichment can
+    # complete it later.
+    try:
+        run_post_verification_loop(record, db)
+    except Exception as exc:  # noqa: BLE001 - best-effort enrichment, see docstring
+        db.rollback()
+        db.add(AuditEvent(
+            actor_id=current_user.id, event_type="intelligence_enrichment_failed",
+            entity_type="ComplianceRecord", entity_id=record.id,
+            detail={"error": str(exc), "skipped": isinstance(exc, EnrichmentSkipped)},
+        ))
+        db.commit()
+        logger.warning("intelligence_enrichment_failed", record_id=str(record.id), error=str(exc))
+
+    db.refresh(record)
+    return {"record": _record_response(record, db), "blockedFields": []}
 
 
 @router.post("/{record_id}/resolutions")
@@ -306,4 +375,163 @@ def resolve_review_item(
     db.commit()
     db.refresh(record)
 
-    return _record_response(record)
+    return _record_response(record, db)
+
+
+@router.get("")
+def list_records(
+    status_filter: str | None = None,
+    region: str | None = None,
+    page: int = 1,
+    page_size: int = 20,
+    db: DbSession = Depends(get_db),
+    current_user: Profile = Depends(get_current_user),
+) -> dict:
+    """Phase 5: the real Records list (page 5) backend. Scoped via the same
+    apply_officer_scope() choke point Phase 4 established for Product DNA/
+    Company Profile reads, so an Enforcement Officer never sees another
+    officer's records here either."""
+    query = apply_officer_scope(db.query(ComplianceRecord), current_user)
+    if status_filter:
+        query = query.filter(ComplianceRecord.compliance_status == status_filter)
+    if region:
+        query = query.filter(ComplianceRecord.region == region)
+    total_count = query.count()
+    page = max(page, 1)
+    page_size = max(min(page_size, 200), 1)
+    rows = (
+        query.order_by(ComplianceRecord.scanned_at.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
+    return {
+        "rows": [to_frontend_record(r, db) for r in rows],
+        "totalCount": total_count,
+        "page": page,
+        "pageSize": page_size,
+    }
+
+
+@router.get("/{record_id}")
+def get_record(
+    record_id: uuid.UUID,
+    db: DbSession = Depends(get_db),
+    current_user: Profile = Depends(get_current_user),
+) -> dict:
+    """Plain read. Phase 4 added this returning _record_response()'s thin
+    subset for the Product DNA / Case Detail pages; Phase 5 upgrades it to
+    the full frontend ComplianceRecord shape (to_frontend_record(), a strict
+    superset) so the real Record Detail page (page 6) can use it too."""
+    record = db.get(ComplianceRecord, record_id)
+    if record is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Compliance record not found")
+    return to_frontend_record(record, db)
+
+
+@router.post("/{record_id}/flag-enforcement")
+def flag_for_enforcement(
+    record_id: uuid.UUID,
+    db: DbSession = Depends(get_db),
+    current_user: Profile = Depends(require_permission("record.flagForEnforcement")),
+) -> dict:
+    """Compliance Follow-Through's entry point: creates a new case, or
+    returns the existing active one — never a second concurrent case for
+    the same record. Requires the record to already be Verified; Follow-
+    Through operates on confirmed findings, not provisional extractions."""
+    record = db.get(ComplianceRecord, record_id)
+    if record is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Compliance record not found")
+    if record.verification_status != "Verified":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Record must be Verified before it can be flagged for enforcement",
+        )
+
+    existing = (
+        db.query(ViolationCase)
+        .filter(ViolationCase.originating_record_id == record_id)
+        .filter(ViolationCase.status != "CLOSED")
+        .first()
+    )
+    if existing is not None:
+        return _case_summary(existing)
+
+    case = ViolationCase(originating_record_id=record_id, status="OPEN", assigned_officer_id=current_user.id)
+    try:
+        with db.begin_nested():
+            db.add(case)
+            db.flush()
+    except IntegrityError:
+        # The DB's own partial unique index (uq_one_open_case_per_record)
+        # is the final backstop against a genuine race — a savepoint here
+        # unwinds only this failed insert, never the record lookup above.
+        existing = (
+            db.query(ViolationCase)
+            .filter(ViolationCase.originating_record_id == record_id)
+            .filter(ViolationCase.status != "CLOSED")
+            .first()
+        )
+        if existing is not None:
+            return _case_summary(existing)
+        raise
+
+    db.add(CaseStatusHistory(
+        case_id=case.id, from_status=None, to_status="OPEN",
+        changed_by=current_user.id, note="Flagged for enforcement.",
+    ))
+    db.commit()
+    db.refresh(case)
+
+    try:
+        recompute_risk_for_record_subjects(record, db)
+    except Exception:  # noqa: BLE001 - best-effort; case creation itself already committed
+        db.rollback()
+
+    return _case_summary(case)
+
+
+def _case_summary(case: ViolationCase) -> dict:
+    return {
+        "id": str(case.id),
+        "status": case.status,
+        "originatingRecordId": str(case.originating_record_id),
+        "createdAt": case.created_at.isoformat() if case.created_at else None,
+    }
+
+
+@router.post("/{record_id}/retry-enrichment")
+def retry_enrichment(
+    record_id: uuid.UUID,
+    db: DbSession = Depends(get_db),
+    current_user: Profile = Depends(require_permission("verification.confirm")),
+) -> dict:
+    """Re-runs the post-verification intelligence loop for an already-
+    Verified record whose Product DNA/Risk linkage previously failed or
+    was skipped (see verify_record's AuditEvent on failure, and
+    _record_response's enrichmentStatus). Safe to call repeatedly:
+    resolve_legal_entity/resolve_product/the ProductInspectionLink guard
+    are all idempotent by construction."""
+    record = db.get(ComplianceRecord, record_id)
+    if record is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Compliance record not found")
+    if record.verification_status != "Verified":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Only a Verified record can have its intelligence enrichment retried",
+        )
+
+    try:
+        run_post_verification_loop(record, db)
+    except Exception as exc:  # noqa: BLE001 - see verify_record's identical handling
+        db.rollback()
+        db.add(AuditEvent(
+            actor_id=current_user.id, event_type="intelligence_enrichment_failed",
+            entity_type="ComplianceRecord", entity_id=record.id,
+            detail={"error": str(exc), "skipped": isinstance(exc, EnrichmentSkipped)},
+        ))
+        db.commit()
+        logger.warning("intelligence_enrichment_retry_failed", record_id=str(record.id), error=str(exc))
+
+    db.refresh(record)
+    return _record_response(record, db)

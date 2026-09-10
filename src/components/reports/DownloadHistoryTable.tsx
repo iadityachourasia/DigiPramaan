@@ -98,7 +98,7 @@ export function DownloadHistoryTable({
           {report.formats.map((format) => (
             <a
               key={format}
-              href={reportDownloadHref(report.id, format, viewerId)}
+              href={reportDownloadHref(report, format, viewerId)}
               className="ux4g-btn ux4g-btn-text-primary ux4g-btn-sm"
               aria-label={labels.download(format, report.name)}
             >

@@ -31,10 +31,14 @@ export const API = {
   records: {
     list: "/records",
     detail: (id: string) => `/records/${id}` as const,
+    corrections: (id: string) => `/records/${id}/corrections` as const,
     verify: (id: string) => `/records/${id}/verify` as const,
+    resolutions: (id: string) => `/records/${id}/resolutions` as const,
     flagNeedsReview: (id: string) => `/records/${id}/flag-review` as const,
     flagEnforcement: (id: string) => `/records/${id}/flag-enforcement` as const,
+    retryEnrichment: (id: string) => `/records/${id}/retry-enrichment` as const,
     archive: (id: string) => `/records/${id}/archive` as const,
+    bulkNeedsReview: "/records/bulk/needs-review",
   },
 
   analytics: {
@@ -49,6 +53,25 @@ export const API = {
     flagEnforcement: (id: string) => `/manufacturers/${id}/flag-enforcement` as const,
   },
 
+  /**
+   * Phase 4 USPs — real FastAPI backend only, no mock equivalent. Fetched
+   * via src/lib/api/client.ts's apiGet/apiPost (Bearer token), never the
+   * relative-URL requestJson pattern the mock-backed modules above use.
+   */
+  products: {
+    dna: (productId: string) => `/products/${productId}/dna` as const,
+  },
+
+  companies: {
+    list: "/companies",
+    profile: (legalEntityId: string) => `/companies/${legalEntityId}/profile` as const,
+  },
+
+  cases: {
+    detail: (caseId: string) => `/cases/${caseId}` as const,
+    transition: (caseId: string) => `/cases/${caseId}/transition` as const,
+  },
+
   ecommerce: {
     scan: "/ecommerce/scan",
     batch: "/ecommerce/batch",
@@ -60,6 +83,19 @@ export const API = {
     list: "/reports",
     download: (id: string, format: string) =>
       `/reports/${id}/download/${format}` as const,
+  },
+
+  /**
+   * Phase 5 immutable reports — real FastAPI backend only, record-scope
+   * reports (ReportScope.kind === "record"). Manufacturer/filtered-scope
+   * reports stay on the `reports` block above (the mock route).
+   */
+  recordReports: {
+    generate: (recordId: string) => `/records/${recordId}/reports` as const,
+    byRecord: (recordId: string) => `/reports/by-record/${recordId}` as const,
+    detail: (reportId: string) => `/reports/${reportId}` as const,
+    download: (reportId: string, format: string) =>
+      `/reports/${reportId}/download/${format}` as const,
   },
 
   grievances: {
