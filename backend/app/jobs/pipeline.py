@@ -262,20 +262,25 @@ def run_pipeline(scan_session_id: uuid.UUID) -> None:
             _persist(db, session, stages)
 
         try:
-            rule_results = run_all_rule_checks(structured_extraction, category=session.category)
+            quality_results = [
+                ImageQualitySummary(
+                    image_id=str(image.id),
+                    angle=image.angle,
+                    overall_verdict=(image.quality_result or {}).get("overall_verdict", "unknown"),
+                    reason=(image.quality_result or {}).get("reason"),
+                )
+                for image in images
+            ]
+            rule_results = run_all_rule_checks(
+                structured_extraction, category=session.category,
+                image_quality_results=quality_results, total_ocr_blocks=len(all_blocks),
+            )
             bundle = ComplianceEvidenceBundle(
                 structured_extraction=structured_extraction,
                 ocr_blocks=[b.model_dump() for b in all_blocks],
-                image_quality_results=[
-                    ImageQualitySummary(
-                        image_id=str(image.id),
-                        angle=image.angle,
-                        overall_verdict=(image.quality_result or {}).get("overall_verdict", "unknown"),
-                        reason=(image.quality_result or {}).get("reason"),
-                    )
-                    for image in images
-                ],
+                image_quality_results=quality_results,
                 pdp_declarations_detected=_pdp_declarations(structured_extraction),
+                rule_results=rule_results,
             )
         except Exception as exc:  # noqa: BLE001 - the rule engine is pure/local; any failure here is a real bug
             stages = _with_stage_update(

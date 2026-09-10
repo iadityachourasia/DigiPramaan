@@ -9,18 +9,27 @@ converts list[RuleResult] -> (checklist, violations) (the compliance-only
 contract). Keeping them separate mirrors the existing extraction/ vs. a new
 rules/ package split.
 
-Mapping, exactly:
+Mapping, exactly (all branches keyed on `effective_status` — an officer's
+resolution, when one exists, wins over the original automated `status`;
+see rules/types.py's RuleResult.effective_status):
 - NOT_APPLICABLE -> excluded from the checklist entirely (nothing to show)
 - rule3Applicability -> ALSO always excluded, any status: Rule 3's PASS
   means "applies normally, not exempt", which would read like a compliance
   pass to an officer. It only feeds compute_legal_status's short-circuit.
 - PASS -> checklist row {fieldId, passed: true, value}
 - FAIL -> checklist row with passed:false + violationCategoryId + detail,
-  AND appended to violations[] (a confirmed non-compliance)
-- NEEDS_REVIEW / INSUFFICIENT_EVIDENCE -> checklist row with passed:false
-  + detail, but NO violationCategoryId and NOT added to violations[] —
-  violations[] represents CONFIRMED non-compliance only, never an
-  unresolved OCR-absence.
+  AND appended to violations[] (a confirmed non-compliance) — this
+  includes an officer-resolved FAIL, which is exactly as confirmed as an
+  automated one once a reviewer has made the call.
+- NEEDS_REVIEW / INSUFFICIENT_EVIDENCE (still unresolved) -> checklist row
+  with passed:false + detail, but NO violationCategoryId and NOT added to
+  violations[] — violations[] represents CONFIRMED non-compliance only,
+  never an unresolved OCR-absence.
+
+Whenever a RuleResult carries a resolution, its officer's note is appended
+to the checklist row's `detail` string so the UI shows both the original
+automated read and the human judgment call on top of it — the automated
+`message` is never replaced, only annotated.
 
 DeclarationCheck.fieldId is a plain `string` in the frontend type (not
 constrained to the 7 DeclarationFieldId values) — so new fieldIds like
@@ -49,14 +58,18 @@ _VIOLATION_TAXONOMY: dict[str, dict[str, str]] = {
     "other": {"category": "Other"},
 }
 
-# Only rules whose status can actually reach FAIL need an entry — kept in
+# Every rule whose status can actually reach FAIL needs an entry — kept in
 # sync with aggregate.py's own copy (used there for the score breakdown).
+# Since Phase 3.1, that's every Rule 6(a)-(d)/consumer-care presence check
+# too (a genuinely-absent-with-adequate-evidence field is now FAIL, not
+# just NEEDS_REVIEW), not only the format/completeness sub-checks.
 _CATEGORY_MAP: dict[str, str] = {
     "rule_6a_manufacturer": "manufacturer-details-missing",
     "rule_6b_generic_name": "generic-name-missing-or-incorrect",
     "rule_6c_net_quantity": "net-quantity-missing-or-incorrect",
     "rule_6d_manufacture_date": "manufacture-import-date-missing",
     "rule_6e_mrp": "mrp-non-compliance",
+    "rule_6_consumer_care": "consumer-care-details-missing",
     "rule_6_2_consumer_care_completeness": "consumer-care-details-missing",
     "country_of_origin": "country-of-origin-missing",
     "rule_10_address": "other",
@@ -88,7 +101,7 @@ def _merge_consumer_care(results: list[RuleResult]) -> list[RuleResult]:
     if not consumer_care_results:
         return results
 
-    merged = max(consumer_care_results, key=lambda r: _STATUS_RANK[r.status])
+    merged = max(consumer_care_results, key=lambda r: _STATUS_RANK[r.effective_status])
     other_results = [r for r in results if r.rule_id not in _CONSUMER_CARE_RULE_IDS]
     return other_results + [merged]
 
@@ -97,30 +110,44 @@ def _value_for(result: RuleResult) -> str | None:
     return result.value
 
 
+def _detail_for(result: RuleResult) -> str:
+    if result.resolution is None:
+        return result.message
+    return (
+        f"{result.message} [Officer-resolved {result.resolution.resolved_status.value}: "
+        f"{result.resolution.note}]"
+    )
+
+
 def to_checklist_and_violations(results: list[RuleResult]) -> tuple[list[dict], list[dict]]:
     results = _merge_consumer_care(results)
     checklist: list[dict] = []
     violations: list[dict] = []
 
     for r in results:
-        if r.status == RuleStatus.NOT_APPLICABLE or r.field_id in _EXCLUDED_FIELD_IDS:
+        eff = r.effective_status
+        if eff == RuleStatus.NOT_APPLICABLE or r.field_id in _EXCLUDED_FIELD_IDS:
             continue
 
-        if r.status == RuleStatus.PASS:
-            checklist.append({"fieldId": r.field_id, "passed": True, "value": _value_for(r)})
-        elif r.status == RuleStatus.FAIL:
+        if eff == RuleStatus.PASS:
+            row = {"fieldId": r.field_id, "passed": True, "value": _value_for(r)}
+            if r.resolution is not None:
+                row["detail"] = _detail_for(r)
+            checklist.append(row)
+        elif eff == RuleStatus.FAIL:
             category_id = _CATEGORY_MAP.get(r.rule_id, "other")
+            detail = _detail_for(r)
             checklist.append({
                 "fieldId": r.field_id, "passed": False, "value": _value_for(r),
-                "violationCategoryId": category_id, "detail": r.message,
+                "violationCategoryId": category_id, "detail": detail,
             })
             violations.append({
                 "categoryId": category_id,
                 "category": _VIOLATION_TAXONOMY[category_id]["category"],
                 "legalBasis": r.legal_basis,
-                "detail": r.message,
+                "detail": detail,
             })
-        else:  # NEEDS_REVIEW or INSUFFICIENT_EVIDENCE
+        else:  # NEEDS_REVIEW or INSUFFICIENT_EVIDENCE, still unresolved
             checklist.append({
                 "fieldId": r.field_id, "passed": False, "value": _value_for(r),
                 "detail": r.message,

@@ -1,19 +1,36 @@
 """
 rules/checks.py — pure, deterministic Legal Metrology (Packaged Commodities)
 Rules 2011 checks. Every function here takes only in-memory data
-(StructuredExtraction fields, scan metadata) and returns a RuleResult — no
-DB, no network, no I/O, and never a Gemini/LLM call deciding compliance.
+(StructuredExtraction fields, scan metadata, and — as of Phase 3.1 —
+per-image quality verdicts and the total OCR block count) and returns a
+RuleResult — no DB, no network, no I/O, and never a Gemini/LLM call
+deciding compliance.
 
-CORE PRINCIPLE, applied to every mandatory-declaration presence check (Rule
-6(a)-(d), Rule 6/6(2) consumer care, Rule 10 address): `not_detected=True`
-on the underlying ExtractedField produces NEEDS_REVIEW, never an automatic
-FAIL. OCR absence is not proof of legal absence — it may just be an OCR
-miss on a real photograph. FAIL is reserved for cases where real extracted
-text exists but objectively fails a content/format requirement.
+CORE PRINCIPLE (revised in Phase 3.1), applied to every mandatory-
+declaration presence check (Rule 6(a)-(d), Rule 6/6(2) consumer care,
+Rule 10 address, and the country-of-origin/import case): a missing field
+is NOT automatically NEEDS_REVIEW. It is:
+
+- FAIL, when the field is genuinely absent AND the evidence available to
+  search for it was adequate — i.e. the image the field is expected on
+  passed quality review (not just accepted-but-borderline) and the scan
+  overall found enough OCR text to trust that a real search happened. A
+  single failed OCR block is never enough on its own to declare absence;
+  see _evidence_adequate()'s own docstring for exactly what "adequate"
+  means here.
+- NEEDS_REVIEW / INSUFFICIENT_EVIDENCE, when the evidence was ambiguous,
+  incomplete, unreadable, cropped, or the relevant image was only
+  borderline-quality (REVIEW, not PASS) — i.e. we cannot honestly tell
+  whether the field is absent or just missed.
+- NOT_APPLICABLE, for a field that's conditional (e.g. country_of_origin
+  with no import evidence) and genuinely doesn't apply here.
 
 Rule 7 (numeral/letter height) is the one rule that ALWAYS returns
 INSUFFICIENT_EVIDENCE: no physical calibration hardware exists at MVP, and
-a millimetre measurement is never fabricated from a 2D photograph.
+a millimetre measurement is never fabricated from a 2D photograph. Phase
+3.1 adds a backend-supported officer-resolution mechanism (RuleResult's
+own `resolution` field, resolved via POST /records/{id}/resolutions) for
+exactly this kind of legitimately-unresolvable-by-automation case.
 """
 
 from __future__ import annotations
@@ -38,60 +55,123 @@ _ALLOWED_LANGUAGES = {"english", "hindi", "bilingual", "en", "hi", "hindi and en
 # heuristic (see check_rule_3_applicability) — grams/millilitres.
 _BULK_EXEMPTION_THRESHOLD_G = 25_000
 
+# Below this many total OCR blocks across the whole scan, treat the search
+# as too thin to trust an "absent" conclusion regardless of per-image
+# quality — a proxy for "OCR barely read anything here," distinct from
+# per-image blur/darkness/resolution (which image_quality.py already
+# checks). Matches jobs/pipeline.py's own FALLBACK_MIN_BLOCKS threshold —
+# duplicated as a local constant rather than imported, to keep this module
+# free of any dependency on the pipeline/job-orchestration layer.
+_MIN_BLOCKS_FOR_ADEQUATE_SEARCH = 3
+
+# Which image angle a field is expected to appear on — used only to decide
+# whether "adequate evidence" existed to search for it, per the module
+# docstring's CORE PRINCIPLE. Not a claim that a field can ONLY appear on
+# this angle (OCR evidence itself is angle-tagged per-block, not per-field);
+# this is a coarse, documented heuristic for the presence/absence judgment
+# call specifically, nothing else in the rule engine depends on it.
+_FIELD_EXPECTED_ANGLE: dict[str, str] = {
+    "manufacturer": "front",
+    "generic_name": "front",
+    "net_quantity": "front",
+    "mrp": "front",
+    "manufacture_or_import_date": "back",
+    "consumer_care": "back",
+    "address": "back",
+    "country_of_origin": "back",
+}
+
+
+def _evidence_adequate(
+    image_quality_results: list | None, total_ocr_blocks: int, internal_field_name: str
+) -> bool:
+    """True only when BOTH: the scan as a whole found enough OCR text to
+    trust that a real search happened (not just a near-empty read), AND
+    the specific image the field is expected on passed quality review
+    outright (PASS, not merely accepted-but-borderline REVIEW). Either
+    condition failing means the absence is ambiguous, not confirmed —
+    NEEDS_REVIEW territory, never FAIL. `image_quality_results` items are
+    ImageQualitySummary-shaped (`.angle`, `.overall_verdict`)."""
+    if total_ocr_blocks < _MIN_BLOCKS_FOR_ADEQUATE_SEARCH:
+        return False
+    angle = _FIELD_EXPECTED_ANGLE.get(internal_field_name)
+    if angle is None:
+        return False
+    return any(
+        iq.angle == angle and iq.overall_verdict == "PASS"
+        for iq in (image_quality_results or [])
+    )
+
 
 def _check_presence(
-    field: ExtractedField | None, field_id: str, rule_id: str, rule_name: str, legal_basis: str
+    field: ExtractedField | None, field_id: str, rule_id: str, rule_name: str, legal_basis: str,
+    evidence_adequate: bool,
 ) -> RuleResult:
-    if field is None or field.not_detected:
+    if field is not None and not field.not_detected:
         return RuleResult(
             rule_id=rule_id, rule_name=rule_name, field_id=field_id,
-            status=RuleStatus.NEEDS_REVIEW, legal_basis=legal_basis, value=None,
-            message=f"{rule_name} not detected by OCR — confirm in person before treating this as a violation.",
+            status=RuleStatus.PASS, legal_basis=legal_basis, value=field.value,
+            message=f"{rule_name} detected.",
+        )
+    if evidence_adequate:
+        return RuleResult(
+            rule_id=rule_id, rule_name=rule_name, field_id=field_id,
+            status=RuleStatus.FAIL, legal_basis=legal_basis, value=None,
+            message=f"{rule_name} not found despite a clear, adequately-searched image — "
+                    "treated as genuinely absent, not an OCR miss.",
         )
     return RuleResult(
         rule_id=rule_id, rule_name=rule_name, field_id=field_id,
-        status=RuleStatus.PASS, legal_basis=legal_basis, value=field.value,
-        message=f"{rule_name} detected.",
+        status=RuleStatus.NEEDS_REVIEW, legal_basis=legal_basis, value=None,
+        message=f"{rule_name} not detected, but the available evidence was ambiguous, incomplete, "
+                "or borderline-quality — confirm in person before treating this as a violation.",
     )
 
 
-def check_rule_6a_manufacturer(manufacturer: ExtractedField | None) -> RuleResult:
+def check_rule_6a_manufacturer(manufacturer: ExtractedField | None, evidence_adequate: bool) -> RuleResult:
     return _check_presence(
         manufacturer, "manufacturerDetails", "rule_6a_manufacturer",
-        "Manufacturer/packer/importer details", "Rule 6(a)",
+        "Manufacturer/packer/importer details", "Rule 6(a)", evidence_adequate,
     )
 
 
-def check_rule_6b_generic_name(generic_name: ExtractedField | None) -> RuleResult:
+def check_rule_6b_generic_name(generic_name: ExtractedField | None, evidence_adequate: bool) -> RuleResult:
     return _check_presence(
         generic_name, "genericName", "rule_6b_generic_name",
-        "Generic/common name of the commodity", "Rule 6(b)",
+        "Generic/common name of the commodity", "Rule 6(b)", evidence_adequate,
     )
 
 
-def check_rule_6c_net_quantity(net_quantity: ExtractedField | None) -> RuleResult:
+def check_rule_6c_net_quantity(net_quantity: ExtractedField | None, evidence_adequate: bool) -> RuleResult:
     return _check_presence(
         net_quantity, "netQuantity", "rule_6c_net_quantity",
-        "Net quantity declaration", "Rule 6(c)",
+        "Net quantity declaration", "Rule 6(c)", evidence_adequate,
     )
 
 
-def check_rule_6d_manufacture_date(manufacture_date: ExtractedField | None) -> RuleResult:
+def check_rule_6d_manufacture_date(manufacture_date: ExtractedField | None, evidence_adequate: bool) -> RuleResult:
     return _check_presence(
         manufacture_date, "manufactureDate", "rule_6d_manufacture_date",
-        "Month/year of manufacture, packing, or import", "Rule 6(d)",
+        "Month/year of manufacture, packing, or import", "Rule 6(d)", evidence_adequate,
     )
 
 
-def check_rule_6e_mrp(mrp: ExtractedField | None) -> RuleResult:
+def check_rule_6e_mrp(mrp: ExtractedField | None, evidence_adequate: bool) -> RuleResult:
     """Rule 6(e) presence + Rule 2(m)'s substantive requirement that the
     retail sale price be declared inclusive of all taxes, combined into one
     result since both back the same `retailSalePrice` checklist row."""
     if mrp is None or mrp.not_detected:
+        if evidence_adequate:
+            return RuleResult(
+                rule_id="rule_6e_mrp", rule_name="Retail sale price (MRP)", field_id="retailSalePrice",
+                status=RuleStatus.FAIL, legal_basis="Rule 6(e)/2(m)", value=None,
+                message="MRP not found despite a clear, adequately-searched image — treated as genuinely absent.",
+            )
         return RuleResult(
             rule_id="rule_6e_mrp", rule_name="Retail sale price (MRP)", field_id="retailSalePrice",
             status=RuleStatus.NEEDS_REVIEW, legal_basis="Rule 6(e)/2(m)", value=None,
-            message="MRP not detected by OCR — confirm in person before treating this as a violation.",
+            message="MRP not detected, but the available evidence was ambiguous or borderline-quality — "
+                    "confirm in person before treating this as a violation.",
         )
     if not _TAX_INCLUSIVE_PATTERN.search(mrp.value or ""):
         return RuleResult(
@@ -107,25 +187,35 @@ def check_rule_6e_mrp(mrp: ExtractedField | None) -> RuleResult:
     )
 
 
-def check_rule_6_consumer_care(consumer_care: ExtractedField | None) -> RuleResult:
+def check_rule_6_consumer_care(consumer_care: ExtractedField | None, evidence_adequate: bool) -> RuleResult:
     """Rule 6's baseline requirement: consumer care details must be present
     at all. Completeness (a real phone/email) is Rule 6(2), checked
     separately by check_rule_6_2_consumer_care_completeness — the frontend
     adapter merges the two into one checklist row."""
     return _check_presence(
         consumer_care, "consumerCareDetails", "rule_6_consumer_care",
-        "Consumer care/complaint details", "Rule 6",
+        "Consumer care/complaint details", "Rule 6", evidence_adequate,
     )
 
 
-def check_rule_6_2_consumer_care_completeness(consumer_care: ExtractedField | None) -> RuleResult:
+def check_rule_6_2_consumer_care_completeness(
+    consumer_care: ExtractedField | None, evidence_adequate: bool
+) -> RuleResult:
     if consumer_care is None or consumer_care.not_detected:
-        # The presence check above already flags the real gap; nothing to
-        # assess completeness of.
+        if evidence_adequate:
+            # The presence check above already fails this as genuinely
+            # absent — 6(2)'s completeness requirement fails the same way,
+            # since there's nothing to be complete.
+            return RuleResult(
+                rule_id="rule_6_2_consumer_care_completeness", rule_name="Consumer care contact completeness",
+                field_id="consumerCareDetails", status=RuleStatus.FAIL, legal_basis="Rule 6(2)", value=None,
+                message="No consumer care details found despite a clear, adequately-searched image.",
+            )
         return RuleResult(
             rule_id="rule_6_2_consumer_care_completeness", rule_name="Consumer care contact completeness",
-            field_id="consumerCareDetails", status=RuleStatus.NOT_APPLICABLE, legal_basis="Rule 6(2)",
-            value=None, message="No consumer care details detected — completeness not assessable.",
+            field_id="consumerCareDetails", status=RuleStatus.NEEDS_REVIEW, legal_basis="Rule 6(2)",
+            value=None, message="No consumer care details detected, but evidence was ambiguous or "
+                                 "borderline-quality — completeness not assessable yet.",
         )
     value = consumer_care.value or ""
     if not (_PHONE_PATTERN.search(value) or _EMAIL_PATTERN.search(value)):
@@ -143,7 +233,7 @@ def check_rule_6_2_consumer_care_completeness(consumer_care: ExtractedField | No
 
 
 def check_country_of_origin(
-    country_of_origin: ExtractedField | None, importer: ExtractedField | None
+    country_of_origin: ExtractedField | None, importer: ExtractedField | None, evidence_adequate: bool
 ) -> RuleResult:
     """Only evaluated when there's evidence of an import — matches the
     extraction layer's own documented convention (the Gemini structuring
@@ -156,10 +246,18 @@ def check_country_of_origin(
             message="No importer detected — country of origin is only required for imported goods.",
         )
     if country_of_origin is None or country_of_origin.not_detected:
+        if evidence_adequate:
+            return RuleResult(
+                rule_id="country_of_origin", rule_name="Country of origin", field_id="countryOfOrigin",
+                status=RuleStatus.FAIL, legal_basis="Rule 6 (imports only)", value=None,
+                message="An importer was detected but country of origin was not found despite a clear, "
+                        "adequately-searched image — treated as genuinely absent.",
+            )
         return RuleResult(
             rule_id="country_of_origin", rule_name="Country of origin", field_id="countryOfOrigin",
             status=RuleStatus.NEEDS_REVIEW, legal_basis="Rule 6 (imports only)", value=None,
-            message="An importer was detected but country of origin was not — confirm in person.",
+            message="An importer was detected but country of origin was not, and evidence was ambiguous "
+                    "or borderline-quality — confirm in person.",
         )
     return RuleResult(
         rule_id="country_of_origin", rule_name="Country of origin", field_id="countryOfOrigin",
@@ -168,12 +266,19 @@ def check_country_of_origin(
     )
 
 
-def check_rule_10_address(address: ExtractedField | None) -> RuleResult:
+def check_rule_10_address(address: ExtractedField | None, evidence_adequate: bool) -> RuleResult:
     if address is None or address.not_detected:
+        if evidence_adequate:
+            return RuleResult(
+                rule_id="rule_10_address", rule_name="Complete manufacturer/packer/importer address",
+                field_id="addressCompleteness", status=RuleStatus.FAIL, legal_basis="Rule 10", value=None,
+                message="Address not found despite a clear, adequately-searched image — treated as genuinely absent.",
+            )
         return RuleResult(
             rule_id="rule_10_address", rule_name="Complete manufacturer/packer/importer address",
             field_id="addressCompleteness", status=RuleStatus.NEEDS_REVIEW, legal_basis="Rule 10", value=None,
-            message="Address not detected by OCR — confirm in person before treating this as a violation.",
+            message="Address not detected, but the available evidence was ambiguous or borderline-quality — "
+                    "confirm in person before treating this as a violation.",
         )
     if not _PIN_CODE_PATTERN.search(address.value or ""):
         return RuleResult(
@@ -360,22 +465,36 @@ def check_rule_3_applicability(
     )
 
 
-def run_all_rule_checks(extraction: StructuredExtraction, category: str | None = None) -> list[RuleResult]:
+def run_all_rule_checks(
+    extraction: StructuredExtraction,
+    category: str | None = None,
+    image_quality_results: list | None = None,
+    total_ocr_blocks: int = 0,
+) -> list[RuleResult]:
     """The single orchestration function that knows the full rule roster.
     Kept separate from each individual pure check so tests (and officer
     corrections, which re-run everything cheaply) can call this OR any one
-    check in isolation."""
+    check in isolation.
+
+    `image_quality_results`/`total_ocr_blocks` feed the presence checks'
+    adequate-evidence judgment (see module docstring's CORE PRINCIPLE) —
+    both default to "nothing," which _evidence_adequate() always treats as
+    inadequate, so calling this without them degrades safely to NEEDS_REVIEW
+    everywhere rather than ever fabricating a FAIL from missing context."""
+    def _adequate(field_name: str) -> bool:
+        return _evidence_adequate(image_quality_results, total_ocr_blocks, field_name)
+
     return [
         check_rule_3_applicability(category, extraction.net_quantity),
-        check_rule_6a_manufacturer(extraction.manufacturer),
-        check_rule_6b_generic_name(extraction.generic_name),
-        check_rule_6c_net_quantity(extraction.net_quantity),
-        check_rule_6d_manufacture_date(extraction.manufacture_or_import_date),
-        check_rule_6e_mrp(extraction.mrp),
-        check_rule_6_consumer_care(extraction.consumer_care),
-        check_rule_6_2_consumer_care_completeness(extraction.consumer_care),
-        check_country_of_origin(extraction.country_of_origin, extraction.importer),
-        check_rule_10_address(extraction.address),
+        check_rule_6a_manufacturer(extraction.manufacturer, _adequate("manufacturer")),
+        check_rule_6b_generic_name(extraction.generic_name, _adequate("generic_name")),
+        check_rule_6c_net_quantity(extraction.net_quantity, _adequate("net_quantity")),
+        check_rule_6d_manufacture_date(extraction.manufacture_or_import_date, _adequate("manufacture_or_import_date")),
+        check_rule_6e_mrp(extraction.mrp, _adequate("mrp")),
+        check_rule_6_consumer_care(extraction.consumer_care, _adequate("consumer_care")),
+        check_rule_6_2_consumer_care_completeness(extraction.consumer_care, _adequate("consumer_care")),
+        check_country_of_origin(extraction.country_of_origin, extraction.importer, _adequate("country_of_origin")),
+        check_rule_10_address(extraction.address, _adequate("address")),
         check_rules_11_13_quantity_unit(extraction.net_quantity, extraction.quantity_unit_expression),
         check_rule_9_language(extraction.language_detected),
         check_rule_8_pdp_presence(extraction),
