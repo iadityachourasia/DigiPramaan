@@ -58,6 +58,15 @@ _VIOLATION_TAXONOMY: dict[str, dict[str, str]] = {
     "other": {"category": "Other"},
 }
 
+
+def violation_category_label(category_id: str) -> str:
+    """Public accessor for _VIOLATION_TAXONOMY's human label — used outside
+    this module by risk/engine.py (R1/R2's reason strings need to name the
+    actual violated category), so Smart Risk never re-declares its own
+    copy of the taxonomy."""
+    entry = _VIOLATION_TAXONOMY.get(category_id)
+    return entry["category"] if entry else category_id
+
 # Every rule whose status can actually reach FAIL needs an entry — kept in
 # sync with aggregate.py's own copy (used there for the score breakdown).
 # Since Phase 3.1, that's every Rule 6(a)-(d)/consumer-care presence check

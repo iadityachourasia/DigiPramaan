@@ -72,7 +72,7 @@ export function RecordDetailView({ recordId, locale }: RecordDetailViewProps) {
 
   function handleFlagForEnforcement() {
     if (!user) return;
-    flagForEnforcement(user.id);
+    flagForEnforcement();
   }
 
   return (
@@ -324,6 +324,35 @@ export function RecordDetailView({ recordId, locale }: RecordDetailViewProps) {
               ? t("actions.alreadyFlaggedForEnforcement")
               : t("actions.flagForEnforcement")}
           </button>
+        ) : null}
+
+        {/*
+          Phase 4 USPs (Product Compliance DNA / Compliance Follow-Through).
+          `productId`/`activeCaseId` are additive, currently-inert optional
+          fields on ComplianceRecord (see that type's own comment) — the
+          mock data this page reads never populates them, since the mock
+          store has no relationship to the real backend's Product/
+          ViolationCase tables. These links render correctly whenever a
+          record actually carries real backend ids; today they simply never
+          appear, which is the honest, forward-compatible state rather than
+          a broken link to nothing.
+        */}
+        {record.productId ? (
+          <Link href={ROUTES.productDna(record.productId)} className="ux4g-btn ux4g-btn-outline-primary">
+            <span className="ux4g-icon-outlined" aria-hidden="true">
+              science
+            </span>
+            {t("actions.viewProductDna")}
+          </Link>
+        ) : null}
+
+        {record.activeCaseId ? (
+          <Link href={ROUTES.caseDetail(record.activeCaseId)} className="ux4g-btn ux4g-btn-outline-primary">
+            <span className="ux4g-icon-outlined" aria-hidden="true">
+              folder_open
+            </span>
+            {t("actions.viewCase")}
+          </Link>
         ) : null}
 
         <Link href={ROUTES.records} className="ux4g-btn ux4g-btn-text-primary">

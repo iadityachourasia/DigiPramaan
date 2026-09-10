@@ -768,6 +768,8 @@
       "generateReport": "Generate Compliance Report",
       "flagForEnforcement": "Flag for Enforcement",
       "alreadyFlaggedForEnforcement": "Flagged for Enforcement",
+      "viewProductDna": "View Product DNA",
+      "viewCase": "View Enforcement Case",
       "backToRecords": "Back to Records"
     }
   },
@@ -994,6 +996,63 @@
       "alreadyFlagged": "Already flagged for enforcement",
       "exportScorecard": "Export scorecard",
       "exportNote": "Export opens the Reports page with this manufacturer pre-selected."
+    }
+  },
+  "productDna": {
+    "metaTitle": "Product Compliance DNA",
+    "subheading": "Manufactured by {entity}",
+    "subheadingUnknownEntity": "Manufacturer not yet linked",
+    "notFoundTitle": "Product not found",
+    "notFoundBody": "This product's Compliance DNA could not be found. It may not exist, or you may not have access to it.",
+    "errorTitle": "Product DNA could not be loaded",
+    "errorBody": "Something went wrong loading this product's history. Try again.",
+    "retryLabel": "Try again",
+    "summary": {
+      "inspections": "Verified inspections",
+      "riskScore": "Risk score",
+      "recurringViolations": "Recurring violations"
+    },
+    "risk": {
+      "heading": "Current risk summary"
+    },
+    "openCase": {
+      "heading": "Open enforcement case",
+      "status": "Status: {status}",
+      "viewCase": "View case"
+    },
+    "recurring": {
+      "heading": "Recurring violations",
+      "entry": "{category} — {count} verified inspections"
+    },
+    "timeline": {
+      "heading": "Inspection timeline",
+      "emptyTitle": "No verified inspections yet",
+      "columnVerifiedAt": "Verified",
+      "columnStatus": "Status",
+      "columnScore": "Score",
+      "columnRecordId": "Record"
+    }
+  },
+  "caseDetail": {
+    "metaTitle": "Enforcement Case",
+    "heading": "Case {id}",
+    "notFoundTitle": "Case not found",
+    "notFoundBody": "This enforcement case could not be found, or you may not have access to it.",
+    "errorTitle": "Case could not be loaded",
+    "errorBody": "Something went wrong loading this case. Try again.",
+    "retryLabel": "Try again",
+    "recordHeading": "Originating record",
+    "transitionErrorTitle": "Could not update case status",
+    "transition": {
+      "heading": "Update case status",
+      "noteLabel": "Note (optional)",
+      "moveTo": "Move to {status}"
+    },
+    "history": {
+      "heading": "Status history",
+      "emptyTitle": "No status changes yet",
+      "created": "created",
+      "entry": "{from} → {to} ({when})"
     }
   },
   "reports": {

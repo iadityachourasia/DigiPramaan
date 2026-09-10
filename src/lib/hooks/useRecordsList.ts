@@ -97,7 +97,7 @@ export function useRecordsList() {
 
   useEffect(() => {
     let cancelled = false;
-    fetchRecords(filters, sort, page, pageSize, user?.id).then((result) => {
+    fetchRecords(filters, sort, page, pageSize).then((result) => {
       if (cancelled) return;
       if (result.ok) setData(result.data);
       setResolvedKey(searchKey);

@@ -240,7 +240,7 @@ export function useReportBuilder(): UseReportBuilderResult {
     if (!completedReportId) return;
 
     let cancelled = false;
-    fetchReport(completedReportId, user?.id).then((result) => {
+    fetchReport(completedReportId, user?.id, scope ?? undefined).then((result) => {
       if (cancelled) return;
       if (result.ok) setDetail(result.data);
       else setRequestError(true);
@@ -248,7 +248,9 @@ export function useReportBuilder(): UseReportBuilderResult {
     return () => {
       cancelled = true;
     };
-  }, [completedReportId, user?.id]);
+    // `scopeKey` is the stable identity of `scope`, which is a fresh object each render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [completedReportId, user?.id, scopeKey]);
 
   const setScope = useCallback((next: ReportScope | null) => {
     setScopeOverride(next);

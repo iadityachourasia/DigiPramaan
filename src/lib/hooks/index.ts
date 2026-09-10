@@ -21,6 +21,8 @@ export {
   type UseGrievanceLookupResult,
 } from "./useGrievanceForm";
 export { useManufacturers, useManufacturerScorecard } from "./useManufacturers";
+export { useProductDna } from "./useProductDna";
+export { useCase } from "./useCase";
 export { useMobileHandoffSession } from "./useMobileHandoffSession";
 export { useRecordDetail } from "./useRecordDetail";
 export {

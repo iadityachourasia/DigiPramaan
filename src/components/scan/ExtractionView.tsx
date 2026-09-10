@@ -95,12 +95,12 @@ export function ExtractionView({ recordId }: ExtractionViewProps) {
 
   function handleCorrect(fieldId: DeclarationFieldId, value: string) {
     if (!user) return;
-    applyCorrection(fieldId, value, user.id);
+    applyCorrection(fieldId, value);
   }
 
   async function handleVerify() {
     if (!user) return;
-    const succeeded = await verify(user.id);
+    const succeeded = await verify();
     /* `record` is guaranteed non-null here — this handler only exists after
      * the `!record` early return above — but a nested function declaration
      * isn't narrowed by TS across renders, hence the assertion. */
@@ -212,7 +212,7 @@ export function ExtractionView({ recordId }: ExtractionViewProps) {
               <button
                 type="button"
                 className="ux4g-btn ux4g-btn-outline-primary"
-                onClick={() => user && retryOcr(user.id)}
+                onClick={() => user && retryOcr()}
                 disabled={pending}
               >
                 <span className="ux4g-icon-outlined" aria-hidden="true">

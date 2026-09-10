@@ -2,7 +2,7 @@
   "_meta": {
     "note": "Scaffolded locale. Values still identical to en.json are untranslated.",
     "generatedBy": "scripts/sync-locales.mjs",
-    "untranslatedCount": 1062,
+    "untranslatedCount": 1103,
     "untranslated": [
       "app.descriptor",
       "app.department",
@@ -533,6 +533,8 @@
       "recordDetail.actions.generateReport",
       "recordDetail.actions.flagForEnforcement",
       "recordDetail.actions.alreadyFlaggedForEnforcement",
+      "recordDetail.actions.viewProductDna",
+      "recordDetail.actions.viewCase",
       "recordDetail.actions.backToRecords",
       "analytics.meta.title",
       "analytics.heading",
@@ -689,6 +691,45 @@
       "manufacturers.actions.alreadyFlagged",
       "manufacturers.actions.exportScorecard",
       "manufacturers.actions.exportNote",
+      "productDna.metaTitle",
+      "productDna.subheading",
+      "productDna.subheadingUnknownEntity",
+      "productDna.notFoundTitle",
+      "productDna.notFoundBody",
+      "productDna.errorTitle",
+      "productDna.errorBody",
+      "productDna.retryLabel",
+      "productDna.summary.inspections",
+      "productDna.summary.riskScore",
+      "productDna.summary.recurringViolations",
+      "productDna.risk.heading",
+      "productDna.openCase.heading",
+      "productDna.openCase.status",
+      "productDna.openCase.viewCase",
+      "productDna.recurring.heading",
+      "productDna.recurring.entry",
+      "productDna.timeline.heading",
+      "productDna.timeline.emptyTitle",
+      "productDna.timeline.columnVerifiedAt",
+      "productDna.timeline.columnStatus",
+      "productDna.timeline.columnScore",
+      "productDna.timeline.columnRecordId",
+      "caseDetail.metaTitle",
+      "caseDetail.heading",
+      "caseDetail.notFoundTitle",
+      "caseDetail.notFoundBody",
+      "caseDetail.errorTitle",
+      "caseDetail.errorBody",
+      "caseDetail.retryLabel",
+      "caseDetail.recordHeading",
+      "caseDetail.transitionErrorTitle",
+      "caseDetail.transition.heading",
+      "caseDetail.transition.noteLabel",
+      "caseDetail.transition.moveTo",
+      "caseDetail.history.heading",
+      "caseDetail.history.emptyTitle",
+      "caseDetail.history.created",
+      "caseDetail.history.entry",
       "reports.meta.title",
       "reports.heading",
       "reports.description",
@@ -1837,6 +1878,8 @@
       "generateReport": "Generate Compliance Report",
       "flagForEnforcement": "Flag for Enforcement",
       "alreadyFlaggedForEnforcement": "Flagged for Enforcement",
+      "viewProductDna": "View Product DNA",
+      "viewCase": "View Enforcement Case",
       "backToRecords": "Back to Records"
     }
   },
@@ -2063,6 +2106,63 @@
       "alreadyFlagged": "Already flagged for enforcement",
       "exportScorecard": "Export scorecard",
       "exportNote": "Export opens the Reports page with this manufacturer pre-selected."
+    }
+  },
+  "productDna": {
+    "metaTitle": "Product Compliance DNA",
+    "subheading": "Manufactured by {entity}",
+    "subheadingUnknownEntity": "Manufacturer not yet linked",
+    "notFoundTitle": "Product not found",
+    "notFoundBody": "This product's Compliance DNA could not be found. It may not exist, or you may not have access to it.",
+    "errorTitle": "Product DNA could not be loaded",
+    "errorBody": "Something went wrong loading this product's history. Try again.",
+    "retryLabel": "Try again",
+    "summary": {
+      "inspections": "Verified inspections",
+      "riskScore": "Risk score",
+      "recurringViolations": "Recurring violations"
+    },
+    "risk": {
+      "heading": "Current risk summary"
+    },
+    "openCase": {
+      "heading": "Open enforcement case",
+      "status": "Status: {status}",
+      "viewCase": "View case"
+    },
+    "recurring": {
+      "heading": "Recurring violations",
+      "entry": "{category} — {count} verified inspections"
+    },
+    "timeline": {
+      "heading": "Inspection timeline",
+      "emptyTitle": "No verified inspections yet",
+      "columnVerifiedAt": "Verified",
+      "columnStatus": "Status",
+      "columnScore": "Score",
+      "columnRecordId": "Record"
+    }
+  },
+  "caseDetail": {
+    "metaTitle": "Enforcement Case",
+    "heading": "Case {id}",
+    "notFoundTitle": "Case not found",
+    "notFoundBody": "This enforcement case could not be found, or you may not have access to it.",
+    "errorTitle": "Case could not be loaded",
+    "errorBody": "Something went wrong loading this case. Try again.",
+    "retryLabel": "Try again",
+    "recordHeading": "Originating record",
+    "transitionErrorTitle": "Could not update case status",
+    "transition": {
+      "heading": "Update case status",
+      "noteLabel": "Note (optional)",
+      "moveTo": "Move to {status}"
+    },
+    "history": {
+      "heading": "Status history",
+      "emptyTitle": "No status changes yet",
+      "created": "created",
+      "entry": "{from} → {to} ({when})"
     }
   },
   "reports": {

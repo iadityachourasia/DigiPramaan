@@ -15,7 +15,7 @@ export function useDashboardData() {
 
   useEffect(() => {
     let cancelled = false;
-    fetchDashboardData(user?.id).then((result) => {
+    fetchDashboardData().then((result) => {
       if (cancelled) return;
       if (result.ok) setData(result.data);
       else setError(true);

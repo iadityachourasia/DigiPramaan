@@ -26,20 +26,9 @@ from app.db.session import get_db
 _bearer_scheme = HTTPBearer(auto_error=False)
 
 
-def get_current_user(
-    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
-    db: Session = Depends(get_db),
-    settings: Settings = Depends(get_settings),
-) -> Profile:
-    if credentials is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing bearer token",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
+def _resolve_profile(token: str, db: Session, settings: Settings) -> Profile:
     try:
-        claims = verify_supabase_jwt(credentials.credentials, settings)
+        claims = verify_supabase_jwt(token, settings)
     except AuthError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -62,3 +51,41 @@ def get_current_user(
         )
 
     return profile
+
+
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> Profile:
+    if credentials is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing bearer token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return _resolve_profile(credentials.credentials, db, settings)
+
+
+def get_current_user_from_bearer_or_query(
+    access_token: str | None = None,
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> Profile:
+    """Phase 5 report-download-only variant. The existing download UX is a
+    plain `<a href>` (kept unchanged deliberately — see Phase 5's own
+    report), which cannot attach an Authorization header, so this accepts
+    the SAME token as a `?access_token=` query param when no header is
+    present. Never used anywhere else — a token in a URL is a real MVP
+    tradeoff (browser history, server logs), documented rather than hidden,
+    and a hardening pass should replace it with a short-lived signed
+    download ticket instead of the raw session token."""
+    token = credentials.credentials if credentials is not None else access_token
+    if token is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing bearer token or access_token query param",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return _resolve_profile(token, db, settings)

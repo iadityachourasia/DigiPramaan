@@ -1,15 +1,23 @@
 /**
  * manufacturers.ts — Manufacturer Compliance Scorecard API client (page 9).
  *
- * Real HTTP calls to `scan-pipeline-store.ts`'s Route Handlers, never gated
- * by `isMockMode()` — same reasoning as records.ts and analytics.ts. A
- * scorecard aggregates over the live record set; a client-side mock branch
- * would only ever see the static seeds, so a manufacturer scanned through
- * the pipeline today would be missing from their own scorecard. That's the
- * bug pages 5 and 7 each shipped with before their own fixes.
+ * Phase 5: cut over to the real backend's Company Profile (Phase 4) via the
+ * companies.ts adapter (adapt the response shape, don't duplicate the page
+ * — see that file's own doc comment). flagManufacturerForEnforcement has no
+ * real backend equivalent (Follow-Through operates per-record, via
+ * flagForEnforcement in records.ts) and stays on the mock route, outside
+ * Phase 5's demo path.
  */
 
+import { API } from "@/lib/constants";
+import {
+  companyListToSummary,
+  companyProfileToScorecard,
+  type CompanyListEntry,
+  type CompanyProfileResponse,
+} from "@/lib/api/companies";
 import type { ComplianceRecord, ManufacturerScorecard } from "@/types";
+import { apiGet } from "./client";
 import type { ApiResult } from "./client";
 
 async function requestJson<T>(path: string, init?: RequestInit): Promise<ApiResult<T>> {
@@ -34,24 +42,26 @@ export interface ManufacturerListResponse {
   total: number;
 }
 
-/**
- * `viewerId` scopes every scorecard's numbers to that user's jurisdiction
- * and role (13 §4 plan) — see records.ts's `fetchRecords` for the same
- * convention.
- */
-export function fetchManufacturers(
-  viewerId?: string
-): Promise<ApiResult<ManufacturerListResponse>> {
-  const query = viewerId ? `?viewerId=${encodeURIComponent(viewerId)}` : "";
-  return requestJson(`/api/manufacturers${query}`);
+export async function fetchManufacturers(): Promise<ApiResult<ManufacturerListResponse>> {
+  const result = await apiGet<CompanyListEntry[]>(API.companies.list);
+  if (!result.ok) return result;
+  const summaries = companyListToSummary(result.data);
+  const scorecards: ManufacturerScorecard[] = summaries.map((summary) => ({
+    summary,
+    repeatViolationFlagged: false,
+    recentNonCompliantCount: 0,
+    repeatViolationThreshold: { nonCompliantCount: 3, withinDays: 90 },
+    complianceTrend: [],
+    violationBreakdown: [],
+    products: [],
+  }));
+  return { ok: true, data: { scorecards, total: scorecards.length } };
 }
 
-export function fetchManufacturerScorecard(
-  id: string,
-  viewerId?: string
-): Promise<ApiResult<ManufacturerScorecard>> {
-  const query = viewerId ? `?viewerId=${encodeURIComponent(viewerId)}` : "";
-  return requestJson(`/api/manufacturers/${id}/scorecard${query}`);
+export async function fetchManufacturerScorecard(id: string): Promise<ApiResult<ManufacturerScorecard>> {
+  const result = await apiGet<CompanyProfileResponse>(API.companies.profile(id));
+  if (!result.ok) return result;
+  return { ok: true, data: companyProfileToScorecard(result.data) };
 }
 
 export interface ManufacturerFlagResponse {
@@ -61,6 +71,7 @@ export interface ManufacturerFlagResponse {
   alreadyFlagged: string[];
 }
 
+/** No real per-manufacturer bulk-flag endpoint — Follow-Through operates per-record (records.ts). Stays mock. */
 export function flagManufacturerForEnforcement(
   id: string,
   userId: string

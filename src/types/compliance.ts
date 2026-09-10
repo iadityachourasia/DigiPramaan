@@ -162,6 +162,18 @@ export interface ComplianceRecord {
   /** True once flagged for enforcement, so the action can be relabeled (06 §4). */
   flaggedForEnforcement: boolean;
 
+  /**
+   * Phase 4 USPs (Product Compliance DNA / Compliance Follow-Through) —
+   * additive and currently inert. The mock data layer this type also
+   * backs has no relationship to the real FastAPI backend's Product/
+   * ViolationCase tables, so these are always undefined for a mock-sourced
+   * record today; they exist so RecordDetailView's conditional links (see
+   * its own comment) are correctly wired for whenever a record actually
+   * carries real backend ids.
+   */
+  productId?: string;
+  activeCaseId?: string;
+
   checklist: DeclarationCheck[];
   violations: Violation[];
   /** Present once Verified (see computeComplianceScore()); absent while Pending. */
