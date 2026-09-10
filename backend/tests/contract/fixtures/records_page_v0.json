@@ -1,0 +1,967 @@
+{
+  "rows": [
+    {
+      "id": "rec-1011",
+      "scanId": "LMCS-2026-001011",
+      "productName": "Deccan Dishwash Gel 750 ml",
+      "manufacturerName": "Deccan Household Products",
+      "category": "Household Cleaning",
+      "region": "Maharashtra",
+      "source": "Officer-Scanned",
+      "verificationStatus": "Extracted",
+      "complianceStatus": "Pending",
+      "needsReviewFlag": false,
+      "flaggedForEnforcement": false,
+      "checklist": [
+        {
+          "fieldId": "manufacturerDetails",
+          "passed": true,
+          "value": "Sahyadri Foods Pvt Ltd, Plot 14, MIDC Industrial Area, Pune 411019, Maharashtra"
+        },
+        {
+          "fieldId": "genericName",
+          "passed": true,
+          "value": "Refined groundnut oil"
+        },
+        {
+          "fieldId": "netQuantity",
+          "passed": true,
+          "value": "1 L"
+        },
+        {
+          "fieldId": "manufactureDate",
+          "passed": true,
+          "value": "07/2026"
+        },
+        {
+          "fieldId": "retailSalePrice",
+          "passed": true,
+          "value": "MRP ₹235.00 (inclusive of all taxes)"
+        },
+        {
+          "fieldId": "consumerCareDetails",
+          "passed": true,
+          "value": "care@sahyadrifoods.example.in · 1800 200 4321"
+        },
+        {
+          "fieldId": "fontSize",
+          "passed": true,
+          "value": null
+        }
+      ],
+      "violations": [],
+      "extraction": {
+        "scanId": "LMCS-2026-001011",
+        "processingStatus": "Completed",
+        "overallConfidence": 91,
+        "declarations": [
+          {
+            "fieldId": "manufacturerDetails",
+            "value": "Sahyadri Foods Pvt Ltd, Plot 14, MIDC Industrial Area, Pune 411019, Maharashtra",
+            "notDetected": false,
+            "confidence": 96,
+            "band": "High",
+            "corrected": false,
+            "sourceEngine": "paddleocr",
+            "sourceImageAngle": "back"
+          },
+          {
+            "fieldId": "genericName",
+            "value": "Refined groundnut oil",
+            "notDetected": false,
+            "confidence": 96,
+            "band": "High",
+            "corrected": false,
+            "sourceEngine": "paddleocr",
+            "sourceImageAngle": "front"
+          },
+          {
+            "fieldId": "netQuantity",
+            "value": "1 L",
+            "notDetected": false,
+            "confidence": 96,
+            "band": "High",
+            "corrected": false,
+            "sourceEngine": "paddleocr",
+            "sourceImageAngle": "front"
+          },
+          {
+            "fieldId": "manufactureDate",
+            "value": "07/2026",
+            "notDetected": false,
+            "confidence": 96,
+            "band": "High",
+            "corrected": false,
+            "sourceEngine": "paddleocr",
+            "sourceImageAngle": "side_pdp"
+          },
+          {
+            "fieldId": "retailSalePrice",
+            "value": "MRP ₹235.00 (inclusive of all taxes)",
+            "notDetected": false,
+            "confidence": 96,
+            "band": "High",
+            "corrected": false,
+            "sourceEngine": "paddleocr",
+            "sourceImageAngle": "side_pdp"
+          },
+          {
+            "fieldId": "consumerCareDetails",
+            "value": "care@sahyadrifoods.example.in · 1800 200 4321",
+            "notDetected": false,
+            "confidence": 66,
+            "band": "Low",
+            "corrected": false,
+            "sourceEngine": "paddleocr",
+            "sourceImageAngle": "back"
+          }
+        ],
+        "fontSizeChecks": []
+      },
+      "evidence": [],
+      "auditTrail": [
+        {
+          "id": "act-000032",
+          "type": "Scanned",
+          "at": "2026-09-05T09:18:00+05:30",
+          "byUserId": "usr-001",
+          "byUserName": "Rohan Deshmukh"
+        },
+        {
+          "id": "act-000033",
+          "type": "Extracted",
+          "at": "2026-09-05T09:18:00+05:30",
+          "note": "Automated extraction completed."
+        }
+      ],
+      "thumbnail": {
+        "id": "rec-1011-img-front",
+        "fileName": "rec-1011-front.jpg",
+        "url": "/images/placeholder/household-cleaning.svg",
+        "sizeBytes": 842000,
+        "angle": "front",
+        "altText": "Front label of the scanned package, scan rec-1011"
+      },
+      "capturedImages": [
+        {
+          "id": "rec-1011-img-front",
+          "fileName": "rec-1011-front.jpg",
+          "url": "/images/placeholder/household-cleaning.svg",
+          "sizeBytes": 842000,
+          "angle": "front",
+          "altText": "Front of the scanned package, scan rec-1011"
+        },
+        {
+          "id": "rec-1011-img-back",
+          "fileName": "rec-1011-back.jpg",
+          "url": "/images/placeholder/household-cleaning.svg",
+          "sizeBytes": 842000,
+          "angle": "back",
+          "altText": "Back of the scanned package, scan rec-1011"
+        },
+        {
+          "id": "rec-1011-img-side_pdp",
+          "fileName": "rec-1011-side_pdp.jpg",
+          "url": "/images/placeholder/household-cleaning.svg",
+          "sizeBytes": 842000,
+          "angle": "side_pdp",
+          "altText": "Side — Principal Display Panel of the scanned package, scan rec-1011"
+        }
+      ],
+      "assignedOfficerUserId": "usr-001",
+      "scannedAt": "2026-09-05T09:18:00+05:30",
+      "lastUpdatedAt": "2026-09-05T09:18:00+05:30",
+      "archived": false
+    },
+    {
+      "id": "rec-1007",
+      "scanId": "LMCS-2026-001007",
+      "productName": "Aravalli Cotton Bedsheet Set",
+      "manufacturerName": "Aravalli Textiles Ltd",
+      "category": "Textiles and Garments",
+      "region": "Rajasthan",
+      "source": "E-commerce-Sourced",
+      "verificationStatus": "Extracted",
+      "complianceStatus": "Pending",
+      "needsReviewFlag": false,
+      "flaggedForEnforcement": false,
+      "checklist": [
+        {
+          "fieldId": "manufacturerDetails",
+          "passed": true,
+          "value": "Sahyadri Foods Pvt Ltd, Plot 14, MIDC Industrial Area, Pune 411019, Maharashtra"
+        },
+        {
+          "fieldId": "genericName",
+          "passed": true,
+          "value": "Refined groundnut oil"
+        },
+        {
+          "fieldId": "netQuantity",
+          "passed": true,
+          "value": "1 L"
+        },
+        {
+          "fieldId": "manufactureDate",
+          "passed": true,
+          "value": "07/2026"
+        },
+        {
+          "fieldId": "retailSalePrice",
+          "passed": true,
+          "value": "MRP ₹235.00 (inclusive of all taxes)"
+        },
+        {
+          "fieldId": "consumerCareDetails",
+          "passed": true,
+          "value": "care@sahyadrifoods.example.in · 1800 200 4321"
+        },
+        {
+          "fieldId": "fontSize",
+          "passed": true,
+          "value": null
+        }
+      ],
+      "violations": [],
+      "extraction": {
+        "scanId": "LMCS-2026-001007",
+        "processingStatus": "Completed",
+        "overallConfidence": 86,
+        "declarations": [
+          {
+            "fieldId": "manufacturerDetails",
+            "value": "Sahyadri Foods Pvt Ltd, Plot 14, MIDC Industrial Area, Pune 411019, Maharashtra",
+            "notDetected": false,
+            "confidence": 71,
+            "band": "Medium",
+            "corrected": false,
+            "sourceEngine": "paddleocr",
+            "sourceImageAngle": "back"
+          },
+          {
+            "fieldId": "genericName",
+            "value": "Refined groundnut oil",
+            "notDetected": false,
+            "confidence": 96,
+            "band": "High",
+            "corrected": false,
+            "sourceEngine": "paddleocr",
+            "sourceImageAngle": "front"
+          },
+          {
+            "fieldId": "netQuantity",
+            "value": "1 L",
+            "notDetected": false,
+            "confidence": 96,
+            "band": "High",
+            "corrected": false,
+            "sourceEngine": "paddleocr",
+            "sourceImageAngle": "front"
+          },
+          {
+            "fieldId": "manufactureDate",
+            "value": "07/2026",
+            "notDetected": false,
+            "confidence": 96,
+            "band": "High",
+            "corrected": false,
+            "sourceEngine": "paddleocr",
+            "sourceImageAngle": "side_pdp"
+          },
+          {
+            "fieldId": "retailSalePrice",
+            "value": "MRP ₹235.00 (inclusive of all taxes)",
+            "notDetected": false,
+            "confidence": 58,
+            "band": "Low",
+            "corrected": false,
+            "sourceEngine": "paddleocr",
+            "sourceImageAngle": "side_pdp"
+          },
+          {
+            "fieldId": "consumerCareDetails",
+            "value": "care@sahyadrifoods.example.in · 1800 200 4321",
+            "notDetected": false,
+            "confidence": 96,
+            "band": "High",
+            "corrected": false,
+            "sourceEngine": "paddleocr",
+            "sourceImageAngle": "back"
+          }
+        ],
+        "fontSizeChecks": []
+      },
+      "evidence": [],
+      "auditTrail": [
+        {
+          "id": "act-000021",
+          "type": "Scanned",
+          "at": "2026-09-05T07:55:00+05:30",
+          "byUserId": "usr-002",
+          "byUserName": "Sunita Iyer"
+        },
+        {
+          "id": "act-000022",
+          "type": "Extracted",
+          "at": "2026-09-05T07:55:00+05:30",
+          "note": "Automated extraction completed."
+        }
+      ],
+      "thumbnail": {
+        "id": "rec-1007-img-front",
+        "fileName": "rec-1007-front.jpg",
+        "url": "/images/placeholder/textiles-and-garments.svg",
+        "sizeBytes": 842000,
+        "angle": "front",
+        "altText": "Front label of the scanned package, scan rec-1007"
+      },
+      "capturedImages": [
+        {
+          "id": "rec-1007-img-front",
+          "fileName": "rec-1007-front.jpg",
+          "url": "/images/placeholder/textiles-and-garments.svg",
+          "sizeBytes": 842000,
+          "angle": "front",
+          "altText": "Front of the scanned package, scan rec-1007"
+        },
+        {
+          "id": "rec-1007-img-back",
+          "fileName": "rec-1007-back.jpg",
+          "url": "/images/placeholder/textiles-and-garments.svg",
+          "sizeBytes": 842000,
+          "angle": "back",
+          "altText": "Back of the scanned package, scan rec-1007"
+        },
+        {
+          "id": "rec-1007-img-side_pdp",
+          "fileName": "rec-1007-side_pdp.jpg",
+          "url": "/images/placeholder/textiles-and-garments.svg",
+          "sizeBytes": 842000,
+          "angle": "side_pdp",
+          "altText": "Side — Principal Display Panel of the scanned package, scan rec-1007"
+        }
+      ],
+      "assignedOfficerUserId": "usr-002",
+      "scannedAt": "2026-09-05T07:55:00+05:30",
+      "lastUpdatedAt": "2026-09-05T07:55:00+05:30",
+      "archived": false,
+      "ecommerceListingUrl": "https://marketplace.example.in/listing/aravalli-bedsheet-set"
+    },
+    {
+      "id": "rec-1003",
+      "scanId": "LMCS-2026-001003",
+      "productName": "Nilgiri Herbal Shampoo 200 ml",
+      "manufacturerName": "Nilgiri Personal Care",
+      "category": "Personal Care",
+      "region": "Tamil Nadu",
+      "source": "Citizen-Reported",
+      "verificationStatus": "Extracted",
+      "complianceStatus": "Pending",
+      "needsReviewFlag": false,
+      "flaggedForEnforcement": false,
+      "checklist": [
+        {
+          "fieldId": "manufacturerDetails",
+          "passed": true,
+          "value": "Sahyadri Foods Pvt Ltd, Plot 14, MIDC Industrial Area, Pune 411019, Maharashtra"
+        },
+        {
+          "fieldId": "genericName",
+          "passed": true,
+          "value": "Refined groundnut oil"
+        },
+        {
+          "fieldId": "netQuantity",
+          "passed": true,
+          "value": "1 L"
+        },
+        {
+          "fieldId": "manufactureDate",
+          "passed": true,
+          "value": "07/2026"
+        },
+        {
+          "fieldId": "retailSalePrice",
+          "passed": true,
+          "value": "MRP ₹235.00 (inclusive of all taxes)"
+        },
+        {
+          "fieldId": "consumerCareDetails",
+          "passed": true,
+          "value": "care@sahyadrifoods.example.in · 1800 200 4321"
+        },
+        {
+          "fieldId": "fontSize",
+          "passed": true,
+          "value": null
+        }
+      ],
+      "violations": [],
+      "extraction": {
+        "scanId": "LMCS-2026-001003",
+        "processingStatus": "Completed",
+        "overallConfidence": 88,
+        "declarations": [
+          {
+            "fieldId": "manufacturerDetails",
+            "value": "Sahyadri Foods Pvt Ltd, Plot 14, MIDC Industrial Area, Pune 411019, Maharashtra",
+            "notDetected": false,
+            "confidence": 62,
+            "band": "Low",
+            "corrected": false,
+            "sourceEngine": "paddleocr",
+            "sourceImageAngle": "back"
+          },
+          {
+            "fieldId": "genericName",
+            "value": "Refined groundnut oil",
+            "notDetected": false,
+            "confidence": 96,
+            "band": "High",
+            "corrected": false,
+            "sourceEngine": "paddleocr",
+            "sourceImageAngle": "front"
+          },
+          {
+            "fieldId": "netQuantity",
+            "value": "1 L",
+            "notDetected": false,
+            "confidence": 81,
+            "band": "Medium",
+            "corrected": false,
+            "sourceEngine": "paddleocr",
+            "sourceImageAngle": "front"
+          },
+          {
+            "fieldId": "manufactureDate",
+            "value": "07/2026",
+            "notDetected": false,
+            "confidence": 96,
+            "band": "High",
+            "corrected": false,
+            "sourceEngine": "paddleocr",
+            "sourceImageAngle": "side_pdp"
+          },
+          {
+            "fieldId": "retailSalePrice",
+            "value": "MRP ₹235.00 (inclusive of all taxes)",
+            "notDetected": false,
+            "confidence": 96,
+            "band": "High",
+            "corrected": false,
+            "sourceEngine": "paddleocr",
+            "sourceImageAngle": "side_pdp"
+          },
+          {
+            "fieldId": "consumerCareDetails",
+            "value": "care@sahyadrifoods.example.in · 1800 200 4321",
+            "notDetected": false,
+            "confidence": 96,
+            "band": "High",
+            "corrected": false,
+            "sourceEngine": "paddleocr",
+            "sourceImageAngle": "back"
+          }
+        ],
+        "fontSizeChecks": []
+      },
+      "evidence": [],
+      "auditTrail": [
+        {
+          "id": "act-000008",
+          "type": "Scanned",
+          "at": "2026-09-04T18:47:00+05:30",
+          "byUserId": "usr-001",
+          "byUserName": "Rohan Deshmukh"
+        },
+        {
+          "id": "act-000009",
+          "type": "Extracted",
+          "at": "2026-09-04T18:47:00+05:30",
+          "note": "Automated extraction completed."
+        }
+      ],
+      "thumbnail": {
+        "id": "rec-1003-img-front",
+        "fileName": "rec-1003-front.jpg",
+        "url": "/images/placeholder/personal-care.svg",
+        "sizeBytes": 842000,
+        "angle": "front",
+        "altText": "Front label of the scanned package, scan rec-1003"
+      },
+      "capturedImages": [
+        {
+          "id": "rec-1003-img-front",
+          "fileName": "rec-1003-front.jpg",
+          "url": "/images/placeholder/personal-care.svg",
+          "sizeBytes": 842000,
+          "angle": "front",
+          "altText": "Front of the scanned package, scan rec-1003"
+        },
+        {
+          "id": "rec-1003-img-back",
+          "fileName": "rec-1003-back.jpg",
+          "url": "/images/placeholder/personal-care.svg",
+          "sizeBytes": 842000,
+          "angle": "back",
+          "altText": "Back of the scanned package, scan rec-1003"
+        },
+        {
+          "id": "rec-1003-img-side_pdp",
+          "fileName": "rec-1003-side_pdp.jpg",
+          "url": "/images/placeholder/personal-care.svg",
+          "sizeBytes": 842000,
+          "angle": "side_pdp",
+          "altText": "Side — Principal Display Panel of the scanned package, scan rec-1003"
+        }
+      ],
+      "assignedOfficerUserId": "usr-001",
+      "scannedAt": "2026-09-04T18:47:00+05:30",
+      "lastUpdatedAt": "2026-09-04T18:47:00+05:30",
+      "archived": false
+    },
+    {
+      "id": "rec-1001",
+      "scanId": "LMCS-2026-001001",
+      "productName": "Sahyadri Refined Groundnut Oil 1 L",
+      "manufacturerName": "Sahyadri Foods Pvt Ltd",
+      "category": "Packaged Food",
+      "region": "Maharashtra",
+      "source": "Officer-Scanned",
+      "verificationStatus": "Verified",
+      "complianceStatus": "Compliant",
+      "needsReviewFlag": false,
+      "flaggedForEnforcement": false,
+      "checklist": [
+        {
+          "fieldId": "manufacturerDetails",
+          "passed": true,
+          "value": "Sahyadri Foods Pvt Ltd, Plot 14, MIDC Industrial Area, Pune 411019, Maharashtra"
+        },
+        {
+          "fieldId": "genericName",
+          "passed": true,
+          "value": "Refined groundnut oil"
+        },
+        {
+          "fieldId": "netQuantity",
+          "passed": true,
+          "value": "1 L"
+        },
+        {
+          "fieldId": "manufactureDate",
+          "passed": true,
+          "value": "07/2026"
+        },
+        {
+          "fieldId": "retailSalePrice",
+          "passed": true,
+          "value": "MRP ₹235.00 (inclusive of all taxes)"
+        },
+        {
+          "fieldId": "consumerCareDetails",
+          "passed": true,
+          "value": "care@sahyadrifoods.example.in · 1800 200 4321"
+        },
+        {
+          "fieldId": "fontSize",
+          "passed": true,
+          "value": null
+        }
+      ],
+      "violations": [],
+      "extraction": {
+        "scanId": "LMCS-2026-001001",
+        "processingStatus": "Completed",
+        "overallConfidence": 96,
+        "declarations": [
+          {
+            "fieldId": "manufacturerDetails",
+            "value": "Sahyadri Foods Pvt Ltd, Plot 14, MIDC Industrial Area, Pune 411019, Maharashtra",
+            "notDetected": false,
+            "confidence": 96,
+            "band": "High",
+            "corrected": false,
+            "sourceEngine": "paddleocr",
+            "sourceImageAngle": "back"
+          },
+          {
+            "fieldId": "genericName",
+            "value": "Refined groundnut oil",
+            "notDetected": false,
+            "confidence": 96,
+            "band": "High",
+            "corrected": false,
+            "sourceEngine": "paddleocr",
+            "sourceImageAngle": "front"
+          },
+          {
+            "fieldId": "netQuantity",
+            "value": "1 L",
+            "notDetected": false,
+            "confidence": 96,
+            "band": "High",
+            "corrected": false,
+            "sourceEngine": "paddleocr",
+            "sourceImageAngle": "front"
+          },
+          {
+            "fieldId": "manufactureDate",
+            "value": "07/2026",
+            "notDetected": false,
+            "confidence": 96,
+            "band": "High",
+            "corrected": false,
+            "sourceEngine": "paddleocr",
+            "sourceImageAngle": "side_pdp"
+          },
+          {
+            "fieldId": "retailSalePrice",
+            "value": "MRP ₹235.00 (inclusive of all taxes)",
+            "notDetected": false,
+            "confidence": 96,
+            "band": "High",
+            "corrected": false,
+            "sourceEngine": "paddleocr",
+            "sourceImageAngle": "side_pdp"
+          },
+          {
+            "fieldId": "consumerCareDetails",
+            "value": "care@sahyadrifoods.example.in · 1800 200 4321",
+            "notDetected": false,
+            "confidence": 96,
+            "band": "High",
+            "corrected": false,
+            "sourceEngine": "paddleocr",
+            "sourceImageAngle": "back"
+          }
+        ],
+        "fontSizeChecks": [
+          {
+            "fieldId": "retailSalePrice",
+            "measuredHeightMm": 4.6,
+            "requiredHeightMm": 4,
+            "embossed": false,
+            "passed": true
+          },
+          {
+            "fieldId": "netQuantity",
+            "measuredHeightMm": 5.1,
+            "requiredHeightMm": 4,
+            "embossed": false,
+            "passed": true
+          }
+        ]
+      },
+      "evidence": [],
+      "auditTrail": [
+        {
+          "id": "act-000001",
+          "type": "Scanned",
+          "at": "2026-09-01T10:22:00+05:30",
+          "byUserId": "usr-001",
+          "byUserName": "Rohan Deshmukh"
+        },
+        {
+          "id": "act-000002",
+          "type": "Extracted",
+          "at": "2026-09-01T10:22:00+05:30",
+          "note": "Automated extraction completed."
+        },
+        {
+          "id": "act-000003",
+          "type": "Verified",
+          "at": "2026-09-01T10:41:00+05:30",
+          "byUserId": "usr-001",
+          "byUserName": "Rohan Deshmukh"
+        }
+      ],
+      "thumbnail": {
+        "id": "rec-1001-img-front",
+        "fileName": "rec-1001-front.jpg",
+        "url": "/images/placeholder/packaged-food.svg",
+        "sizeBytes": 842000,
+        "angle": "front",
+        "altText": "Front label of the scanned package, scan rec-1001"
+      },
+      "capturedImages": [
+        {
+          "id": "rec-1001-img-front",
+          "fileName": "rec-1001-front.jpg",
+          "url": "/images/placeholder/packaged-food.svg",
+          "sizeBytes": 842000,
+          "angle": "front",
+          "altText": "Front of the scanned package, scan rec-1001"
+        },
+        {
+          "id": "rec-1001-img-back",
+          "fileName": "rec-1001-back.jpg",
+          "url": "/images/placeholder/packaged-food.svg",
+          "sizeBytes": 842000,
+          "angle": "back",
+          "altText": "Back of the scanned package, scan rec-1001"
+        },
+        {
+          "id": "rec-1001-img-side_pdp",
+          "fileName": "rec-1001-side_pdp.jpg",
+          "url": "/images/placeholder/packaged-food.svg",
+          "sizeBytes": 842000,
+          "angle": "side_pdp",
+          "altText": "Side — Principal Display Panel of the scanned package, scan rec-1001"
+        }
+      ],
+      "assignedOfficerUserId": "usr-001",
+      "scannedAt": "2026-09-01T10:22:00+05:30",
+      "lastUpdatedAt": "2026-09-01T10:41:00+05:30",
+      "archived": false,
+      "complianceScore": {
+        "value": 100,
+        "band": "Excellent",
+        "breakdownByCategory": {}
+      }
+    },
+    {
+      "id": "rec-1002",
+      "scanId": "LMCS-2026-001002",
+      "productName": "Ganga Sparkling Lemon 600 ml",
+      "manufacturerName": "Ganga Beverages Ltd",
+      "category": "Beverages",
+      "region": "Uttar Pradesh",
+      "source": "Officer-Scanned",
+      "verificationStatus": "Verified",
+      "complianceStatus": "Non-Compliant",
+      "needsReviewFlag": false,
+      "flaggedForEnforcement": true,
+      "checklist": [
+        {
+          "fieldId": "manufacturerDetails",
+          "passed": true,
+          "value": "Sahyadri Foods Pvt Ltd, Plot 14, MIDC Industrial Area, Pune 411019, Maharashtra"
+        },
+        {
+          "fieldId": "genericName",
+          "passed": true,
+          "value": "Refined groundnut oil"
+        },
+        {
+          "fieldId": "netQuantity",
+          "passed": true,
+          "value": "1 L"
+        },
+        {
+          "fieldId": "manufactureDate",
+          "passed": true,
+          "value": "07/2026"
+        },
+        {
+          "fieldId": "retailSalePrice",
+          "passed": true,
+          "value": "MRP ₹235.00 (inclusive of all taxes)"
+        },
+        {
+          "fieldId": "consumerCareDetails",
+          "passed": false,
+          "value": null,
+          "violationCategoryId": "consumer-care-details-missing"
+        },
+        {
+          "fieldId": "fontSize",
+          "passed": false,
+          "value": null,
+          "violationCategoryId": "font-size-readability-failure",
+          "detail": "MRP numeral height 3 mm, below the required 4 mm minimum"
+        }
+      ],
+      "violations": [
+        {
+          "categoryId": "consumer-care-details-missing",
+          "category": "Consumer Care Details Missing",
+          "legalBasis": "Rule 6"
+        },
+        {
+          "categoryId": "font-size-readability-failure",
+          "category": "Font Size / Readability Failure",
+          "legalBasis": "Rule 7",
+          "detail": "MRP numeral height 3 mm, below the required 4 mm minimum"
+        }
+      ],
+      "extraction": {
+        "scanId": "LMCS-2026-001002",
+        "processingStatus": "Completed",
+        "overallConfidence": 76,
+        "declarations": [
+          {
+            "fieldId": "manufacturerDetails",
+            "value": "Sahyadri Foods Pvt Ltd, Plot 14, MIDC Industrial Area, Pune 411019, Maharashtra",
+            "notDetected": false,
+            "confidence": 96,
+            "band": "High",
+            "corrected": false,
+            "sourceEngine": "paddleocr",
+            "sourceImageAngle": "back"
+          },
+          {
+            "fieldId": "genericName",
+            "value": "Refined groundnut oil",
+            "notDetected": false,
+            "confidence": 96,
+            "band": "High",
+            "corrected": false,
+            "sourceEngine": "paddleocr",
+            "sourceImageAngle": "front"
+          },
+          {
+            "fieldId": "netQuantity",
+            "value": "1 L",
+            "notDetected": false,
+            "confidence": 96,
+            "band": "High",
+            "corrected": false,
+            "sourceEngine": "paddleocr",
+            "sourceImageAngle": "front"
+          },
+          {
+            "fieldId": "manufactureDate",
+            "value": "07/2026",
+            "notDetected": false,
+            "confidence": 96,
+            "band": "High",
+            "corrected": false,
+            "sourceEngine": "paddleocr",
+            "sourceImageAngle": "side_pdp"
+          },
+          {
+            "fieldId": "retailSalePrice",
+            "value": "MRP ₹235.00 (inclusive of all taxes)",
+            "notDetected": false,
+            "confidence": 74,
+            "band": "Medium",
+            "corrected": false,
+            "sourceEngine": "paddleocr",
+            "sourceImageAngle": "side_pdp"
+          },
+          {
+            "fieldId": "consumerCareDetails",
+            "value": null,
+            "notDetected": true,
+            "confidence": 0,
+            "band": "Low",
+            "corrected": false,
+            "sourceEngine": "paddleocr",
+            "sourceImageAngle": "back"
+          }
+        ],
+        "fontSizeChecks": [
+          {
+            "fieldId": "retailSalePrice",
+            "measuredHeightMm": 3,
+            "requiredHeightMm": 4,
+            "embossed": false,
+            "passed": false
+          },
+          {
+            "fieldId": "netQuantity",
+            "measuredHeightMm": 4.4,
+            "requiredHeightMm": 4,
+            "embossed": false,
+            "passed": true
+          }
+        ]
+      },
+      "evidence": [
+        {
+          "id": "rec-1002-ev-1",
+          "image": {
+            "id": "rec-1002-ev-img-1",
+            "fileName": "rec-1002-evidence-1.jpg",
+            "url": "/images/placeholder/evidence.svg",
+            "sizeBytes": 611000,
+            "angle": "other",
+            "altText": "Close-up of the MRP declaration showing numeral height against a scale rule"
+          },
+          "caption": "Close-up of the MRP declaration showing numeral height against a scale rule",
+          "attachedAt": "2026-08-30T15:38:00+05:30",
+          "attachedByUserId": "usr-001"
+        }
+      ],
+      "auditTrail": [
+        {
+          "id": "act-000004",
+          "type": "Scanned",
+          "at": "2026-08-30T15:05:00+05:30",
+          "byUserId": "usr-001",
+          "byUserName": "Rohan Deshmukh"
+        },
+        {
+          "id": "act-000005",
+          "type": "Extracted",
+          "at": "2026-08-30T15:05:00+05:30",
+          "note": "Automated extraction completed."
+        },
+        {
+          "id": "act-000006",
+          "type": "Verified",
+          "at": "2026-08-30T09:51:30.000Z",
+          "byUserId": "usr-001",
+          "byUserName": "Rohan Deshmukh"
+        },
+        {
+          "id": "act-000007",
+          "type": "Flagged for Enforcement",
+          "at": "2026-08-30T10:08:00.000Z",
+          "byUserId": "usr-001",
+          "byUserName": "Rohan Deshmukh"
+        }
+      ],
+      "thumbnail": {
+        "id": "rec-1002-img-front",
+        "fileName": "rec-1002-front.jpg",
+        "url": "/images/placeholder/beverages.svg",
+        "sizeBytes": 842000,
+        "angle": "front",
+        "altText": "Front label of the scanned package, scan rec-1002"
+      },
+      "capturedImages": [
+        {
+          "id": "rec-1002-img-front",
+          "fileName": "rec-1002-front.jpg",
+          "url": "/images/placeholder/beverages.svg",
+          "sizeBytes": 842000,
+          "angle": "front",
+          "altText": "Front of the scanned package, scan rec-1002"
+        },
+        {
+          "id": "rec-1002-img-back",
+          "fileName": "rec-1002-back.jpg",
+          "url": "/images/placeholder/beverages.svg",
+          "sizeBytes": 842000,
+          "angle": "back",
+          "altText": "Back of the scanned package, scan rec-1002"
+        },
+        {
+          "id": "rec-1002-img-side_pdp",
+          "fileName": "rec-1002-side_pdp.jpg",
+          "url": "/images/placeholder/beverages.svg",
+          "sizeBytes": 842000,
+          "angle": "side_pdp",
+          "altText": "Side — Principal Display Panel of the scanned package, scan rec-1002"
+        }
+      ],
+      "assignedOfficerUserId": "usr-001",
+      "scannedAt": "2026-08-30T15:05:00+05:30",
+      "lastUpdatedAt": "2026-08-30T15:38:00+05:30",
+      "archived": false,
+      "complianceScore": {
+        "value": 71,
+        "band": "Good",
+        "breakdownByCategory": {
+          "consumer-care-details-missing": 1,
+          "font-size-readability-failure": 1
+        }
+      }
+    }
+  ],
+  "totalCount": 11,
+  "page": 1,
+  "pageSize": 5
+}

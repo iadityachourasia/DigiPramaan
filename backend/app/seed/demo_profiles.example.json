@@ -1,0 +1,32 @@
+[
+  {
+    "email": "officer1@digipramaan.local",
+    "username": "r.deshmukh",
+    "full_name": "Rohan Deshmukh",
+    "role": "Enforcement Officer",
+    "department": "Department of Consumer Affairs",
+    "region": "Maharashtra",
+    "jurisdiction_level": "State",
+    "jurisdiction_name": "Maharashtra"
+  },
+  {
+    "email": "reviewer1@digipramaan.local",
+    "username": "a.banerjee",
+    "full_name": "Arindam Banerjee",
+    "role": "Reviewer",
+    "department": "Department of Consumer Affairs",
+    "region": "West Bengal",
+    "jurisdiction_level": "National",
+    "jurisdiction_name": "National"
+  },
+  {
+    "email": "admin1@digipramaan.local",
+    "username": "s.iyer",
+    "full_name": "Sunita Iyer",
+    "role": "Admin",
+    "department": "Department of Consumer Affairs",
+    "region": "Delhi",
+    "jurisdiction_level": "National",
+    "jurisdiction_name": "National"
+  }
+]

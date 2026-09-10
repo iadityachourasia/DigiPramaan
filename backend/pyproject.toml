@@ -1,0 +1,52 @@
+[project]
+name = "digipramaan-backend"
+version = "0.0.0"
+description = "DigiPramaan backend — Phase 0 infra + Phase 1 auth + Phase 2 scan/OCR"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.32",
+  "pydantic>=2.9",
+  "pydantic-settings>=2.6",
+  "sqlalchemy>=2.0",
+  "alembic>=1.13",
+  "psycopg[binary]>=3.2",
+  "boto3>=1.35",
+  "structlog>=24.4",
+  "httpx>=0.27",
+  "pyjwt[crypto]>=2.9",
+  # PaddleOCR go/no-go spike (Phase 2): GO, with one required workaround —
+  # this machine's paddlepaddle 3.3.1 CPU build crashes inside its oneDNN
+  # (mkldnn) inference path (NotImplementedError on ConvertPirAttribute2...);
+  # every PaddleOCR() construction in this codebase MUST pass
+  # enable_mkldnn=False (see app/services/ocr/paddle.py). Pulls in
+  # opencv-contrib-python as a transitive dependency, reused by
+  # app/services/image_quality.py rather than adding a second CV library.
+  "paddleocr>=3.7",
+  "paddlepaddle>=3.3",
+  "numpy>=1.26",
+  "google-genai>=0.3",
+  "python-multipart>=0.0.9",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3",
+  "pytest-asyncio>=0.24",
+  "respx>=0.21",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = "-m 'not integration'"
+markers = [
+  "integration: requires live infrastructure (Supabase Postgres, Backblaze B2). Run explicitly with `pytest -m integration`.",
+]

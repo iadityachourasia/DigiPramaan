@@ -1,0 +1,84 @@
+"""
+scan_sessions / evidence_images — the persisted pipeline.
+
+`ScanSession.stages` (JSONB, shaped exactly like the frontend's existing
+`PipelineStage[]`) is the ONLY source of truth for pipeline progress. The
+worker that runs OCR/extraction/rules must persist this column after every
+stage transition, never hold progress only in a running coroutine's local
+state — a process crash or restart must never lose what `GET
+/scans/{id}/pipeline` has already told a polling client.
+"""
+
+from __future__ import annotations
+
+import datetime
+import uuid
+
+from sqlalchemy import DateTime, ForeignKey, String
+from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.sql import func
+
+from app.db.base import Base
+
+
+class ScanSession(Base):
+    __tablename__ = "scan_sessions"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
+    )
+    created_by: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("profiles.id"), nullable=False
+    )
+    category: Mapped[str | None] = mapped_column(String, nullable=True)
+    region: Mapped[str | None] = mapped_column(String, nullable=True)
+    # Stable from creation, even before the record exists, so the tracker
+    # can link to it once ready — the same property PipelineRun.recordId
+    # already has in the current mock store.
+    #
+    # This FK and compliance_records.scan_session_id point at each other —
+    # a genuine circular reference (a scan produces a record; a record
+    # remembers which scan produced it). `create_all()` resolves this
+    # automatically for CREATE, but `drop_all()` cannot break the cycle
+    # without a named constraint to target with `DROP CONSTRAINT` — hence
+    # the explicit `name=` here (confirmed necessary by an actual failed
+    # downgrade against live Supabase, not by inspection alone).
+    record_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("compliance_records.id", name="fk_scan_sessions_record_id"),
+        nullable=True,
+    )
+    # PipelineStage[] — { id, state, summary?, failureReason? } per element,
+    # persisted after every transition (see module docstring).
+    stages: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    status: Mapped[str] = mapped_column(String, nullable=False, default="pending")
+    error: Mapped[str | None] = mapped_column(String, nullable=True)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class EvidenceImage(Base):
+    __tablename__ = "evidence_images"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
+    )
+    scan_session_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("scan_sessions.id"), nullable=False, index=True
+    )
+    angle: Mapped[str] = mapped_column(String, nullable=False)
+    storage_key: Mapped[str] = mapped_column(String, nullable=False)
+    content_hash: Mapped[str | None] = mapped_column(String, nullable=True)
+    # { checks: [...], overall_verdict: PASS|RECAPTURE_REQUIRED|REVIEW, ... }
+    # Retained even after a rejected image's bytes are deleted from storage —
+    # the quality metadata is an audit fact independent of whether the
+    # underlying object still exists.
+    quality_result: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    uploaded_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
