@@ -215,6 +215,28 @@ export function RecordDetailView({ recordId, locale }: RecordDetailViewProps) {
                 fieldLabel={tDeclarationField(line.fieldId)}
                 notDetectedLabel={t("notDetected")}
                 passedLabel={t("passed")}
+                recordId={record.id}
+                {...(() => {
+                  const check = record.extraction.fontSizeChecks?.find((f) => f.fieldId === line.fieldId);
+                  return check ? { fontSizeCheck: check } : {};
+                })()}
+                labels={{
+                  explainWithAi: t("explainWithAi"),
+                  explaining: t("explaining"),
+                  explainError: t("explainError"),
+                  summaryLabel: t("explanation.summary"),
+                  whatWasFoundLabel: t("explanation.whatWasFound"),
+                  whatIsMissingLabel: t("explanation.whatIsMissing"),
+                  legalContextLabel: t("explanation.legalContext"),
+                  evidenceExplanationLabel: t("explanation.evidenceExplanation"),
+                  officerGuidanceLabel: t("explanation.officerGuidance"),
+                  insufficientContextNote: t("explanation.insufficientContext"),
+                  measuredHeightLabel: t("fontMeasurement.measuredHeight"),
+                  requiredHeightLabel: t("fontMeasurement.requiredHeight"),
+                  calibrationMethodLabel: t("fontMeasurement.calibrationMethod"),
+                  confidenceLabel: t("fontMeasurement.confidence"),
+                  resultLabel: t("fontMeasurement.result"),
+                }}
                 {...(!line.passed && line.violationCategoryId
                   ? { violationLabel: violationCategory(line.violationCategoryId).category }
                   : {})}
