@@ -4,6 +4,8 @@ out/
 build/
 .env*.local
 .DS_Store
+Thumbs.db
+*.log
 *.tsbuildinfo
 next-env.d.ts
 qa-screenshots/
@@ -12,6 +14,7 @@ test-results/
 coverage/
 playwright-error.txt
 playwright-result.json
+.vercel/
 
 # Backend (Python/FastAPI)
 backend/.venv/

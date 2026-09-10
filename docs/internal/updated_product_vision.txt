@@ -1,0 +1,1606 @@
+You are continuing work on DigiPramaan, an SIH 2026 Legal Metrology compliance system.
+
+Repository:
+C:\SIH26\Digi-Pramaan
+
+You have already completed a code-verified context-building audit of the current repository.
+
+IMPORTANT:
+This message is NOT asking you to implement anything yet.
+
+Your task is to absorb and integrate the updated product vision described below into your existing mental model of DigiPramaan.
+
+Do not modify code.
+Do not modify documentation.
+Do not install packages.
+Do not create migrations.
+Do not refactor.
+Do not commit.
+Do not start backend implementation.
+
+Treat the current repository code as the source of truth for existing behavior.
+
+This message updates the PRODUCT AND BACKEND CONTEXT that all future architecture and implementation work must follow.
+
+==================================================
+1. CORE PRODUCT VISION
+==================================================
+
+DigiPramaan is not just a one-time packaged-commodity scanner.
+
+It is intended to become a complete Legal Metrology inspection, compliance, evidence, enforcement-follow-up, product intelligence, company intelligence, and risk-prioritization platform.
+
+The base SIH problem statement requires the system to:
+
+- scan packaged commodities
+- extract mandatory declarations
+- validate Legal Metrology compliance
+- detect missing/non-compliant declarations
+- check readability/font-size/placement where feasible
+- generate reports
+- preserve inspection history
+- provide dashboards
+- support officers and hierarchy users
+- provide search/retrieval
+- export PDF/editable reports
+
+DigiPramaan must satisfy all of those core requirements.
+
+However, the product now has FOUR CORE USPs that must be treated as first-class domain requirements:
+
+1. Company Compliance Profile
+2. Product Compliance DNA
+3. Compliance Follow-Through
+4. Smart Risk Alerts
+
+These are not optional future widgets.
+
+They should shape:
+
+- database design
+- domain entities
+- backend services
+- scan lifecycle
+- verification lifecycle
+- reports
+- manufacturer/company views
+- dashboard
+- analytics
+- activity/audit trail
+- APIs
+- authorization
+- testing
+- backend implementation phases
+
+==================================================
+2. FINAL SYSTEM POSITIONING
+==================================================
+
+The product positioning is:
+
+“DigiPramaan does not stop at detecting a non-compliant package. Every verified inspection contributes to a persistent Product Compliance DNA, builds a longitudinal Company Compliance Profile, drives Compliance Follow-Through from detection to resolution, and powers Smart Risk Alerts that help Legal Metrology officers prioritize enforcement.”
+
+A shorter technical positioning is:
+
+“AI extracts evidence; deterministic legal rules determine compliance; officers verify legal outcomes; historical intelligence prioritizes future enforcement.”
+
+This distinction is important and must remain preserved.
+
+==================================================
+3. FINAL END-TO-END PRODUCT FLOW
+==================================================
+
+The target end-to-end workflow is:
+
+Officer / Admin / Reviewer
+→ Landing Page
+→ Analyze Scan Product
+→ Login / Registration
+→ Main Dashboard
+→ Scan Product
+→ Upload/capture 3 required images:
+   - front
+   - back
+   - side / Principal Display Panel
+→ upload from PC/laptop OR camera OR mobile QR handoff
+→ temporary storage
+→ image quality inspection layer
+→ if quality fails:
+      reject image
+      delete from temporary storage
+      ask user to recapture/reupload
+→ if quality passes:
+      promote accepted image to permanent evidence storage
+→ PaddleOCR
+→ evaluate OCR confidence + mandatory-field completeness
+→ Gemini fallback OCR if required
+→ merge OCR outputs across all accepted images
+→ LLM converts OCR output into strict structured extraction JSON
+→ resolve company/legal-entity identity
+→ resolve product / product variant / batch identity
+→ deterministic Legal Metrology Rule Engine
+→ provisional compliance result
+→ officer reviews extracted fields
+→ officer corrects fields if needed
+→ rules automatically re-evaluate
+→ officer verifies
+→ freeze final verified compliance record
+→ update Product Compliance DNA
+→ update Company Compliance Profile
+→ create Violation Follow-Through case if actionable
+→ run Smart Risk Engine
+→ create/update Smart Risk Alerts
+→ generate immutable PDF/DOCX report
+→ update dashboard
+→ update analytics
+→ update history
+→ update manufacturer/company intelligence
+→ continue Compliance Follow-Through until resolution/closure
+
+IMPORTANT:
+The system no longer conceptually ends at report generation.
+
+The inspection lifecycle now continues into enforcement intelligence and follow-up.
+
+==================================================
+4. EXISTING FRONTEND STATE TO PRESERVE
+==================================================
+
+The current frontend is already substantially implemented.
+
+Existing areas include:
+
+- public landing page
+- login
+- authenticated shell
+- dashboard
+- scan wizard
+- front/back/side-PDP capture
+- mobile QR handoff
+- pipeline tracker
+- extraction verification
+- compliance records
+- product detail
+- analytics
+- manufacturer scorecards
+- reports
+- report history
+- PDF/DOCX exports
+- e-commerce workflow
+- grievance portal
+- activity log
+- profile
+- admin console
+- role-aware navigation
+- jurisdiction-aware views
+
+Do NOT assume we are rebuilding those screens from scratch.
+
+The backend must evolve underneath the existing application and preserve frontend contracts wherever practical.
+
+The four USPs should integrate into existing surfaces where possible instead of creating disconnected parallel systems.
+
+Recommended frontend evolution:
+
+Existing Manufacturer Scorecard
+→ Company Compliance Profile
+
+Existing Product Record Detail
+→ Product Compliance DNA + Follow-Through context
+
+Existing Repeat Violation / Dashboard alerts
+→ Smart Risk Alerts
+
+Existing Record / Violation lifecycle
+→ Compliance Follow-Through
+
+==================================================
+5. USP #1 — COMPANY COMPLIANCE PROFILE
+==================================================
+
+Definition:
+
+A longitudinal enforcement and compliance profile for a legal entity such as manufacturer, packer, importer, or relevant brand owner.
+
+It must NOT be only a static manufacturer scorecard.
+
+It should represent the historical behaviour of the entity across products, variants, batches, inspections, violations, and follow-up outcomes.
+
+The profile should eventually include:
+
+IDENTITY
+- canonical legal entity name
+- role(s):
+  - manufacturer
+  - packer
+  - importer
+  - brand owner where relevant
+- known addresses
+- identifiers if available
+- jurisdiction context
+
+PRODUCT PORTFOLIO
+- linked products
+- variants
+- batches
+- number of active/known products
+
+INSPECTION HISTORY
+- total verified inspections
+- compliant count
+- non-compliant count
+- needs-review count
+- historical compliance rate
+- trend over time
+
+VIOLATION INTELLIGENCE
+- violation breakdown
+- most common failed rules
+- repeat violations
+- severity distribution
+- recurring declaration issues
+- cross-product violation patterns
+
+FOLLOW-THROUGH
+- open cases
+- resolved cases
+- overdue cases
+- average resolution time
+- reinspection outcomes
+
+RISK
+- current risk score
+- risk level
+- contributing factors
+- active Smart Risk Alerts
+- historical risk trend
+
+IMPORTANT:
+All Company Compliance Profile metrics must come from one consistently viewer/jurisdiction-scoped data set.
+
+Do not calculate product count, compliance rate, violations, trends, and risk using different scoping paths.
+
+The current manufacturer scorecard is the natural frontend foundation for this concept.
+
+==================================================
+6. USP #2 — PRODUCT COMPLIANCE DNA
+==================================================
+
+Definition:
+
+A persistent digital compliance identity linking a product and its batches/variants to its declarations, inspections, evidence, violations, follow-up cases, and historical compliance behaviour.
+
+Product Compliance DNA is NOT just a hash and NOT just a report ID.
+
+It is a persistent domain model.
+
+Required conceptual hierarchy:
+
+Legal Entity
+→ Product
+→ Product Variant
+→ Batch
+→ Inspection
+
+Do not assume every inspection is the same batch.
+
+PRODUCT IDENTITY
+Should be persistent across inspections where identity is sufficiently established.
+
+Possible identity signals:
+
+strong:
+- GTIN
+- barcode
+- SKU
+- other trusted product identifier
+
+fallback matching:
+- normalized legal entity
+- brand
+- normalized product/common name
+- commodity category
+- net quantity
+- variant information
+
+An internal fingerprint may be generated from normalized values, for example:
+
+SHA256(
+  normalized_legal_entity
+  + normalized_brand
+  + normalized_product_name
+  + commodity_category
+  + normalized_net_quantity
+)
+
+However:
+This fingerprint is only a matching aid.
+
+It must NOT be treated as irrefutable legal identity.
+
+Identity matching should support uncertainty.
+
+Possible match statuses:
+
+EXACT_IDENTIFIER_MATCH
+HIGH_CONFIDENCE_MATCH
+POSSIBLE_MATCH
+NEW_PRODUCT
+MANUAL_CONFIRMATION_REQUIRED
+
+Product Compliance DNA should connect:
+
+- canonical product identity
+- legal entity
+- brand
+- commodity category
+- variant
+- net quantity
+- packaging characteristics
+- product identifiers
+- batches
+- inspections
+- front/back/PDP evidence
+- structured declarations
+- verified corrections
+- Legal Metrology rule results
+- violations
+- reports
+- follow-through cases
+- recurring violation history
+- current product-level risk
+- inspection timeline
+
+A strong Product Compliance DNA view should allow an officer to answer:
+
+- Has this product been inspected before?
+- Has this product failed the same rule before?
+- Did a later batch correct a previous violation?
+- Is the same SKU repeatedly non-compliant?
+- Which reports and evidence belong to this product?
+- Are there open follow-up cases?
+- What is this product’s current risk level?
+
+==================================================
+7. USP #3 — COMPLIANCE FOLLOW-THROUGH
+==================================================
+
+Definition:
+
+Track every verified actionable violation from detection through corrective action, response, reinspection, resolution, and closure.
+
+This is what turns DigiPramaan from a scanning/reporting tool into an enforcement workflow platform.
+
+IMPORTANT:
+Package compliance status and follow-through case status are DIFFERENT concepts.
+
+Example:
+
+Package compliance:
+NON_COMPLIANT
+
+Case lifecycle:
+ACTION_REQUIRED
+
+Do not merge those.
+
+Recommended MVP case lifecycle:
+
+OPEN
+→ UNDER_REVIEW
+→ ACTION_REQUIRED
+→ AWAITING_RESPONSE
+→ REINSPECTION_REQUIRED
+→ RESOLVED
+→ CLOSED
+
+Additional state:
+ESCALATED
+
+Case system should support:
+
+- case ID
+- originating verified compliance record
+- associated legal entity
+- associated product / batch if known
+- associated failed Legal Metrology rules
+- assigned officer
+- jurisdiction
+- priority
+- case status
+- corrective action
+- follow-up deadline
+- company/entity response
+- supporting evidence
+- reinspection request
+- reinspection result
+- linked later inspection
+- resolution
+- closure
+- escalation
+- immutable status history
+- audit trail
+
+Each status transition should be validated server-side.
+
+A reinspection should be linkable to:
+
+- original violation case
+- original compliance record
+- Product Compliance DNA
+- legal entity
+
+This lets the system establish whether the issue was actually corrected.
+
+==================================================
+8. USP #4 — SMART RISK ALERTS
+==================================================
+
+Definition:
+
+A deterministic enforcement-prioritization layer that analyzes verified historical compliance behaviour and identifies entities/products/cases that deserve officer attention.
+
+This is NOT the Legal Metrology Rule Engine.
+
+These must remain separate.
+
+Legal Rule Engine:
+determines whether one inspected package complies with applicable law.
+
+Risk Engine:
+determines which verified historical patterns should be prioritized for enforcement attention.
+
+Do NOT use an LLM to directly assign risk in the MVP.
+
+Risk logic should be deterministic and explainable.
+
+Potential MVP risk rules:
+
+REPEAT COMPANY VIOLATION
+If the same company has the same major/critical rule failure in multiple verified inspections within a defined period.
+
+REPEAT PRODUCT VIOLATION
+If the same Product Compliance DNA fails the same rule across multiple batches/inspections.
+
+MULTI-PRODUCT PATTERN
+If multiple different products from one company become non-compliant within a time window.
+
+DETERIORATING COMPLIANCE TREND
+If recent compliance rate materially deteriorates compared with earlier verified inspections.
+
+UNRESOLVED CASE
+If serious follow-through cases remain open.
+
+OVERDUE FOLLOW-UP
+If ACTION_REQUIRED / AWAITING_RESPONSE cases exceed their deadline.
+
+RECURRENT MAJOR VIOLATIONS
+If the entity repeatedly accumulates major/critical violations.
+
+RISK SCORE must remain separate from COMPLIANCE SCORE.
+
+Compliance Score:
+How compliant is this specific inspected package?
+
+Risk Score:
+How urgently should enforcement prioritize this historical entity/product/case?
+
+Potential risk dimensions:
+
+- severity of verified violations
+- repeat violation frequency
+- recency
+- unresolved case count
+- overdue follow-up
+- multi-product spread
+- deteriorating trend
+
+Possible score bands:
+
+0–29
+LOW
+
+30–59
+MODERATE
+
+60–79
+HIGH
+
+80–100
+CRITICAL
+
+This score should be explicitly described as an enforcement prioritization score, not a legal guilt score.
+
+A Smart Risk Alert should contain:
+
+- alert ID
+- subject type
+- subject ID
+- alert type
+- risk score
+- risk level
+- reason
+- contributing factors
+- supporting compliance record IDs
+- supporting violation IDs
+- supporting case IDs
+- generated_at
+- risk engine version
+- status
+
+Possible alert subjects:
+
+COMPANY
+PRODUCT
+PRODUCT_VARIANT
+BATCH
+FOLLOW_UP_CASE
+REGION if future analytics needs it
+
+Possible lifecycle:
+
+ACTIVE
+ACKNOWLEDGED
+RESOLVED
+DISMISSED
+EXPIRED
+
+==================================================
+9. RELATIONSHIP BETWEEN THE FOUR USPs
+==================================================
+
+These must not be implemented as four unrelated features.
+
+They form one intelligence loop:
+
+Verified Inspection
+↓
+Product Compliance DNA
+↓
+Company Compliance Profile
+↓
+Compliance Follow-Through
+↓
+Smart Risk Assessment
+↓
+Smart Risk Alerts
+↓
+Officer prioritization
+↓
+Future targeted inspection
+↓
+New Verified Inspection
+
+Conceptually:
+
+                     PRODUCT COMPLIANCE DNA
+                              |
+                              v
+                      Inspection History
+                              |
+                  +-----------+-----------+
+                  |                       |
+                  v                       v
+       COMPANY COMPLIANCE       COMPLIANCE FOLLOW-
+            PROFILE                 THROUGH
+                  |                       |
+                  +-----------+-----------+
+                              |
+                              v
+                    SMART RISK ALERTS
+                              |
+                              v
+                  Enforcement Prioritization
+
+This loop is a major innovation narrative of DigiPramaan.
+
+==================================================
+10. LEGAL METROLOGY RULE ENGINE REMAINS THE LEGAL CORE
+==================================================
+
+The four USPs must NOT weaken the deterministic legal architecture.
+
+The pipeline remains:
+
+Image
+→ OCR
+→ Structured Extraction
+→ Legal Rule Engine
+→ Human Verification
+→ Verified Compliance Record
+→ Intelligence layers
+
+The LLM must NOT decide legal compliance.
+
+The Smart Risk Engine must NOT alter historical legal decisions.
+
+The Product DNA layer must NOT alter historical verified records.
+
+Company Profile metrics must derive from verified facts.
+
+==================================================
+11. MVP LEGAL RULE SCOPE
+==================================================
+
+For the MVP, the Legal Metrology Rule Engine should prioritize important rules from the Legal Metrology (Packaged Commodities) Rules, 2011.
+
+Target scope:
+
+Rule 3
+- applicability
+
+Rule 6(1)
+- manufacturer/packer/importer declaration
+- common/generic commodity name
+- net quantity
+- month/year manufacture/packing/import
+- MRP/retail sale price
+- dimensions where relevant
+
+Rule 6(2)
+- consumer complaint contact
+
+Rule 2(m) + Rule 6
+- MRP wording
+- inclusive of taxes
+
+Rule 6(3)
+- sticker/alteration restrictions
+
+Rule 7
+- numeral/letter height
+- physical-scale limitation must be respected
+- if exact physical measurement cannot be established, produce NEEDS_REVIEW rather than fake precision
+
+Rule 8
+- Principal Display Panel
+- declaration placement
+- quantity whitespace where technically measurable
+
+Rule 9
+- legibility
+- prominence
+- contrast
+- wrapper visibility
+- English/Hindi requirement
+
+Rule 10
+- complete manufacturer/packer/importer address
+
+Rules 11, 12, 13
+- quantity semantics
+- correct units
+- SI units
+- prohibited misleading quantity wording
+
+Rule 5 / Second Schedule
+selected MVP categories:
+- biscuits
+- tea
+- coffee
+- cereals/pulses
+- edible oil
+- detergent
+- salt
+- soap
+- drinking/mineral water
+- soft drinks
+- cement
+- paint
+
+The architecture must allow future addition of more rules without rewriting the engine.
+
+==================================================
+12. UPDATED CORE DOMAIN MODEL
+==================================================
+
+Future backend architecture should explicitly account for the following major entities.
+
+IDENTITY / AUTH
+
+users
+roles
+permissions
+role_permissions
+jurisdictions
+user_postings
+sessions
+
+LEGAL ENTITY
+
+legal_entities
+legal_entity_roles
+legal_entity_aliases
+legal_entity_addresses
+legal_entity_identifiers
+
+PRODUCT COMPLIANCE DNA
+
+products
+product_aliases
+product_identifiers
+product_variants
+product_batches
+product_fingerprints
+product_inspection_links
+
+SCAN / PIPELINE
+
+scan_sessions
+scan_images
+image_quality_results
+pipeline_runs
+pipeline_stage_runs
+
+OCR
+
+ocr_runs
+ocr_blocks
+
+STRUCTURING
+
+structured_extractions
+extracted_fields
+field_corrections
+
+LEGAL COMPLIANCE
+
+rule_definitions
+rule_versions
+rule_threshold_versions
+compliance_evaluations
+compliance_rule_results
+violations
+compliance_records
+
+FOLLOW-THROUGH
+
+violation_cases
+violation_case_items
+case_status_history
+corrective_actions
+entity_responses
+case_deadlines
+reinspection_requests
+reinspection_links
+case_resolutions
+
+RISK INTELLIGENCE
+
+risk_rule_definitions
+risk_assessments
+risk_factors
+risk_alerts
+risk_alert_history
+
+REPORTS
+
+reports
+report_snapshots
+report_files
+
+GOVERNANCE
+
+audit_events
+case_assignments
+
+OTHER
+
+grievances
+ecommerce_ingestions
+notifications if justified later
+
+Do NOT create migrations yet.
+
+This is only updated context.
+
+==================================================
+13. UPDATED DOMAIN RELATIONSHIP
+==================================================
+
+Use this conceptual hierarchy:
+
+Legal Entity
+   |
+   +-- Product
+        |
+        +-- Product Variant
+             |
+             +-- Batch
+                  |
+                  +-- Inspection
+                       |
+                       +-- Evidence
+                       +-- OCR
+                       +-- Structured Extraction
+                       +-- Legal Rule Results
+                       +-- Violations
+                       +-- Compliance Record
+                       +-- Report
+                       |
+                       +-- Violation Case
+                            |
+                            +-- Corrective Action
+                            +-- Response
+                            +-- Reinspection
+                            +-- Resolution
+
+Then intelligence is derived:
+
+Product + Batches + Inspections
+→ Product Compliance DNA
+
+Legal Entity + Products + Verified Inspections
+→ Company Compliance Profile
+
+Verified Violations
+→ Compliance Follow-Through
+
+Company Profile + Product DNA + Follow-Through
+→ Smart Risk Engine
+→ Smart Risk Alerts
+
+==================================================
+14. POST-VERIFICATION PIPELINE
+==================================================
+
+The backend architecture should treat verification as the legal freezing point.
+
+Before verification:
+- AI extraction may change
+- fields may be corrected
+- rules may re-evaluate
+- provisional compliance may change
+
+At verification freeze:
+
+- final structured extraction
+- original AI values
+- corrected values
+- corrections
+- final rule results
+- violations
+- compliance score
+- score band
+- verified_by
+- verified_at
+- evidence references
+- evidence hashes
+- rule engine version
+- legal rule-set version
+- threshold version
+
+Then execute the intelligence pipeline:
+
+VERIFIED COMPLIANCE RECORD
+→ company/product identity association
+→ Product Compliance DNA update
+→ Company Compliance Profile aggregation
+→ actionable Violation Case creation
+→ Risk Assessment recalculation
+→ Smart Risk Alert evaluation
+→ immutable report creation
+→ dashboard/analytics refresh
+
+All downstream stages should be:
+
+- idempotent
+- auditable
+- failure-isolated
+
+Example:
+
+If Smart Risk calculation fails,
+the verified legal compliance record must remain valid.
+
+If report generation fails,
+the verified compliance record must remain valid.
+
+==================================================
+15. UPDATED PIPELINE STATES
+==================================================
+
+The processing lifecycle should conceptually distinguish:
+
+technical processing state
+
+from
+
+legal compliance state
+
+from
+
+follow-through case state.
+
+TECHNICAL PIPELINE examples:
+
+CREATED
+UPLOAD_IN_PROGRESS
+QUALITY_CHECKING
+IMAGE_REJECTED
+READY_FOR_OCR
+PADDLE_OCR_RUNNING
+FALLBACK_OCR_RUNNING
+OCR_COMPLETED
+STRUCTURING
+RULE_EVALUATION
+AWAITING_VERIFICATION
+VERIFIED
+POST_PROCESSING
+REPORT_READY
+FAILED
+
+LEGAL COMPLIANCE:
+
+PENDING
+COMPLIANT
+NON_COMPLIANT
+NEEDS_REVIEW
+NOT_APPLICABLE
+
+FOLLOW-THROUGH:
+
+OPEN
+UNDER_REVIEW
+ACTION_REQUIRED
+AWAITING_RESPONSE
+REINSPECTION_REQUIRED
+RESOLVED
+CLOSED
+ESCALATED
+
+RISK ALERT:
+
+ACTIVE
+ACKNOWLEDGED
+RESOLVED
+DISMISSED
+EXPIRED
+
+Do NOT overload one status field to represent all these different concepts.
+
+==================================================
+16. UPDATED DASHBOARD VISION
+==================================================
+
+The future dashboard should combine four types of intelligence.
+
+OPERATIONAL
+
+- recent scans
+- scans in progress
+- verification queue
+- reports
+- assigned cases
+
+LEGAL COMPLIANCE
+
+- compliant/non-compliant
+- compliance rate
+- violation breakdown
+- category trends
+
+ENFORCEMENT FOLLOW-THROUGH
+
+- open violation cases
+- overdue cases
+- cases awaiting response
+- reinspection queue
+- resolution rate
+
+RISK INTELLIGENCE
+
+- high-risk companies
+- high-risk products
+- active risk alerts
+- repeat violations
+- deteriorating compliance
+- overdue follow-up alerts
+
+A useful risk alert should explain WHY it exists.
+
+Example:
+
+HIGH RISK COMPANY
+ABC Consumer Products Pvt Ltd
+
+Risk Score: 82
+Level: CRITICAL
+
+Reason:
+- same Rule 6 violation in 4 verified inspections
+- 2 unresolved cases
+- compliance rate dropped 31% in 90 days
+
+Recommended:
+Prioritize for targeted inspection.
+
+==================================================
+17. UPDATED ANALYTICS VISION
+==================================================
+
+Existing analytics should eventually support:
+
+- compliance rate
+- violation trends
+- category distribution
+- region distribution
+- source distribution
+
+New intelligence metrics:
+
+- repeat violation rate
+- repeat offender companies
+- product recurrence rate
+- open violation cases
+- overdue case rate
+- average resolution time
+- reinspection success rate
+- company risk distribution
+- product risk distribution
+- risk trend
+- resolved vs unresolved violations
+
+Possible KPI:
+
+Compliance Follow-Through Rate
+
+resolved verified actionable violations
+/
+total verified actionable violations
+
+Possible KPI:
+
+Repeat Violation Rate
+
+repeat verified violations
+/
+total verified violations
+
+==================================================
+18. UPDATED REPORT VISION
+==================================================
+
+A single inspection report may include:
+
+- inspection metadata
+- product identity
+- company/legal entity identity
+- evidence
+- extracted declarations
+- officer corrections
+- Legal Metrology rule results
+- violations
+- compliance score
+- verification identity
+- Product Compliance DNA reference
+- prior related inspection summary
+- follow-through case reference
+- risk indicator where appropriate
+
+Company-level report may include:
+
+- Company Compliance Profile
+- product portfolio
+- inspection history
+- compliance trend
+- violation distribution
+- repeat violations
+- open follow-up cases
+- resolved cases
+- risk alerts
+- risk trend
+
+Reports must remain immutable after generation.
+
+==================================================
+19. UPDATED AUDIT EVENT MODEL
+==================================================
+
+Audit logging should eventually cover:
+
+SCAN_CREATED
+IMAGE_UPLOADED
+IMAGE_QUALITY_FAILED
+IMAGE_QUALITY_PASSED
+OCR_STARTED
+OCR_COMPLETED
+OCR_FALLBACK_USED
+EXTRACTION_STRUCTURED
+FIELD_CORRECTED
+RULE_ENGINE_EVALUATED
+NEEDS_REVIEW_FLAGGED
+RECORD_VERIFIED
+
+PRODUCT_MATCHED
+PRODUCT_CREATED
+PRODUCT_DNA_CREATED
+PRODUCT_DNA_UPDATED
+
+VIOLATION_CASE_CREATED
+CASE_STATUS_CHANGED
+CORRECTIVE_ACTION_REQUIRED
+ENTITY_RESPONSE_RECEIVED
+REINSPECTION_REQUESTED
+REINSPECTION_COMPLETED
+VIOLATION_RESOLVED
+CASE_CLOSED
+CASE_ESCALATED
+
+RISK_ASSESSMENT_UPDATED
+RISK_ALERT_CREATED
+RISK_ALERT_ACKNOWLEDGED
+RISK_ALERT_RESOLVED
+RISK_ALERT_DISMISSED
+
+REPORT_GENERATED
+REPORT_DOWNLOADED where appropriate
+
+CASE_REASSIGNED
+USER_DEACTIVATED
+THRESHOLD_CHANGED
+
+Audit history should eventually be append-only.
+
+==================================================
+20. UPDATED BACKEND SERVICE BOUNDARIES
+==================================================
+
+Future backend architecture should consider clear service boundaries such as:
+
+services/
+
+auth/
+authorization/
+jurisdiction/
+
+storage/
+
+image_quality/
+
+ocr/
+  provider.py
+  paddle.py
+  gemini.py
+  fallback_policy.py
+
+extraction/
+  structuring.py
+  schema_validation.py
+
+identity_resolution/
+  legal_entity_resolver.py
+  product_resolver.py
+
+rule_engine/
+  engine.py
+  registry.py
+  scoring.py
+  rules/
+
+compliance/
+verification/
+
+product_dna/
+
+company_profile/
+
+enforcement/
+  violation_case_service.py
+  follow_up_service.py
+  reinspection_service.py
+
+risk/
+  engine.py
+  registry.py
+  scoring.py
+  alerts.py
+  rules/
+
+reports/
+
+dashboard/
+analytics/
+
+audit/
+
+admin/
+grievance/
+ecommerce/
+
+The Legal Rule Engine must remain independent from Smart Risk logic.
+
+==================================================
+21. UPDATED API DOMAINS
+==================================================
+
+In addition to the existing current frontend/API concepts, future backend planning must now account for:
+
+PRODUCT DNA
+
+GET /api/v1/products
+GET /api/v1/products/{id}
+GET /api/v1/products/{id}/dna
+GET /api/v1/products/{id}/inspections
+GET /api/v1/products/{id}/batches
+
+COMPANY PROFILE
+
+GET /api/v1/entities
+GET /api/v1/entities/{id}
+GET /api/v1/entities/{id}/compliance-profile
+GET /api/v1/entities/{id}/products
+GET /api/v1/entities/{id}/violations
+GET /api/v1/entities/{id}/risk
+
+FOLLOW-THROUGH
+
+GET  /api/v1/cases
+GET  /api/v1/cases/{id}
+
+POST /api/v1/cases/{id}/actions
+POST /api/v1/cases/{id}/response
+POST /api/v1/cases/{id}/request-reinspection
+POST /api/v1/cases/{id}/resolve
+POST /api/v1/cases/{id}/close
+POST /api/v1/cases/{id}/escalate
+
+SMART RISK
+
+GET /api/v1/risk/alerts
+GET /api/v1/risk/alerts/{id}
+
+POST /api/v1/risk/alerts/{id}/acknowledge
+POST /api/v1/risk/alerts/{id}/resolve
+POST /api/v1/risk/alerts/{id}/dismiss
+
+GET /api/v1/entities/{id}/risk
+GET /api/v1/products/{id}/risk
+
+These are future conceptual APIs.
+
+Do not implement them yet.
+
+Existing frontend API compatibility should still be considered during architecture planning.
+
+==================================================
+22. CRITICAL SECURITY AND JURISDICTION RULES
+==================================================
+
+The newly-added intelligence features must obey the SAME server-side jurisdiction rules as the rest of the system.
+
+Jurisdiction must affect:
+
+- Product DNA
+- company profiles
+- follow-through cases
+- risk assessments
+- risk alerts
+- direct product access
+- direct company access
+- direct case access
+- dashboard aggregates
+- analytics
+
+A state officer must not infer national intelligence by manually entering entity/product/case IDs.
+
+Client-supplied:
+
+userId
+viewerId
+actorId
+
+must eventually be replaced by authenticated server-side identity.
+
+Risk computation must not accidentally aggregate records a viewer should not be allowed to see.
+
+However:
+consider carefully whether risk itself should be calculated globally and then projected/scoped to users, or recalculated only over viewer-visible facts.
+
+This is an architectural decision that must be made explicitly later.
+
+Do not assume.
+
+==================================================
+23. IMMUTABILITY REQUIREMENTS REMAIN CRITICAL
+==================================================
+
+Verified compliance facts must freeze.
+
+Historical compliance score and band must not drift.
+
+Generated reports must not drift.
+
+Product DNA should reference historical immutable inspections rather than rewriting them.
+
+Company profiles may be derived and recalculated because they are analytical views.
+
+Risk assessments may be recalculated because they are current intelligence.
+
+But each historical risk assessment should preserve:
+
+- evaluated_at
+- risk engine version
+- inputs/reference IDs
+- score
+- level
+
+Follow-through status history should be append-only.
+
+==================================================
+24. MVP VERSUS FUTURE SCOPE
+==================================================
+
+For SIH MVP:
+
+COMPANY COMPLIANCE PROFILE
+Implement:
+- historical inspections
+- compliance rate
+- products
+- violation distribution
+- repeat violations
+- open follow-up cases
+- risk summary
+
+PRODUCT COMPLIANCE DNA
+Implement:
+- persistent product identity
+- product/batch/inspection relationship
+- inspection history
+- recurring violation history
+- report/evidence association
+
+COMPLIANCE FOLLOW-THROUGH
+Implement:
+- violation case
+- status lifecycle
+- deadline
+- corrective action
+- response
+- reinspection link
+- resolution/closure
+
+SMART RISK ALERTS
+Implement deterministic rules for:
+- repeat company violations
+- repeat product violations
+- multi-product non-compliance
+- overdue follow-up
+- unresolved cases
+- deteriorating compliance
+
+Future scope only:
+
+- ML risk prediction
+- predictive enforcement models
+- graph/network analysis
+- geographic hotspot prediction
+- automated legal enforcement decisions
+- autonomous case closure
+- advanced package visual similarity
+- cross-state predictive risk models
+
+Do not present future concepts as currently implemented.
+
+==================================================
+25. UPDATED BACKEND PHASE ORDER
+==================================================
+
+The backend roadmap must now consider this dependency order:
+
+PHASE 0
+Current-state readiness fixes
+
+PHASE 1
+Backend foundation
+
+PHASE 2
+Core database/persistence
+
+PHASE 3
+Authentication/session/authorization/jurisdiction
+
+PHASE 4
+Legal Entity + Product Identity foundation
+
+PHASE 5
+Object storage + evidence lifecycle
+
+PHASE 6
+Persistent scan/pipeline state machine
+
+PHASE 7
+Image inspection
+
+PHASE 8
+PaddleOCR
+
+PHASE 9
+Gemini fallback
+
+PHASE 10
+LLM structuring
+
+PHASE 11
+Deterministic Legal Metrology Rule Engine
+
+PHASE 12
+Officer verification + frozen compliance record
+
+PHASE 13
+Product Compliance DNA
+
+PHASE 14
+Company Compliance Profile
+
+PHASE 15
+Compliance Follow-Through
+
+PHASE 16
+Smart Risk Engine + Alerts
+
+PHASE 17
+Immutable reports
+
+PHASE 18
+Dashboard + analytics + manufacturer/company intelligence integration
+
+PHASE 19
+Grievance/e-commerce integration
+
+PHASE 20
+Security + audit + observability + hardening
+
+PHASE 21
+SIH deployment/demo stabilization
+
+Do NOT implement any of these phases in this context-update session.
+
+==================================================
+26. IMPORTANT DESIGN PRINCIPLE
+==================================================
+
+The system should evolve as:
+
+AI/OCR
+      ↓
+Structured Evidence
+      ↓
+Legal Metrology Rule Engine
+      ↓
+Officer Verification
+      ↓
+Verified Compliance Record
+      ↓
++---------------------------+
+| Product Compliance DNA    |
+| Company Compliance Profile|
+| Compliance Follow-Through |
+| Smart Risk Intelligence   |
++---------------------------+
+      ↓
+Enforcement prioritization
+
+The four intelligence features consume VERIFIED legal facts.
+
+They do not replace legal evaluation.
+
+==================================================
+27. YOUR TASK NOW
+==================================================
+
+Do NOT produce an implementation plan yet unless necessary to explain an architectural conflict.
+
+Do NOT edit code.
+
+Do NOT start Phase 0.
+
+Your task is to:
+
+1. Absorb this updated product context.
+
+2. Compare it against your existing repository audit and current code mental model.
+
+3. Identify which current code concepts already support the four USPs.
+
+4. Identify which new domain concepts are genuinely missing.
+
+5. Identify any architectural conflict between this updated context and current code.
+
+6. Identify any places where current frontend terminology or existing types may become misleading once these concepts are implemented.
+
+7. Identify areas where we can extend existing functionality instead of creating duplicate systems.
+
+8. Identify any critical ambiguity that must be resolved before backend architecture is finalized.
+
+9. Do NOT make arbitrary technology decisions yet.
+
+10. Do NOT make code changes.
+
+==================================================
+28. REQUIRED RESPONSE
+==================================================
+
+Return a written “Updated Product Context Integration Audit”.
+
+Use these sections:
+
+A. Updated vision understood
+
+Summarize the final system in your own words so I can verify you understood it.
+
+B. Existing code that already supports each USP
+
+For each:
+
+- Company Compliance Profile
+- Product Compliance DNA
+- Compliance Follow-Through
+- Smart Risk Alerts
+
+identify:
+- existing pages/components/types/stores/routes that are useful foundations
+- what can be extended
+- what should not be duplicated
+
+C. New domain concepts required
+
+List what genuinely does not exist today.
+
+D. Current terminology/type mismatches
+
+Examples:
+- “manufacturer” versus broader “legal entity”
+- compliance status versus follow-through status
+- compliance score versus risk score
+- product record versus persistent product identity
+
+Identify all meaningful mismatches.
+
+E. Current architecture conflicts
+
+Identify anything in the present repository that would become problematic under this updated product model.
+
+F. Data-model implications
+
+Explain what new relationships now become necessary before database migrations are created.
+
+G. Frontend integration strategy
+
+Explain how the four USPs can be integrated into existing frontend surfaces instead of creating unrelated parallel pages.
+
+H. Backend implications
+
+Explain how these features change the previously understood backend architecture.
+
+I. Security/jurisdiction implications
+
+Identify how Product DNA, Company Profile, Follow-Through, and Risk must be scoped and authorized.
+
+J. Immutability implications
+
+Clearly distinguish:
+- immutable legal facts
+- mutable/derived intelligence
+- append-only history
+
+K. MVP boundary
+
+Clearly state what should actually be implemented for SIH and what should remain future scope.
+
+L. Critical unresolved decisions
+
+List only decisions that genuinely must be resolved before architecture planning/code begins.
+
+M. Updated mental model
+
+Give one final text/ASCII architecture showing how the entire DigiPramaan system now fits together.
+
+Do not propose implementation code.
+
+Do not modify the repository.
+
+End with:
+
+“Updated DigiPramaan product context integrated. Waiting for the next planning instruction.”
