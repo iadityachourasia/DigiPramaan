@@ -139,7 +139,7 @@ def to_checklist_and_violations(results: list[RuleResult]) -> tuple[list[dict], 
             continue
 
         if eff == RuleStatus.PASS:
-            row = {"fieldId": r.field_id, "passed": True, "value": _value_for(r)}
+            row = {"fieldId": r.field_id, "passed": True, "value": _value_for(r), "ruleId": r.rule_id}
             if r.resolution is not None:
                 row["detail"] = _detail_for(r)
             checklist.append(row)
@@ -148,18 +148,24 @@ def to_checklist_and_violations(results: list[RuleResult]) -> tuple[list[dict], 
             detail = _detail_for(r)
             checklist.append({
                 "fieldId": r.field_id, "passed": False, "value": _value_for(r),
-                "violationCategoryId": category_id, "detail": detail,
+                "violationCategoryId": category_id, "detail": detail, "ruleId": r.rule_id,
             })
             violations.append({
                 "categoryId": category_id,
                 "category": _VIOLATION_TAXONOMY[category_id]["category"],
                 "legalBasis": r.legal_basis,
                 "detail": detail,
+                # Additive, backend-internal only — not part of the frontend's
+                # exported Violation type, but lets Phase 6's report snapshot
+                # (services/reports/snapshot.py) look up a cached
+                # RuleExplanation for this specific violation without a
+                # fragile message/category match.
+                "ruleId": r.rule_id,
             })
         else:  # NEEDS_REVIEW or INSUFFICIENT_EVIDENCE, still unresolved
             checklist.append({
                 "fieldId": r.field_id, "passed": False, "value": _value_for(r),
-                "detail": r.message,
+                "detail": r.message, "ruleId": r.rule_id,
             })
 
     return checklist, violations

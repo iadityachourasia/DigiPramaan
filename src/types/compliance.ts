@@ -36,6 +36,14 @@ export interface DeclarationCheck {
    * below required 4 mm minimum". Empty for a plain missing-declaration failure.
    */
   detail?: string;
+  /**
+   * Phase 6 — the backend rule engine's own rule id (e.g. "rule_7_font_size"),
+   * present only for real-backend records. Lets "Explain with AI" call
+   * POST /records/{id}/violations/{ruleId}/explain without a frontend-side
+   * fieldId-to-ruleId table that would just duplicate the backend's own
+   * mapping. Always undefined for mock data.
+   */
+  ruleId?: string;
 }
 
 /** A resolved violation, ready to render in the Violation Summary. */

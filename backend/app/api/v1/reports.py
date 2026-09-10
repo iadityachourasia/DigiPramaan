@@ -95,7 +95,7 @@ def generate_report(
             detail="A report can only be generated for a Verified record",
         )
 
-    document = build_report_document(record, current_user, base_url=settings.cors_origin_list[0])
+    document = build_report_document(record, current_user, base_url=settings.cors_origin_list[0], db=db)
 
     try:
         pdf_bytes, docx_bytes = _render_pdf_and_docx(document)
