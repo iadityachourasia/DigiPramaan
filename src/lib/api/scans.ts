@@ -13,7 +13,8 @@ import type {
   ScanMetadata,
 } from "@/types";
 
-import { apiGet, apiUpload, isMockMode, type ApiResult } from "./client";
+import type { ComplianceRecord } from "@/types";
+import { apiGet, apiPost, apiUpload, isMockMode, type ApiResult } from "./client";
 
 /**
  * Lightweight response type for scan create/status.
@@ -78,6 +79,45 @@ export async function createScan(
   formData.append("metadata", JSON.stringify(request.metadata));
   formData.append("images", JSON.stringify(request.images));
   return apiUpload(API.scans.create, formData);
+}
+
+/* ------------------------------------------------------------------ *
+ * Phase 6 — Rule 7 manual calibration
+ * ------------------------------------------------------------------ *
+ * Real backend only, no mock equivalent (same convention as
+ * productDna.ts/cases.ts) — establishes SCALE ONLY, never perspective
+ * correction (see backend's measurement/font_height.py docstring).
+ */
+
+export interface CalibrationPoint {
+  x: number;
+  y: number;
+}
+
+export interface SubmitCalibrationRequest {
+  /** Which captured angle the officer clicked the two points on — the
+   * backend derives the real evidence image id from the field's own OCR
+   * evidence and cross-checks it matches this angle. */
+  angle: "front" | "back" | "side_pdp";
+  fieldId: "netQuantity" | "retailSalePrice";
+  knownDimensionMm: number;
+  startPoint: CalibrationPoint;
+  endPoint: CalibrationPoint;
+  isEmbossed?: boolean;
+}
+
+export function submitCalibration(
+  scanId: string,
+  request: SubmitCalibrationRequest
+): Promise<ApiResult<ComplianceRecord>> {
+  return apiPost(API.scans.calibrate(scanId), {
+    angle: request.angle,
+    field_id: request.fieldId,
+    known_dimension_mm: request.knownDimensionMm,
+    start_point: request.startPoint,
+    end_point: request.endPoint,
+    is_embossed: request.isEmbossed ?? false,
+  });
 }
 
 export async function fetchScan(id: string): Promise<ApiResult<ScanResponse>> {

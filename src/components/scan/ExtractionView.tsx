@@ -5,6 +5,9 @@ import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 
 import { Alert } from "@/components/ui/Alert";
+import { Checkbox } from "@/components/ui/Checkbox";
+import { Select } from "@/components/ui/Select";
+import { TextField } from "@/components/ui/TextField";
 import { EmptyState } from "@/components/shared";
 import { useRouter } from "@/i18n/navigation";
 import { ROUTES } from "@/lib/constants";
@@ -12,7 +15,7 @@ import { useAuth, useComplianceRecord, usePermission } from "@/lib/hooks";
 import type { DeclarationFieldId, ExtractedDeclaration } from "@/types";
 
 import { ExtractionPanel } from "./ExtractionPanel";
-import { ImageViewer } from "./ImageViewer";
+import { ImageViewer, type ImagePoint } from "./ImageViewer";
 import { SourceImageDrawer } from "./SourceImageDrawer";
 
 export interface ExtractionViewProps {
@@ -52,12 +55,25 @@ export function ExtractionView({ recordId }: ExtractionViewProps) {
     verify,
     flagNeedsReview,
     retryOcr,
+    calibrate,
   } = useComplianceRecord(recordId, demoZeroDeclarations);
 
   const [activeAngle, setActiveAngle] = useState<Angle>("front");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerAngle, setDrawerAngle] = useState<Angle>("front");
   const [reopened, setReopened] = useState(false);
+
+  // Phase 6 — Rule 7 manual calibration panel state.
+  const [calibrationActive, setCalibrationActive] = useState(false);
+  const [calibrationFieldId, setCalibrationFieldId] = useState<"netQuantity" | "retailSalePrice">(
+    "retailSalePrice"
+  );
+  const [calibrationDimension, setCalibrationDimension] = useState("");
+  const [calibrationEmbossed, setCalibrationEmbossed] = useState(false);
+  const [calibrationPoints, setCalibrationPoints] = useState<[ImagePoint, ImagePoint] | null>(null);
+  const [calibrationResetToken, setCalibrationResetToken] = useState(0);
+  const [calibrationSubmitting, setCalibrationSubmitting] = useState(false);
+  const [calibrationError, setCalibrationError] = useState(false);
 
   if (notFound) {
     return (
@@ -110,6 +126,29 @@ export function ExtractionView({ recordId }: ExtractionViewProps) {
   function handleFlag() {
     if (!user) return;
     flagNeedsReview(user.id);
+  }
+
+  async function handleSubmitCalibration() {
+    const dimension = Number(calibrationDimension);
+    if (!calibrationPoints || !calibrationDimension || !(dimension > 0)) return;
+    setCalibrationSubmitting(true);
+    setCalibrationError(false);
+    const ok = await calibrate({
+      angle: activeAngle,
+      fieldId: calibrationFieldId,
+      knownDimensionMm: dimension,
+      startPoint: calibrationPoints[0],
+      endPoint: calibrationPoints[1],
+      isEmbossed: calibrationEmbossed,
+    });
+    setCalibrationSubmitting(false);
+    if (ok) {
+      setCalibrationActive(false);
+      setCalibrationPoints(null);
+      setCalibrationResetToken((n) => n + 1);
+    } else {
+      setCalibrationError(true);
+    }
   }
 
   return (
@@ -183,7 +222,98 @@ export function ExtractionView({ recordId }: ExtractionViewProps) {
             activeAngle={activeAngle}
             onActiveAngleChange={setActiveAngle}
             labels={{ angle: angleLabel, zoomIn: t("zoomIn"), zoomOut: t("zoomOut") }}
+            calibrationActive={calibrationActive}
+            calibrationResetToken={calibrationResetToken}
+            onCalibrationPoints={setCalibrationPoints}
           />
+
+          {!readOnly &&
+          record.checklist.some((c) => c.fieldId === "fontSize" && !c.passed) ? (
+            <section aria-labelledby="calibration-heading" className="ux4g-card ux4g-card-outline ux4g-mt-m">
+              <div className="ux4g-card-body lmcs-page-section-block">
+                <h3 id="calibration-heading" className="ux4g-title-s-strong">
+                  {t("calibration.heading")}
+                </h3>
+                <p className="ux4g-body-s-default ux4g-text-neutral-secondary">
+                  {t("calibration.instructions")}
+                </p>
+                {calibrationError ? (
+                  <Alert severity="error" title={t("calibration.errorTitle")}>
+                    {t("calibration.errorBody")}
+                  </Alert>
+                ) : null}
+
+                <Select
+                  id="calibration-field"
+                  label={t("calibration.fieldLabel")}
+                  value={calibrationFieldId}
+                  onChange={(e) =>
+                    setCalibrationFieldId(e.target.value as "netQuantity" | "retailSalePrice")
+                  }
+                  options={[
+                    { label: tDeclarationField("retailSalePrice"), value: "retailSalePrice" },
+                    { label: tDeclarationField("netQuantity"), value: "netQuantity" },
+                  ]}
+                />
+                <TextField
+                  id="calibration-dimension"
+                  label={t("calibration.dimensionLabel")}
+                  hint={t("calibration.dimensionHint")}
+                  type="number"
+                  min={1}
+                  value={calibrationDimension}
+                  onChange={(e) => setCalibrationDimension(e.target.value)}
+                />
+                <Checkbox
+                  id="calibration-embossed"
+                  label={t("calibration.embossedLabel")}
+                  checked={calibrationEmbossed}
+                  onChange={(e) => setCalibrationEmbossed(e.target.checked)}
+                />
+
+                {calibrationActive ? (
+                  <>
+                    <p className="ux4g-body-s-default">
+                      {calibrationPoints
+                        ? t("calibration.pointsSet")
+                        : t("calibration.clickTwoPoints")}
+                    </p>
+                    <div className="lmcs-record-detail-actions">
+                      <button
+                        type="button"
+                        className="ux4g-btn ux4g-btn-primary ux4g-btn-sm"
+                        disabled={!calibrationPoints || !calibrationDimension || calibrationSubmitting}
+                        onClick={handleSubmitCalibration}
+                      >
+                        {calibrationSubmitting
+                          ? t("calibration.submitting")
+                          : t("calibration.submit")}
+                      </button>
+                      <button
+                        type="button"
+                        className="ux4g-btn ux4g-btn-outline-primary ux4g-btn-sm"
+                        onClick={() => {
+                          setCalibrationActive(false);
+                          setCalibrationPoints(null);
+                          setCalibrationResetToken((n) => n + 1);
+                        }}
+                      >
+                        {tCommon("cancel")}
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    className="ux4g-btn ux4g-btn-outline-primary ux4g-btn-sm"
+                    onClick={() => setCalibrationActive(true)}
+                  >
+                    {t("calibration.start")}
+                  </button>
+                )}
+              </div>
+            </section>
+          ) : null}
         </section>
 
         <section aria-labelledby="declarations-heading">

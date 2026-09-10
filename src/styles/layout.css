@@ -1031,6 +1031,31 @@
   transform: scale(1.8);
 }
 
+.lmcs-image-viewer-calibration-frame {
+  position: relative;
+  display: block;
+  width: 100%;
+}
+
+.lmcs-image-viewer-calibration-frame img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.lmcs-image-viewer-calibration-marker {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  margin-left: -7px;
+  margin-top: -7px;
+  border-radius: var(--ux4g-radius-full);
+  background: var(--ux4g-color-primary-600);
+  border: var(--ux4g-border-width-sm) solid var(--ux4g-bg-neutral);
+  box-shadow: var(--ux4g-shadow-l1);
+  pointer-events: none;
+}
+
 .lmcs-source-image-drawer-img {
   display: block;
   width: 100%;
@@ -1202,6 +1227,38 @@
 
 .lmcs-checklist-row-badge {
   display: flex;
+}
+
+.lmcs-checklist-row-explain {
+  align-self: flex-start;
+}
+
+.lmcs-checklist-row-explanation {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-xs);
+  padding: var(--ux4g-padding-s);
+}
+
+.lmcs-checklist-row-explanation-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-2xs);
+}
+
+.lmcs-checklist-row-measurement {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--ux4g-gap-row-2xs) var(--ux4g-gap-column-s);
+  margin: 0;
+}
+
+.lmcs-checklist-row-measurement dt {
+  font-weight: var(--ux4g-font-weight-medium);
+}
+
+.lmcs-checklist-row-measurement dd {
+  margin: 0;
 }
 
 .lmcs-evidence-gallery {

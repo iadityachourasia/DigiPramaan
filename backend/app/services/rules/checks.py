@@ -38,7 +38,13 @@ from __future__ import annotations
 import re
 
 from app.services.extraction.schema import EvidenceRef, ExtractedField, StructuredExtraction
+from app.services.measurement.font_height import MIN_MEASUREMENT_CONFIDENCE, FontMeasurementResult
 from app.services.normalization import parse_quantity_to_base_units
+from app.services.rules.rule7_thresholds import (
+    INSUFFICIENT_LEGAL_VALIDATION_MESSAGE,
+    get_required_height_mm,
+    get_rule7_threshold_entry,
+)
 from app.services.rules.types import RuleResult, RuleStatus
 
 _TAX_INCLUSIVE_PATTERN = re.compile(
@@ -386,16 +392,64 @@ def check_rule_8_pdp_presence(extraction: StructuredExtraction) -> RuleResult:
     )
 
 
-def check_rule_7_font_size() -> RuleResult:
-    """ALWAYS INSUFFICIENT_EVIDENCE. No physical calibration hardware
-    exists at MVP — a millimetre measurement is never fabricated from a
-    photograph. This is a hard, deliberate requirement, not a placeholder
-    to fill in later without calibration hardware to back it."""
+def check_rule_7_font_size(
+    measurement: FontMeasurementResult | None = None, is_embossed: bool = False
+) -> RuleResult:
+    """Phase 6: real measurement, gated behind an officer-submitted manual
+    calibration (see measurement/font_height.py — that module does the
+    actual image I/O/OpenCV work; this function stays pure, only comparing
+    already-computed numbers). Omitting `measurement` entirely reproduces
+    the original Phase 3 behavior exactly: INSUFFICIENT_EVIDENCE.
+
+    PASS/FAIL requires BOTH a reliable measurement AND a legally-validated
+    threshold (rule7_thresholds.py) — these are deliberately independent
+    gates. A reliable measurement against an unvalidated threshold is
+    NEEDS_REVIEW, never a guessed PASS/FAIL (see that module's own
+    docstring on why a code comment is not legal authority)."""
+    base = {
+        "rule_id": "rule_7_font_size", "rule_name": "Numeral/letter height (MRP/net quantity)",
+        "field_id": "fontSize", "legal_basis": "Rule 7",
+    }
+
+    if measurement is None or measurement.status == "insufficient_evidence":
+        return RuleResult(
+            **base, status=RuleStatus.INSUFFICIENT_EVIDENCE,
+            message="Font/numeral height cannot be measured from a photograph without a "
+                    "valid officer calibration — submit a known package dimension and the "
+                    "corresponding image points to enable measurement.",
+        )
+
+    if measurement.status in ("insufficient_calibration", "unreliable_geometry"):
+        reason = measurement.evidence.get("reason", measurement.status)
+        return RuleResult(
+            **base, status=RuleStatus.NEEDS_REVIEW,
+            message=f"Calibration submitted but not reliable enough to measure from: {reason}.",
+        )
+
+    if measurement.confidence < MIN_MEASUREMENT_CONFIDENCE:
+        return RuleResult(
+            **base, status=RuleStatus.NEEDS_REVIEW,
+            message=f"Measured font height ({measurement.measured_height_mm:.2f}mm) with low "
+                    f"confidence ({measurement.confidence:.2f}) — the detected character strokes "
+                    "were too few or too inconsistent to trust automatically.",
+        )
+
+    threshold_entry = get_rule7_threshold_entry()
+    if not threshold_entry.get("validated", False):
+        return RuleResult(
+            **base, status=RuleStatus.NEEDS_REVIEW,
+            message=INSUFFICIENT_LEGAL_VALIDATION_MESSAGE,
+            value=f"{measurement.measured_height_mm:.2f}mm",
+        )
+
+    required_mm = get_required_height_mm(is_embossed)
+    passed = measurement.measured_height_mm >= required_mm
     return RuleResult(
-        rule_id="rule_7_font_size", rule_name="Numeral/letter height (MRP/net quantity)",
-        field_id="fontSize", status=RuleStatus.INSUFFICIENT_EVIDENCE, legal_basis="Rule 7",
-        message="Font/numeral height cannot be measured from a photograph without physical "
-                "calibration — requires manual verification with a scale.",
+        **base, status=RuleStatus.PASS if passed else RuleStatus.FAIL,
+        value=f"{measurement.measured_height_mm:.2f}mm",
+        message=f"Measured height {measurement.measured_height_mm:.2f}mm "
+                f"{'meets' if passed else 'is below'} the required {required_mm:.1f}mm minimum"
+                f"{' (embossed/blown/moulded)' if is_embossed else ''}.",
     )
 
 
@@ -456,6 +510,8 @@ def run_all_rule_checks(
     category: str | None = None,
     image_quality_results: list | None = None,
     total_ocr_blocks: int = 0,
+    font_measurement: FontMeasurementResult | None = None,
+    is_embossed: bool = False,
 ) -> list[RuleResult]:
     """The single orchestration function that knows the full rule roster.
     Kept separate from each individual pure check so tests (and officer
@@ -484,6 +540,6 @@ def run_all_rule_checks(
         check_rules_11_13_quantity_unit(extraction.net_quantity, extraction.quantity_unit_expression),
         check_rule_9_language(extraction.language_detected),
         check_rule_8_pdp_presence(extraction),
-        check_rule_7_font_size(),
+        check_rule_7_font_size(font_measurement, is_embossed),
         check_rule_6_3_stub(),
     ]

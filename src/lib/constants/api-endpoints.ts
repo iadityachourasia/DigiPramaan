@@ -21,6 +21,7 @@ export const API = {
     pipeline: (scanId: string) => `/scans/${scanId}/pipeline` as const,
     pipelineRetry: (scanId: string, stageId: string) =>
       `/scans/${scanId}/pipeline/${stageId}/retry` as const,
+    calibrate: (scanId: string) => `/scans/${scanId}/calibration` as const,
     mobileSession: {
       create: "/scans/mobile-session",
       poll: (token: string) => `/scans/mobile-session/${token}` as const,
@@ -37,6 +38,8 @@ export const API = {
     flagNeedsReview: (id: string) => `/records/${id}/flag-review` as const,
     flagEnforcement: (id: string) => `/records/${id}/flag-enforcement` as const,
     retryEnrichment: (id: string) => `/records/${id}/retry-enrichment` as const,
+    explainViolation: (recordId: string, ruleId: string) =>
+      `/records/${recordId}/violations/${ruleId}/explain` as const,
     archive: (id: string) => `/records/${id}/archive` as const,
     bulkNeedsReview: "/records/bulk/needs-review",
   },

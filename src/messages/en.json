@@ -565,6 +565,21 @@
     "notFoundTitle": "Record not found",
     "notFoundBody": "This compliance record could not be found. It may not exist, or the link may be incorrect.",
     "sourceImageHeading": "Source image",
+    "calibration": {
+      "heading": "Rule 7 — measure font height",
+      "instructions": "Enter one known physical dimension of the package (e.g. the label width in millimetres), then click the two corresponding points on the image below. Capture the label approximately front-facing — this does not correct for an angled photo, only for scale.",
+      "fieldLabel": "Which declaration to measure",
+      "dimensionLabel": "Known dimension (mm)",
+      "dimensionHint": "The real physical distance between the two points you'll click, in millimetres.",
+      "embossedLabel": "This declaration is blown, moulded or embossed onto the container",
+      "start": "Start calibration",
+      "clickTwoPoints": "Click the two points on the image spanning the known dimension.",
+      "pointsSet": "Points set. Submit to measure.",
+      "submit": "Submit calibration",
+      "submitting": "Measuring…",
+      "errorTitle": "Calibration failed",
+      "errorBody": "Could not submit this calibration. Confirm the dimension is positive and try again."
+    },
     "declarationsHeading": "Extracted declarations",
     "overallConfidence": "{percentage}% overall extraction confidence",
     "notDetected": "Not detected",
@@ -734,6 +749,25 @@
     "checklistHeading": "Declaration checklist",
     "notDetected": "Not detected",
     "passed": "Passed",
+    "explainWithAi": "Explain with AI",
+    "explaining": "Explaining…",
+    "explainError": "Could not generate an explanation. Try again.",
+    "explanation": {
+      "summary": "Summary",
+      "whatWasFound": "What was found",
+      "whatIsMissing": "What is missing or wrong",
+      "legalContext": "Legal context",
+      "evidenceExplanation": "Evidence explanation",
+      "officerGuidance": "Officer guidance",
+      "insufficientContext": "The available context was not enough to explain this fully."
+    },
+    "fontMeasurement": {
+      "measuredHeight": "Measured height",
+      "requiredHeight": "Required height",
+      "calibrationMethod": "Calibration method",
+      "confidence": "Confidence",
+      "result": "Result"
+    },
     "sourceHeading": "Source & extracted data",
     "sourceImage": {
       "angle": {

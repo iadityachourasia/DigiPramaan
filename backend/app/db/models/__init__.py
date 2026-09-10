@@ -12,6 +12,7 @@ from app.db.models.legal_entity import LegalEntity
 from app.db.models.product import Product, ProductInspectionLink
 from app.db.models.report import Report
 from app.db.models.risk_alert import RiskAlert
+from app.db.models.rule_explanation import RuleExplanation
 from app.db.models.scan import EvidenceImage, ScanSession
 from app.db.models.user_profile import Profile
 
@@ -25,6 +26,7 @@ __all__ = [
     "ProductInspectionLink",
     "Report",
     "RiskAlert",
+    "RuleExplanation",
     "EvidenceImage",
     "ScanSession",
     "Profile",

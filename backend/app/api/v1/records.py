@@ -54,20 +54,15 @@ from app.db.models import (
     ViolationCase,
 )
 from app.db.session import get_db
-from app.services.extraction.adapter import to_extraction_result
 from app.services.extraction.schema import ComplianceEvidenceBundle, ExtractedField
 from app.services.intelligence_loop import (
     EnrichmentSkipped,
     recompute_risk_for_record_subjects,
     run_post_verification_loop,
 )
-from app.services.rules.aggregate import (
-    carry_forward_resolutions,
-    compute_compliance_score,
-    compute_legal_status,
-)
+from app.services.rules.aggregate import compute_compliance_score, compute_legal_status
 from app.services.records.serialize import to_frontend_record
-from app.services.rules.checks import run_all_rule_checks
+from app.services.rules.apply import reapply_rules
 from app.services.rules.frontend_adapter import to_checklist_and_violations
 from app.services.rules.types import RuleResolution, RuleStatus
 from app.services.scope import apply_officer_scope
@@ -184,7 +179,6 @@ def correct_declaration(
         )
 
     bundle = ComplianceEvidenceBundle.model_validate(record.evidence_bundle)
-    previous_rule_results = bundle.rule_results
     internal_attr = _FRONTEND_TO_INTERNAL_FIELD[body.field_id]
     current_field: ExtractedField | None = getattr(bundle.structured_extraction, internal_attr)
     updated_field = ExtractedField(
@@ -197,28 +191,12 @@ def correct_declaration(
     )
     setattr(bundle.structured_extraction, internal_attr, updated_field)
 
-    # Re-run the ENTIRE rule engine rather than computing which rules are
+    # Re-run the ENTIRE rule engine via the shared helper (also used by
+    # Phase 6's calibration endpoint) rather than computing which rules are
     # "affected" by one field — these are pure, cheap functions, and
     # re-running all of them is simpler and safer than partial invalidation.
-    # Reuses the SAME image-quality/OCR-block-count evidence already
-    # persisted in the bundle (no re-OCR) so the mandatory-missing
-    # adequate-evidence judgment (checks.py's CORE PRINCIPLE) stays
-    # consistent with what the pipeline originally saw.
-    rule_results = run_all_rule_checks(
-        bundle.structured_extraction, category=record.category,
-        image_quality_results=bundle.image_quality_results, total_ocr_blocks=len(bundle.ocr_blocks),
-    )
-    # A correction to one field must never silently discard an officer's
-    # earlier resolution on an unrelated, still-ambiguous rule.
-    rule_results = carry_forward_resolutions(rule_results, previous_rule_results)
-    bundle.rule_results = rule_results
-    legal_status = compute_legal_status(rule_results)
-    score_result = compute_compliance_score(rule_results)
-    checklist, violations = to_checklist_and_violations(rule_results)
-    if legal_status == "Not Applicable":
-        violations = []
-
-    extraction_result = to_extraction_result(str(record.scan_session_id), bundle.structured_extraction)
+    result = reapply_rules(record, bundle)
+    extraction_result = result["extraction_result"]
     for decl in extraction_result["declarations"]:
         if decl["fieldId"] == body.field_id:
             decl["corrected"] = True
@@ -226,11 +204,11 @@ def correct_declaration(
 
     record.evidence_bundle = bundle.model_dump()
     record.extraction = extraction_result
-    record.checklist = checklist
-    record.violations = violations
-    record.compliance_status = legal_status
-    record.compliance_score = score_result["value"]
-    record.compliance_band = score_result["band"]
+    record.checklist = result["checklist"]
+    record.violations = result["violations"]
+    record.compliance_status = result["legal_status"]
+    record.compliance_score = result["score_result"]["value"]
+    record.compliance_band = result["score_result"]["band"]
     record.product_name_observed = extraction_result["declarations"][1]["value"]
     record.manufacturer_name_observed = extraction_result["declarations"][0]["value"]
     db.commit()
