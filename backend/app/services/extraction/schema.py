@@ -63,6 +63,13 @@ class ImageQualitySummary(BaseModel):
     angle: str
     overall_verdict: str
     reason: str | None = None
+    # Phase 7 — the raw per-check list (QualityCheck.model_dump() — name/
+    # passed/score/threshold/verdict), additive and defaulted empty so every
+    # existing consumer of this collapsed summary is unaffected. Lets Rule 9
+    # reason about which specific signal (blur/darkness/overexposure/
+    # resolution) drove a REVIEW/RECAPTURE_REQUIRED verdict, not just the
+    # collapsed verdict string.
+    checks: list[dict] = []
 
 
 class Point(BaseModel):

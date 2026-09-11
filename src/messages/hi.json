@@ -2,7 +2,7 @@
   "_meta": {
     "note": "Scaffolded locale. Values still identical to en.json are untranslated.",
     "generatedBy": "scripts/sync-locales.mjs",
-    "untranslatedCount": 1131,
+    "untranslatedCount": 1141,
     "untranslated": [
       "app.descriptor",
       "app.department",
@@ -80,6 +80,10 @@
       "declarationField.countryOfOrigin",
       "declarationField.consumerCareDetails",
       "declarationField.fontSize",
+      "declarationField.addressCompleteness",
+      "declarationField.quantityUnitExpression",
+      "declarationField.languageReadability",
+      "declarationField.pdpDeclarationPresence",
       "common.actions.save",
       "common.actions.cancel",
       "common.actions.retry",
@@ -536,6 +540,12 @@
       "recordDetail.fontMeasurement.calibrationMethod",
       "recordDetail.fontMeasurement.confidence",
       "recordDetail.fontMeasurement.result",
+      "recordDetail.viewEvidence",
+      "recordDetail.reportHistory.heading",
+      "recordDetail.reportHistory.empty",
+      "recordDetail.reportHistory.error",
+      "recordDetail.reportHistory.generatedOn",
+      "recordDetail.reportHistory.download",
       "recordDetail.sourceHeading",
       "recordDetail.sourceImage.angle.front",
       "recordDetail.sourceImage.angle.back",
@@ -1259,7 +1269,11 @@
     "retailSalePrice": "Retail sale price (MRP), inclusive of all taxes",
     "countryOfOrigin": "Country of origin",
     "consumerCareDetails": "Consumer care details",
-    "fontSize": "Font size and readability"
+    "fontSize": "Font size and readability",
+    "addressCompleteness": "Complete manufacturer/packer/importer address",
+    "quantityUnitExpression": "Quantity/unit expression",
+    "languageReadability": "Declaration readability",
+    "pdpDeclarationPresence": "Principal display panel declaration placement"
   },
   "common": {
     "actions": {
@@ -1905,6 +1919,14 @@
       "calibrationMethod": "Calibration method",
       "confidence": "Confidence",
       "result": "Result"
+    },
+    "viewEvidence": "View Evidence",
+    "reportHistory": {
+      "heading": "Report history",
+      "empty": "No reports have been generated for this record yet.",
+      "error": "Could not load report history.",
+      "generatedOn": "Generated {date}",
+      "download": "Download {format}"
     },
     "sourceHeading": "Source & extracted data",
     "sourceImage": {

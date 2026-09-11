@@ -13,14 +13,20 @@ import type { CaptureSlotAngle, UploadedImage } from "@/types";
  * options.
  *
  * Phase 6: an OPTIONAL calibration mode (`calibrationActive`) for Rule 7's
- * manual two-point calibration. Absent (the default, and RecordDetailView's
- * only use of this component), the viewer behaves exactly as before —
- * click zooms. When active, the zoom-toggle is disabled and clicks are
- * instead collected as the two points spanning a known physical dimension,
- * converted from on-screen to the image's NATURAL pixel resolution (the
- * same coordinate space PaddleOCR's bboxes already live in) via
- * `naturalWidth`/`getBoundingClientRect()` ratio math — the zoomed CSS
- * scale would otherwise silently corrupt this.
+ * manual two-point calibration. Absent (the default), the viewer behaves
+ * exactly as before — click zooms. When active, the zoom-toggle is disabled
+ * and clicks are instead collected as the two points spanning a known
+ * physical dimension, converted from on-screen to the image's NATURAL pixel
+ * resolution (the same coordinate space PaddleOCR's bboxes already live in)
+ * via `naturalWidth`/`getBoundingClientRect()` ratio math.
+ *
+ * Phase 7: an INDEPENDENT optional `highlightBbox` — an outline drawn over
+ * the normal (non-calibration) zoom branch using the exact same
+ * natural-pixel-to-percentage math, so a checklist row's cited OCR region
+ * can be shown on the correct image. `calibrationActive` and
+ * `highlightBbox` are mutually exclusive by construction (calibration only
+ * ever comes from the Extraction page, highlighting only from Record
+ * Detail) — the calibration branch below is untouched.
  */
 
 export interface ImagePoint {
@@ -43,6 +49,8 @@ export interface ImageViewerProps {
   onCalibrationPoints?: (points: [ImagePoint, ImagePoint]) => void;
   /** Bump to clear any collected-but-unsubmitted calibration points (e.g. after submit). */
   calibrationResetToken?: number;
+  /** Phase 7 — natural-pixel [x0,y0,x1,y1] to outline on the active image. Ignored while calibrating. */
+  highlightBbox?: [number, number, number, number];
 }
 
 const ANGLES: readonly Extract<CaptureSlotAngle, "front" | "back" | "side_pdp">[] = [
@@ -59,6 +67,7 @@ export function ImageViewer({
   calibrationActive = false,
   onCalibrationPoints,
   calibrationResetToken,
+  highlightBbox,
 }: ImageViewerProps) {
   const [zoomed, setZoomed] = useState(false);
   const [points, setPoints] = useState<ImagePoint[]>([]);
@@ -93,12 +102,22 @@ export function ImageViewer({
     }
   }
 
-  function handleCalibrationImageLoad(event: React.SyntheticEvent<HTMLImageElement>) {
+  function handleImageLoad(event: React.SyntheticEvent<HTMLImageElement>) {
     setNaturalSize({
       width: event.currentTarget.naturalWidth,
       height: event.currentTarget.naturalHeight,
     });
   }
+
+  const highlightStyle =
+    highlightBbox && naturalSize
+      ? {
+          left: `${(highlightBbox[0] / naturalSize.width) * 100}%`,
+          top: `${(highlightBbox[1] / naturalSize.height) * 100}%`,
+          width: `${((highlightBbox[2] - highlightBbox[0]) / naturalSize.width) * 100}%`,
+          height: `${((highlightBbox[3] - highlightBbox[1]) / naturalSize.height) * 100}%`,
+        }
+      : null;
 
   return (
     <div className="lmcs-image-viewer">
@@ -138,7 +157,7 @@ export function ImageViewer({
                 src={active.url}
                 alt={active.altText}
                 onClick={handleCalibrationClick}
-                onLoad={handleCalibrationImageLoad}
+                onLoad={handleImageLoad}
                 style={{ cursor: points.length < 2 ? "crosshair" : "default" }}
               />
               {naturalSize
@@ -163,8 +182,11 @@ export function ImageViewer({
               onClick={() => setZoomed((v) => !v)}
               aria-label={zoomed ? labels.zoomOut : labels.zoomIn}
             >
-              {/* eslint-disable-next-line @next/next/no-img-element -- placeholder/object-URL asset, not one next/image is meant to optimize. */}
-              <img src={active.url} alt={active.altText} />
+              {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions, @next/next/no-img-element -- onLoad is a lifecycle event (natural image dimensions become known), not a user interaction; placeholder/object-URL asset, not one next/image is meant to optimize. */}
+              <img src={active.url} alt={active.altText} onLoad={handleImageLoad} />
+              {highlightStyle ? (
+                <span className="lmcs-image-viewer-highlight-box" style={highlightStyle} aria-hidden="true" />
+              ) : null}
             </button>
           )
         ) : null}
