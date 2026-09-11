@@ -115,17 +115,17 @@ def _extract_open_graph(soup: BeautifulSoup, source_url: str) -> ParsedListing |
 
 def _extract_img_fallback(soup: BeautifulSoup, source_url: str) -> ParsedListing:
     warnings = ["No Open Graph or schema.org Product markup found — using <img> tags only."]
-    image_urls: list[str] = []
+    found: list[tuple[str, str | None]] = []
     for img in soup.find_all("img"):
         src = img.get("src") or img.get("data-src")
         if not src or src.startswith("data:") or src.lower().endswith(".svg"):
             continue
-        image_urls.append(src)
-        if len(image_urls) >= _MAX_IMAGES:
+        found.append((src, img.get("alt") or None))
+        if len(found) >= _MAX_IMAGES:
             break
 
     title = soup.title.string if soup.title else None
-    images = [ParsedImage(url=urljoin(source_url, url)) for url in image_urls]
+    images = [ParsedImage(url=urljoin(source_url, url), alt=alt) for url, alt in found]
     return ParsedListing(
         source_url=source_url,
         title=title,

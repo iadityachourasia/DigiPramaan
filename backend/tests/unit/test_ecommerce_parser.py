@@ -86,6 +86,7 @@ def test_img_tag_fallback_when_no_structured_markup():
     assert result.parse_method == "img_fallback"
     assert result.title == "Plain Page"
     assert [img.url for img in result.images] == ["https://shop.example.com/images/product-photo.jpg"]
+    assert result.images[0].alt == "Product"
     assert result.warnings
 
 
