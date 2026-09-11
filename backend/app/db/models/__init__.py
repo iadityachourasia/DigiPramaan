@@ -14,7 +14,7 @@ from app.db.models.product_identifier import ProductIdentifier
 from app.db.models.report import Report
 from app.db.models.risk_alert import RiskAlert
 from app.db.models.rule_explanation import RuleExplanation
-from app.db.models.scan import EvidenceImage, ScanSession
+from app.db.models.scan import EcommerceBatch, EvidenceImage, ScanSession
 from app.db.models.user_profile import Profile
 
 __all__ = [
@@ -29,6 +29,7 @@ __all__ = [
     "Report",
     "RiskAlert",
     "RuleExplanation",
+    "EcommerceBatch",
     "EvidenceImage",
     "ScanSession",
     "Profile",

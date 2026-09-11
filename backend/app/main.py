@@ -24,6 +24,7 @@ from app.api.v1.auth import router as auth_router
 from app.api.v1.cases import router as cases_router
 from app.api.v1.companies import router as companies_router
 from app.api.v1.dashboard import router as dashboard_router
+from app.api.v1.ecommerce import router as ecommerce_router
 from app.api.v1.explanations import router as explanations_router
 from app.api.v1.health import router as health_router
 from app.api.v1.internal import router as internal_router
@@ -66,6 +67,7 @@ def create_app() -> FastAPI:
     app.include_router(auth_router, prefix="/api/v1")
     app.include_router(internal_router, prefix="/api/v1")
     app.include_router(scans_router, prefix="/api/v1")
+    app.include_router(ecommerce_router, prefix="/api/v1")
     app.include_router(records_router, prefix="/api/v1")
     app.include_router(products_router, prefix="/api/v1")
     app.include_router(companies_router, prefix="/api/v1")

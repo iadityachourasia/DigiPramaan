@@ -35,6 +35,11 @@ dependencies = [
   # region *detection* (services/barcode/detect.py); zxing-cpp supplies the
   # actual *decode*, on both the full image and every detected crop.
   "zxing-cpp>=2.2,<3",
+  # E-commerce listing parsing (Phase 9): JSON-LD/Open Graph/<img> extraction
+  # from a fetched listing page. A minimal, well-known HTML parser — no
+  # headless browser, no site-specific scraper; see
+  # services/ecommerce/parser.py's own docstring on that scope boundary.
+  "beautifulsoup4>=4.12",
 ]
 
 [project.optional-dependencies]

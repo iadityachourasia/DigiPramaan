@@ -99,6 +99,17 @@ class Settings(BaseSettings):
     # https://ai.google.dev/gemini-api/docs/models for the current name.
     gemini_model: str = "gemini-3.6-flash"
 
+    # --- E-commerce Listing Scanner (Phase 9) ---
+    # Guardrails for fetching a user-submitted URL server-side — see
+    # services/ecommerce/ssrf_guard.py and fetcher.py. Conservative
+    # defaults; not exposed in the frontend, only tunable via env for an
+    # operator who needs to relax/tighten them for a specific deployment.
+    ecommerce_fetch_timeout_seconds: float = 8.0
+    ecommerce_max_html_bytes: int = 2_000_000
+    ecommerce_max_image_bytes: int = 8_000_000
+    ecommerce_max_redirects: int = 3
+    ecommerce_max_category_listings: int = 20
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]

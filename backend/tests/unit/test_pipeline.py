@@ -46,6 +46,8 @@ def _fake_scan_session(stages):
     s.error = None
     s.category = "Packaged Food"
     s.region = "Maharashtra"
+    s.source = "Officer-Scanned"
+    s.ecommerce_listing_url = None
     s.created_by = uuid.uuid4()
     s.created_at = None
     s.record_id = None
