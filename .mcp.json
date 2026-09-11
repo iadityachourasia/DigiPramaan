@@ -1,10 +1,19 @@
 {
   "_pinning_note": "Pinned to 0.0.80 (current published version as of this edit) instead of @latest, per MCP_AND_TOOLING_SETUP.md's rule to never run @latest unattended. IMPORTANT: microsoft/playwright-mcp's maintainers have stated they don't yet have a story for reproducible/interoperable version pinning (see microsoft/playwright-mcp#917) — the package's own docs default to @latest everywhere. Treat this pinned version as needing periodic manual review, not a set-once fix; re-check the published version before bumping rather than switching back to @latest.",
+  "_21st_dev_note": "MCP_AND_TOOLING_SETUP.md §1 lists 21st MCP (Magic) as explicitly excluded for this project — its components come from a generic React/Tailwind registry, not ux4g-web-components, and must never be used as a component/token source for pages in this repo. Added anyway at explicit user request; pinned to 0.2.3 (current published version as of this edit), same anti-@latest rule as playwright above. The API key is read from the TWENTY_FIRST_API_KEY environment variable, never written into this file, since .mcp.json is committed to a public repo.",
   "mcpServers": {
     "playwright": {
       "type": "stdio",
       "command": "npx",
       "args": ["-y", "@playwright/mcp@0.0.80"]
+    },
+    "21st-dev-magic": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@21st-dev/magic@0.2.3"],
+      "env": {
+        "API_KEY": "${TWENTY_FIRST_API_KEY}"
+      }
     }
   }
 }
