@@ -1864,3 +1864,24 @@
 .lmcs-grievance-status-card {
   max-width: 32rem;
 }
+
+/* ─── Report verification (Phase 13, public QR-verification page) ─── */
+
+.lmcs-report-verification-card {
+  max-width: 32rem;
+}
+
+.lmcs-report-verification-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-s);
+  margin-block: var(--ux4g-margin-m) 0;
+}
+
+.lmcs-report-verification-hash {
+  display: flex;
+  align-items: center;
+  gap: var(--ux4g-gap-column-xs);
+  flex-wrap: wrap;
+  word-break: break-all;
+}

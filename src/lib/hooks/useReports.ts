@@ -225,13 +225,13 @@ export function useReportBuilder(): UseReportBuilderResult {
     if (!run || run.status !== "generating") return;
 
     const interval = setInterval(() => {
-      pollReportRun(run.id).then((result) => {
+      pollReportRun(run.id, user ? { userId: user.id, userName: user.fullName } : undefined).then((result) => {
         if (result.ok) setRun(result.data);
       });
     }, POLL_INTERVAL_MS);
 
     return () => clearInterval(interval);
-  }, [run]);
+  }, [run, user]);
 
   /** Once the run completes, fetch the assembled document for the preview. */
   const completedReportId = run?.status === "completed" ? run.report?.id : undefined;
@@ -311,11 +311,15 @@ export function useReportBuilder(): UseReportBuilderResult {
   const retryStage = useCallback(
     async (stageId: ReportStageId) => {
       if (!run) return;
-      const result = await retryReportStageRequest(run.id, stageId);
+      const result = await retryReportStageRequest(
+        run.id,
+        stageId,
+        user ? { userId: user.id, userName: user.fullName } : undefined
+      );
       if (result.ok) setRun(result.data);
       else setRequestError(true);
     },
-    [run]
+    [run, user]
   );
 
   const reset = useCallback(() => {

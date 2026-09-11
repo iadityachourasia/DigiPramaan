@@ -19,8 +19,10 @@ import type {
   ReportBlockReason,
   ReportDocument,
   ReportFormat,
+  ReportGenerationStatus,
   ReportRun,
   ReportScope,
+  ReportStage,
   ReportStageId,
 } from "@/types";
 import { apiGet, apiPost } from "./client";
@@ -40,42 +42,79 @@ import type { ApiResult } from "./client";
 interface RecordReportSummary {
   id: string;
   complianceRecordId: string;
-  referenceCode: string;
+  referenceCode: string | null;
   generatedAt: string;
   generatedBy: string | null;
+  status: "PENDING" | "GENERATING" | "COMPLETED" | "FAILED";
+  currentStage: "collecting" | "rendering" | "finalising" | null;
+  errorMessage: string | null;
+  reportFormatVersion: string;
   formats: string[];
 }
 
-function terminalRun(report: RecordReportSummary, generated: GeneratedReport): ReportRun {
-  return {
-    id: report.id,
-    status: "completed",
-    stages: [
-      { id: "collecting", state: "completed" },
-      { id: "rendering", state: "completed" },
-      { id: "finalising", state: "completed" },
-    ],
-    report: generated,
-  };
-}
-
+/**
+ * Phase 13: `generate_report()`'s response no longer carries a real
+ * `referenceCode` (that only exists once `build_report_snapshot()` runs
+ * inside the async job) — a fresh PENDING row's summary has `referenceCode:
+ * null`. `toGeneratedReport()` needs SOME string for `GeneratedReport.
+ * referenceCode`/`.name` before that point, so it falls back to the report
+ * id itself, which every caller already treats as opaque.
+ */
 function toGeneratedReport(
   report: RecordReportSummary,
   scope: Extract<ReportScope, { kind: "record" }>,
   userId: string,
   userName: string
 ): GeneratedReport {
+  const reference = report.referenceCode ?? report.id;
   return {
     id: report.id,
-    name: `Report — ${report.referenceCode.slice(0, 8)}`,
+    name: `Report — ${reference.slice(0, 8)}`,
     scope,
     formats: report.formats.map((f) => f.toUpperCase()) as ReportFormat[],
     generatedAt: report.generatedAt,
     generatedByUserId: report.generatedBy ?? userId,
     generatedByUserName: userName,
-    referenceCode: report.referenceCode,
+    referenceCode: reference,
     rowCount: 1,
     recordIds: [scope.recordId],
+  };
+}
+
+/**
+ * Maps the real backend's async lifecycle (`status`/`currentStage`/
+ * `errorMessage`) onto the existing `ReportRun`/`ReportStage` shape
+ * `ReportProgressTracker.tsx` already renders generically — the same
+ * three-stage vocabulary (`REPORT_STAGE_IDS`) exists on both sides
+ * specifically so no UI change is needed here, only this mapping.
+ */
+function mapBackendStatusToRun(
+  report: RecordReportSummary,
+  scope: Extract<ReportScope, { kind: "record" }>,
+  userId: string,
+  userName: string
+): ReportRun {
+  const stageOrder: ReportStageId[] = ["collecting", "rendering", "finalising"];
+  const currentIndex = report.currentStage ? stageOrder.indexOf(report.currentStage) : -1;
+
+  const status: ReportGenerationStatus =
+    report.status === "COMPLETED" ? "completed" : report.status === "FAILED" ? "failed" : "generating";
+
+  const stages: ReportStage[] = stageOrder.map((id, index) => {
+    if (status === "completed") return { id, state: "completed" };
+    if (status === "failed" && (currentIndex === -1 || index === currentIndex)) {
+      return { id, state: "failed", failureReason: report.errorMessage ?? "Report generation failed." };
+    }
+    if (index < currentIndex) return { id, state: "completed" };
+    if (index === currentIndex) return { id, state: "in_progress" };
+    return { id, state: "pending" };
+  });
+
+  return {
+    id: report.id,
+    status,
+    stages,
+    ...(status === "completed" ? { report: toGeneratedReport(report, scope, userId, userName) } : {}),
   };
 }
 
@@ -228,10 +267,14 @@ export interface GenerateReportResponse {
   rowCount: number;
 }
 
-/** Runs the generation SYNCHRONOUSLY for a real record-scope report (fast —
- * one record, no async job needed) and synthesizes an already-terminal
- * `ReportRun` — the existing 500ms polling effect in useReports.ts needs no
- * change, since it already no-ops once `status !== "generating"`. */
+/**
+ * Kicks off REAL async generation for a record-scope report: the backend
+ * returns immediately with a PENDING row (202), and the returned `ReportRun`
+ * starts with every stage `pending` — genuinely in flight, not a faked
+ * terminal state. `useReports.ts`'s existing polling effect (already
+ * generic on `run.status === "generating"`) picks it up from there with no
+ * changes of its own.
+ */
 async function generateRecordReport(
   scope: Extract<ReportScope, { kind: "record" }>,
   userId: string,
@@ -239,8 +282,7 @@ async function generateRecordReport(
 ): Promise<ApiResult<GenerateReportResponse>> {
   const result = await apiPost<RecordReportSummary>(API.recordReports.generate(scope.recordId), {});
   if (!result.ok) return result;
-  const generated = toGeneratedReport(result.data, scope, userId, userName);
-  return { ok: true, data: { run: terminalRun(result.data, generated), rowCount: 1 } };
+  return { ok: true, data: { run: mapBackendStatusToRun(result.data, scope, userId, userName), rowCount: 1 } };
 }
 
 export function generateReport(
@@ -252,15 +294,50 @@ export function generateReport(
   return postJson("/api/reports/generate", params);
 }
 
-/** Real record-scope runs are already terminal (see generateRecordReport) — this only ever polls a mock run. */
-export function pollReportRun(runId: string): Promise<ApiResult<ReportRun>> {
+/**
+ * `context` carries the display fields (`userId`/`userName`) needed to
+ * build the eventual `GeneratedReport` once a real backend run completes —
+ * `scope` itself is never needed as an input: `complianceRecordId` is
+ * already on every backend response, so it's reconstructed from that
+ * rather than threaded through the whole call chain. Optional and ignored
+ * for mock (System B) runs, which stay on the unchanged mock route.
+ */
+export async function pollReportRun(
+  runId: string,
+  context?: { userId: string; userName: string }
+): Promise<ApiResult<ReportRun>> {
+  if (isRealBackendReportId(runId)) {
+    const result = await apiGet<RecordReportSummary>(API.recordReports.detail(runId));
+    if (!result.ok) return result;
+    const scope: Extract<ReportScope, { kind: "record" }> = {
+      kind: "record",
+      recordId: result.data.complianceRecordId,
+    };
+    return {
+      ok: true,
+      data: mapBackendStatusToRun(result.data, scope, context?.userId ?? "", context?.userName ?? ""),
+    };
+  }
   return requestJson(`/api/reports/runs/${runId}`);
 }
 
-export function retryReportStage(
+export async function retryReportStage(
   runId: string,
-  stageId: ReportStageId
+  stageId: ReportStageId,
+  context?: { userId: string; userName: string }
 ): Promise<ApiResult<ReportRun>> {
+  if (isRealBackendReportId(runId)) {
+    const result = await apiPost<RecordReportSummary>(API.recordReports.retry(runId), {});
+    if (!result.ok) return result;
+    const scope: Extract<ReportScope, { kind: "record" }> = {
+      kind: "record",
+      recordId: result.data.complianceRecordId,
+    };
+    return {
+      ok: true,
+      data: mapBackendStatusToRun(result.data, scope, context?.userId ?? "", context?.userName ?? ""),
+    };
+  }
   return postJson(`/api/reports/runs/${runId}/retry/${stageId}`, {});
 }
 
