@@ -42,7 +42,7 @@ def _check_database() -> tuple[bool, str | None]:
 def _check_object_storage() -> tuple[bool, str | None]:
     settings = get_settings()
     try:
-        get_s3_client(settings).head_bucket(Bucket=settings.s3_bucket)
+        get_s3_client(settings, fast_fail=True).head_bucket(Bucket=settings.s3_bucket)
         return True, None
     except (BotoCoreError, ClientError) as exc:
         return False, str(exc)
