@@ -1,10 +1,10 @@
 "use client";
 
-import Image from "next/image";
 import { useTranslations } from "next-intl";
 
 import { Link } from "@/i18n/navigation";
 import { ROUTES } from "@/lib/constants";
+import { DigiPramaanLogo } from "@/components/shared";
 
 /**
  * PublicNavbar — the landing page's own navigation.
@@ -36,14 +36,7 @@ export function PublicNavbar() {
     <header className="lmcs-navbar">
       <div className="ux4g-container lmcs-navbar-inner">
         <Link href="/" className="lmcs-navbar-brand">
-          <span className="lmcs-brand-mark lmcs-brand-mark-compact">
-            <Image
-              src="/images/digi-pramaan-logo.png"
-              alt=""
-              width={28}
-              height={28}
-            />
-          </span>
+          <DigiPramaanLogo size="md" className="lmcs-brand-mark-compact" />
           <span className="lmcs-navbar-wordmark">
             <span className="ux4g-title-m-strong">{t("app.name")}</span>
             <span className="ux4g-body-xs-default ux4g-text-neutral-secondary">
