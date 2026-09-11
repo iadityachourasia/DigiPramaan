@@ -1,14 +1,17 @@
 /**
  * ecommerce.ts — E-commerce Listing Scanner API client (page 8).
  *
- * Always real HTTP to this app's own Route Handlers, never gated by
- * `isMockMode()` — same reasoning as the pipeline and record surfaces: a
- * batch has to survive the officer navigating away and coming back (08 §4
- * step 5), which a client-side mock branch cannot do.
+ * Real mode calls the real backend (Phase 9's actual fetch/parse pipeline,
+ * SSRF-guarded, never trusting a client-supplied image list) via
+ * `API.ecommerce.*`. Mock mode keeps calling this app's own Next.js Route
+ * Handlers/in-memory store completely unchanged — same `isMockMode()`
+ * branch every other real API client in this file's siblings already uses
+ * (`scans.ts` is the reference pattern).
  */
 
+import { API } from "@/lib/constants";
 import type { EcommerceBatch, ScanMetadata, ScrapedListing } from "@/types";
-import type { ApiResult } from "./client";
+import { apiGet, apiPost, isMockMode, type ApiResult } from "./client";
 
 async function requestJson<T>(path: string, init?: RequestInit): Promise<ApiResult<T>> {
   try {
@@ -49,7 +52,10 @@ export function scrapeUrl(
   url: string,
   mode: "single" | "bulk"
 ): Promise<ApiResult<ScrapeResponse>> {
-  return postJson("/api/ecommerce/scrape", { url, mode });
+  if (isMockMode()) {
+    return postJson("/api/ecommerce/scrape", { url, mode });
+  }
+  return apiPost(API.ecommerce.scrapePreview, { url, mode });
 }
 
 export interface ScanListingResponse {
@@ -57,28 +63,54 @@ export interface ScanListingResponse {
   recordId: string;
 }
 
-export function scanListing(
+export async function scanListing(
   listing: ScrapedListing,
   metadata: ScanMetadata,
   scannedByUserId: string
 ): Promise<ApiResult<ScanListingResponse>> {
-  return postJson("/api/ecommerce/scan", { listing, metadata, scannedByUserId });
+  if (isMockMode()) {
+    return postJson("/api/ecommerce/scan", { listing, metadata, scannedByUserId });
+  }
+  // The real endpoint fetches the listing's images itself — it never
+  // trusts the client's own scraped image list — so only the URL and
+  // scan metadata are sent, not `listing.images`.
+  const result = await apiPost<{ id: string; recordId: string }>(API.ecommerce.scan, {
+    url: listing.listingUrl,
+    category: metadata.category,
+    region: metadata.region,
+    manufacturerName: metadata.manufacturerName,
+  });
+  if (!result.ok) return result;
+  return { ok: true, data: { scanId: result.data.id, recordId: result.data.recordId } };
 }
 
-export function createBatch(
+export async function createBatch(
   sourceUrl: string,
   listings: readonly ScrapedListing[],
   selectedIds: readonly string[],
   metadata: ScanMetadata,
   scannedByUserId: string
 ): Promise<ApiResult<EcommerceBatch>> {
-  return postJson("/api/ecommerce/batches", {
+  if (isMockMode()) {
+    return postJson("/api/ecommerce/batches", {
+      sourceUrl,
+      listings,
+      selectedIds,
+      metadata,
+      scannedByUserId,
+    });
+  }
+  const selected = new Set(selectedIds);
+  const selectedUrls = listings.filter((l) => selected.has(l.id)).map((l) => l.listingUrl);
+  const result = await apiPost<{ batch: EcommerceBatch }>(API.ecommerce.batch, {
     sourceUrl,
-    listings,
-    selectedIds,
-    metadata,
-    scannedByUserId,
+    selectedUrls,
+    category: metadata.category,
+    region: metadata.region,
+    manufacturerName: metadata.manufacturerName,
   });
+  if (!result.ok) return result;
+  return { ok: true, data: result.data.batch };
 }
 
 export interface BatchResponse {
@@ -88,5 +120,8 @@ export interface BatchResponse {
 }
 
 export function fetchBatch(batchId: string): Promise<ApiResult<BatchResponse>> {
-  return requestJson(`/api/ecommerce/batches/${batchId}`);
+  if (isMockMode()) {
+    return requestJson(`/api/ecommerce/batches/${batchId}`);
+  }
+  return apiGet(API.ecommerce.batchDetail(batchId));
 }
