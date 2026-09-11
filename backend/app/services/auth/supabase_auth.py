@@ -56,3 +56,40 @@ def sign_in_with_password(email: str, password: str, settings) -> dict:
         )
 
     return response.json()
+
+
+def refresh_access_token(refresh_token: str, settings) -> dict:
+    """Exchanges a refresh token for a new access token, via Supabase's own
+    refresh grant — the WCAG 2.2.1 "extend before expiry" flow's only
+    server-side piece. Returns the same shape `sign_in_with_password` does
+    ({access_token, expires_at, refresh_token, user: {...}}); raises
+    SupabaseAuthError (401) if the refresh token is expired/invalid/already
+    rotated, or (503) if the auth service itself could not be reached."""
+    url = f"{settings.resolved_supabase_url}/auth/v1/token"
+    headers = {
+        "apikey": settings.supabase_anon_key,
+        "Content-Type": "application/json",
+    }
+
+    try:
+        response = httpx.post(
+            url,
+            params={"grant_type": "refresh_token"},
+            headers=headers,
+            json={"refresh_token": refresh_token},
+            timeout=8.0,
+        )
+    except httpx.HTTPError as exc:
+        raise SupabaseAuthError(
+            "Could not reach the authentication service", status_code=503
+        ) from exc
+
+    if response.status_code in (400, 401):
+        raise SupabaseAuthError("Session could not be refreshed", status_code=401)
+    if response.status_code != 200:
+        raise SupabaseAuthError(
+            f"Authentication service returned an unexpected status: {response.status_code}",
+            status_code=503,
+        )
+
+    return response.json()

@@ -15,6 +15,12 @@ class LoginRequest(BaseModel):
     rememberMe: bool = False
 
 
+class RefreshRequest(BaseModel):
+    refresh_token: str = Field(alias="refreshToken")
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
 class UserResponse(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
@@ -35,6 +41,11 @@ class UserResponse(BaseModel):
 class SessionResponse(BaseModel):
     user: UserResponse
     token: str
+    # Used only to call POST /auth/refresh before this session's own token
+    # expires (WCAG 2.2.1 / BRD A-11) — never sent anywhere except back to
+    # this same endpoint. Supabase rotates it on every refresh, so the
+    # frontend must always store whichever one came back most recently.
+    refresh_token: str = Field(alias="refreshToken", serialization_alias="refreshToken")
     expires_at: str = Field(alias="expiresAt", serialization_alias="expiresAt")
 
     model_config = ConfigDict(populate_by_name=True)

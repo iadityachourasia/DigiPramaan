@@ -90,6 +90,53 @@ def test_real_login_and_me_round_trip() -> None:
         assert me_response.json()["email"] == settings.integration_test_email
 
 
+def test_real_refresh_round_trip() -> None:
+    """WCAG 2.2.1's "Stay signed in" action, exercised against the real
+    Supabase project: log in for a real refresh token, then exchange it for
+    a new access token via POST /auth/refresh."""
+    settings = get_settings()
+    if not settings.integration_test_email or not settings.integration_test_password:
+        pytest.skip("INTEGRATION_TEST_EMAIL/PASSWORD not set in .env")
+
+    _ensure_profile_exists(settings.integration_test_email)
+
+    with TestClient(create_app()) as client:
+        login_response = client.post(
+            "/api/v1/auth/login",
+            json={
+                "username": settings.integration_test_email,
+                "password": settings.integration_test_password,
+                "rememberMe": False,
+            },
+        )
+        assert login_response.status_code == 200, login_response.text
+        refresh_token = login_response.json()["refreshToken"]
+        assert refresh_token
+
+        refresh_response = client.post(
+            "/api/v1/auth/refresh", json={"refreshToken": refresh_token}
+        )
+        assert refresh_response.status_code == 200, refresh_response.text
+        refreshed = refresh_response.json()
+        assert refreshed["token"]
+        assert refreshed["refreshToken"]
+        assert refreshed["user"]["email"] == settings.integration_test_email
+
+        # The new access token must itself be a real, usable session.
+        me_response = client.get(
+            "/api/v1/auth/me", headers={"Authorization": f"Bearer {refreshed['token']}"}
+        )
+        assert me_response.status_code == 200
+
+
+def test_real_invalid_refresh_token_is_rejected() -> None:
+    with TestClient(create_app()) as client:
+        response = client.post(
+            "/api/v1/auth/refresh", json={"refreshToken": "not-a-real-refresh-token"}
+        )
+        assert response.status_code == 401
+
+
 def test_real_wrong_password_is_rejected() -> None:
     settings = get_settings()
     if not settings.integration_test_email:
