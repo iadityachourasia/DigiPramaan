@@ -1,6 +1,6 @@
 # Digi-Pramaan
 
-Legal Metrology Compliance System, built for SIH26034. Officers scan packaged-commodity
+Legal Metrology Compliance System, built for SIH. Officers scan packaged-commodity
 labels; the system extracts declarations via OCR, checks them against the Legal
 Metrology (Packaged Commodities) Rules, 2011, and turns verified findings into
 cross-inspection product/company intelligence, enforcement case tracking, deterministic
