@@ -16,7 +16,13 @@ Phase 2 brief ("do not pretend BackgroundTasks automatically resumes work").
 Stage order: uploading, qualityCheck (both already `completed` by the time
 this runs — see api/v1/scans.py, which does both synchronously before the
 scan_session row is even created) -> textExtraction -> fallbackExtraction
--> structuring -> ruleEngine -> complianceScore -> readyForVerification.
+-> barcodeDetection -> structuring -> ruleEngine -> complianceScore ->
+readyForVerification. barcodeDetection (Phase 8) is independent of OCR in
+both directions — it never reads OCR's output and never blocks
+structuring/ruleEngine on its own failure (see services/barcode/'s own
+docstrings) — it's ordered here only to match the officer-facing narrative
+("Extracting declarations" -> "Checking product barcode" -> "Structuring
+evidence").
 
 ruleEngine/complianceScore (Phase 3) run the deterministic Legal Metrology
 rule engine (app/services/rules/) over the structured extraction and write
@@ -38,6 +44,12 @@ from app.core.ids import derive_record_id
 from app.core.object_storage import get_s3_client
 from app.db.models import ComplianceRecord, EvidenceImage, ScanSession
 from app.db.session import SessionLocal
+from app.services.barcode import (
+    BarcodeAnalysis,
+    barcode_analysis_to_frontend,
+    detect_barcodes,
+    resolve_barcode_analysis,
+)
 from app.services.extraction.adapter import to_extraction_result
 from app.services.extraction.schema import ComplianceEvidenceBundle, ImageQualitySummary
 from app.services.ocr.gemini import GeminiOcrProvider, GeminiUnavailableError, structure
@@ -60,6 +72,7 @@ PIPELINE_STAGE_IDS = [
     "qualityCheck",
     "textExtraction",
     "fallbackExtraction",
+    "barcodeDetection",
     "structuring",
     "ruleEngine",
     "complianceScore",
@@ -210,6 +223,55 @@ def run_pipeline(scan_session_id: uuid.UUID) -> None:
                     _persist(db, session, stages, status="failed", error=str(exc))
                     return
 
+        # --- barcodeDetection ---
+        # Deterministic, never Gemini (services/barcode/resolve.py's own
+        # docstring) — an independent per-image pass over the same evidence
+        # images OCR just used, but with zero dependency on OCR's outcome in
+        # either direction. Follows structuring/ruleEngine's own "always
+        # recompute the pure/cheap work, only conditionally persist the
+        # stage-state transition" discipline below, rather than OCR's
+        # resume-caching pattern — detection is comparatively cheap per
+        # image and has no intermediate artifact worth avoiding a redo of.
+        #
+        # Deliberately never gates the rest of the pipeline: a failed or
+        # empty barcode result is an explicitly normal outcome (no barcode
+        # detected -> existing Product DNA composite fallback, unchanged;
+        # see checks.py-adjacent docs), so this block never `return`s even
+        # on failure — only textExtraction/fallbackExtraction/structuring/
+        # ruleEngine's own failures gate downstream stages.
+        barcode_stage = _find_stage(stages, "barcodeDetection")
+        if barcode_stage["state"] == "failed":
+            barcode_analysis = BarcodeAnalysis()
+        else:
+            barcode_was_pending = barcode_stage["state"] == "pending"
+            if barcode_was_pending:
+                stages = _with_stage_update(stages, "barcodeDetection", state="in_progress")
+                _persist(db, session, stages)
+            try:
+                per_image_barcode_results = [
+                    result
+                    for image in images
+                    for result in detect_barcodes(
+                        _fetch_image_bytes(image.storage_key, settings), str(image.id), image.angle
+                    )
+                ]
+                barcode_analysis = resolve_barcode_analysis(per_image_barcode_results)
+                if barcode_was_pending:
+                    summary = {
+                        "trusted": f"Barcode {barcode_analysis.trusted_identifier.normalized_value} detected.",
+                        "needs_review": "Multiple product identifiers detected — needs review.",
+                        "none": "No barcode detected.",
+                    }[barcode_analysis.status]
+                    stages = _with_stage_update(stages, "barcodeDetection", state="completed", summary=summary)
+                    _persist(db, session, stages)
+            except Exception as exc:  # noqa: BLE001 - never blocks the rest of the pipeline
+                barcode_analysis = BarcodeAnalysis()
+                if barcode_was_pending:
+                    stages = _with_stage_update(
+                        stages, "barcodeDetection", state="failed", failureReason=str(exc)
+                    )
+                    _persist(db, session, stages)
+
         # --- structuring ---
         # Runs whenever we don't already have a result in hand this call —
         # including the resume case where the STAGE was already marked
@@ -240,6 +302,7 @@ def run_pipeline(scan_session_id: uuid.UUID) -> None:
             return
 
         extraction_result = to_extraction_result(str(scan_session_id), structured_extraction)
+        extraction_result["barcodeAnalysis"] = barcode_analysis_to_frontend(barcode_analysis)
         if was_pending:
             stages = _with_stage_update(
                 stages, "structuring", state="completed",
@@ -282,6 +345,7 @@ def run_pipeline(scan_session_id: uuid.UUID) -> None:
                 image_quality_results=quality_results,
                 pdp_declarations_detected=_pdp_declarations(structured_extraction),
                 rule_results=rule_results,
+                barcode_analysis=barcode_analysis,
             )
         except Exception as exc:  # noqa: BLE001 - the rule engine is pure/local; any failure here is a real bug
             stages = _with_stage_update(

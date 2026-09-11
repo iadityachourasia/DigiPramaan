@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
+from app.services.barcode.types import BarcodeAnalysis
 from app.services.rules.types import RuleResult
 
 
@@ -121,3 +122,7 @@ class ComplianceEvidenceBundle(BaseModel):
     rule_results: list[RuleResult] = []
     # Phase 6 — append-only history, see CalibrationData's own docstring.
     calibrations: list[CalibrationData] = []
+    # Phase 8 — deterministic barcode/GTIN detection (never Gemini-decided,
+    # see services/barcode/resolve.py's own docstring). Additive, defaults
+    # to None so every existing persisted evidence_bundle validates unchanged.
+    barcode_analysis: BarcodeAnalysis | None = None

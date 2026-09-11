@@ -12,7 +12,15 @@ from collections import Counter
 
 from sqlalchemy.orm import Session
 
-from app.db.models import ComplianceRecord, LegalEntity, Product, ProductInspectionLink, Profile, ViolationCase
+from app.db.models import (
+    ComplianceRecord,
+    LegalEntity,
+    Product,
+    ProductIdentifier,
+    ProductInspectionLink,
+    Profile,
+    ViolationCase,
+)
 from app.services.risk.engine import aggregate_score, evaluate_product_rules
 from app.services.scope import apply_officer_scope
 
@@ -59,9 +67,24 @@ def build_product_dna(product_id: uuid.UUID, db: Session, current_user: Profile)
     triggered = evaluate_product_rules(records, 1 if open_case else 0)
     risk = aggregate_score(triggered)
 
+    # Phase 8 — at most one trusted identifier per product today (a
+    # product's first-sighted barcode); `.first()` rather than assuming
+    # exactly one exists, since a product created before Phase 8 (or one
+    # only ever matched by composite identity) legitimately has none.
+    identifier = (
+        db.query(ProductIdentifier)
+        .filter(ProductIdentifier.product_id == product.id)
+        .order_by(ProductIdentifier.first_seen_at)
+        .first()
+    )
+
     return {
         "productId": str(product.id),
         "fingerprintHash": product.fingerprint_hash,
+        "trustedIdentifier": (
+            {"value": identifier.normalized_value, "symbology": identifier.identifier_type}
+            if identifier else None
+        ),
         "brand": product.brand,
         "genericName": product.generic_name,
         "netQuantityNormalized": product.net_quantity_normalized,

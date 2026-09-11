@@ -127,6 +127,23 @@
     "languageReadability": "Declaration readability",
     "pdpDeclarationPresence": "Principal display panel declaration placement"
   },
+  "barcode": {
+    "heading": "Product Identifier",
+    "checksumValid": "Checksum valid",
+    "sourceImage": "Source: {angle} image",
+    "viewEvidence": "View Barcode Evidence",
+    "needsReviewHeading": "Multiple product identifiers detected",
+    "needsReviewTag": "NEEDS REVIEW",
+    "needsReviewBody": "More than one valid product identifier was found across the captured images. Review each candidate before relying on one.",
+    "viewCandidate": "View",
+    "invalidChecksum": "Checksum invalid — not used as the product identifier",
+    "trustedCaption": "Extracted from the package's own barcode — evidence, not a legal declaration.",
+    "angle": {
+      "front": "front",
+      "back": "back",
+      "side_pdp": "side"
+    }
+  },
   "common": {
     "actions": {
       "save": "Save",
@@ -162,6 +179,8 @@
     "adminConsole": "Admin Console",
     "primaryLandmark": "Main navigation",
     "userMenu": "Account menu",
+    "accountMenuFor": "{fullName}, {role} — account menu",
+    "viewProfile": "View Profile",
     "notifications": "Notifications",
     "notificationsUnread": "{count} unread notifications",
     "logout": "Log out"
@@ -250,15 +269,29 @@
     },
     "hero": {
       "eyebrow": "Legal Metrology (Packaged Commodities) Rules, 2011",
-      "title": "Check a label against the Rules in seconds, not hours",
-      "body": "Digi-Pramaan reads the mandatory declarations off a packaged commodity, checks each one against the Rules, and produces a citable compliance record. Built for the officers who do this work in the field.",
+      "title": "AI-assisted compliance verification for Legal Metrology enforcement",
+      "body": "Digi-Pramaan reads the mandatory declarations off a packaged commodity, checks each one against the Rules, and produces an evidence-backed, citable compliance record — built for the officers who do this work in the field.",
       "ctaPrimary": "Officer sign in",
       "ctaSecondary": "Report a label",
       "trustLine": "A service of the Department of Consumer Affairs, Ministry of Consumer Affairs, Food & Public Distribution",
       "demoCaption": "Extraction result, sample record",
+      "demoFlow": {
+        "scan": "Scan",
+        "ocr": "OCR",
+        "rules": "Rules",
+        "verified": "Verified"
+      },
       "demoScoreLabel": "Declarations passed",
       "demoVerdictPass": "Present",
       "demoVerdictFail": "Missing"
+    },
+    "valueStrip": {
+      "items": {
+        "extraction": "AI-assisted extraction",
+        "ruleEngine": "Deterministic legal rule engine",
+        "evidence": "Evidence-backed verification",
+        "officerControl": "Officer-controlled final decision"
+      }
     },
     "services": {
       "heading": "Three ways a product reaches the system",
@@ -280,37 +313,71 @@
       }
     },
     "pipeline": {
-      "heading": "How a scan becomes a compliance record",
-      "body": "Seven stages, each one visible while it runs. A failed stage can be retried on its own rather than restarting the scan.",
-      "branchLabel": "Only if confidence is low",
+      "heading": "How a scan becomes a compliance decision",
+      "body": "Six stages, from the first photograph to a signed report.",
+      "branchLabel": "Only for a flagged declaration",
       "steps": {
         "capture": {
           "title": "Capture",
           "body": "Front, back and principal display panel."
         },
-        "quality": {
-          "title": "Quality gate",
-          "body": "Blur, skew, curvature and text visibility, per image."
+        "extract": {
+          "title": "Extract",
+          "body": "Text is read off every image and reconciled into one record, each field traced to its image."
         },
-        "ocr": {
-          "title": "Text extraction",
-          "body": "Primary OCR pass across all three images."
-        },
-        "fallback": {
-          "title": "Second opinion",
-          "body": "Low-confidence fields re-read by a second engine."
-        },
-        "structuring": {
-          "title": "Structuring",
-          "body": "Readings reconciled into one record, each field traced to its image."
-        },
-        "rules": {
-          "title": "Rule engine",
+        "validate": {
+          "title": "Validate",
           "body": "Rules 6, 7 and 8 evaluated against the structured record."
         },
-        "score": {
-          "title": "Compliance record",
-          "body": "Violations cited by rule, ready for an officer to verify."
+        "explain": {
+          "title": "Explain",
+          "body": "A flagged declaration gets a plain-language explanation of why it failed."
+        },
+        "verify": {
+          "title": "Verify",
+          "body": "An officer confirms the record before it counts."
+        },
+        "report": {
+          "title": "Report",
+          "body": "A signed PDF or Word report is generated on request."
+        }
+      }
+    },
+    "capabilities": {
+      "heading": "What the platform does",
+      "body": "Eight capabilities, working together on every scan.",
+      "items": {
+        "scan": {
+          "title": "Scan & Extract",
+          "body": "Reads every mandatory declaration"
+        },
+        "rules": {
+          "title": "Compliance Rule Engine",
+          "body": "Checks each declaration against the Rules"
+        },
+        "fontSize": {
+          "title": "Font Size Verification",
+          "body": "Measures numeral height from a photo"
+        },
+        "evidence": {
+          "title": "Evidence Verification",
+          "body": "Every finding traced to its image"
+        },
+        "reports": {
+          "title": "Digital Reports",
+          "body": "Signed PDF and Word reports on demand"
+        },
+        "history": {
+          "title": "Compliance History",
+          "body": "Every past scan, one record"
+        },
+        "risk": {
+          "title": "Smart Risk",
+          "body": "Flags repeat and high-risk manufacturers"
+        },
+        "enforcement": {
+          "title": "Enforcement Follow-Through",
+          "body": "Tracks a violation to its outcome"
         }
       }
     },
@@ -357,6 +424,11 @@
           "body": "You get a reference number to check the status later."
         }
       }
+    },
+    "finalCta": {
+      "heading": "Ready to verify a label?",
+      "body": "Sign in to start an inspection.",
+      "cta": "Start Inspection"
     }
   },
   "dashboard": {
@@ -544,6 +616,7 @@
         "qualityCheck": "Quality check",
         "textExtraction": "Text extraction (OCR)",
         "fallbackExtraction": "Fallback extraction",
+        "barcodeDetection": "Checking product barcode",
         "structuring": "Structuring (LLM)",
         "ruleEngine": "Rule engine evaluation",
         "complianceScore": "Compliance score",

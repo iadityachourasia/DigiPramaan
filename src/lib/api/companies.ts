@@ -106,6 +106,7 @@ function inspectionToRecord(entry: RecentInspection): ComplianceRecord {
       overallConfidence: 100,
       declarations: [],
       fontSizeChecks: [],
+      barcodeAnalysis: null,
     },
     evidence: [],
     auditTrail: [],
