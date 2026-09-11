@@ -33,6 +33,7 @@ from app.db.session import get_db
 from app.jobs.pipeline import initial_stages, retry_stage, run_pipeline
 from app.services.extraction.schema import CalibrationData, ComplianceEvidenceBundle, Point
 from app.services.image_quality import (
+    QualityResult,
     QualityVerdict,
     evaluate_image_quality,
     find_duplicate_angles,
@@ -180,6 +181,49 @@ def create_scan_session_from_images(
         if scan_session.created_at
         else datetime.now(timezone.utc).isoformat(),
     }
+
+
+# Maps this service's real checks onto the frontend's fixed 4-value
+# vocabulary (blur/distortion/curvature/no_text_detected — src/types/scan.ts).
+# distortion/curvature have no backing check yet (explicitly out of MVP
+# scope per image_quality.py's own docstring) and can never be returned
+# here. "blur" is the only exact semantic match, so it wins whenever it's
+# among the failing checks (even alongside e.g. a resolution failure) since
+# it's the most actionable reason available; every other real failure
+# (darkness, overexposure, minimum_resolution, decodable) defaults to
+# no_text_detected, the closest honest description of "this photo can't be
+# relied on to contain legible text."
+def _frontend_failure_reason(quality: QualityResult) -> str:
+    failing_checks = {c.name for c in quality.checks if c.verdict != QualityVerdict.PASS}
+    if "blur" in failing_checks:
+        return "blur"
+    return "no_text_detected"
+
+
+@router.post("/scans/quality-check")
+async def check_scan_image_quality(
+    angle: str = Form(...),
+    file: UploadFile = File(...),
+    _current_user: Profile = Depends(require_permission("scan.create")),
+) -> dict:
+    """Per-photo pre-check for the Device/Camera capture wizard (03 §2) —
+    gives an early Retake verdict before the officer reaches final
+    submission, where `create_scan_session_from_images` runs the exact same
+    `evaluate_image_quality()` again as the authoritative gate. Never
+    persists anything: a rejected photo here leaves no trace, matching that
+    same "a failed attempt leaves no trace" rule mobile-handoff's own
+    per-image endpoint already follows.
+    """
+    if angle not in REQUIRED_ANGLES:
+        raise HTTPException(status_code=422, detail=f"angle must be one of {REQUIRED_ANGLES}")
+
+    image_bytes = await file.read()
+    quality = evaluate_image_quality(image_bytes)
+
+    if quality.overall_verdict == QualityVerdict.RECAPTURE_REQUIRED:
+        return {"passed": False, "failureReason": _frontend_failure_reason(quality)}
+
+    return {"passed": True}
 
 
 @router.post("/scans", status_code=status.HTTP_201_CREATED)

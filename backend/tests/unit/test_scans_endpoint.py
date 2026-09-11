@@ -213,3 +213,98 @@ def test_retry_schedules_background_task_and_returns_immediately(client_as) -> N
     assert response.status_code == 200
     mock_retry_stage.assert_called_once_with(scan_id, "textExtraction")
     mock_run_pipeline.assert_called_once_with(scan_id)
+
+
+def _post_quality_check(client: TestClient, angle: str, image: bytes, headers: dict | None = None):
+    return client.post(
+        "/api/v1/scans/quality-check",
+        data={"angle": angle},
+        files={"file": ("photo.png", image, "image/png")},
+        headers=headers or {},
+    )
+
+
+def test_quality_check_without_auth_header_returns_401(client_as) -> None:
+    client = client_as(None)
+    response = _post_quality_check(client, "front", _sharp_label_bytes())
+    assert response.status_code == 401
+
+
+def test_quality_check_with_role_lacking_permission_returns_403(client_as) -> None:
+    client = client_as("Reviewer")
+    response = _post_quality_check(
+        client, "front", _sharp_label_bytes(), headers={"Authorization": "Bearer fake"}
+    )
+    assert response.status_code == 403
+
+
+def test_quality_check_rejects_unknown_angle(client_as) -> None:
+    client = client_as("Enforcement Officer")
+    response = _post_quality_check(
+        client, "top", _sharp_label_bytes(), headers={"Authorization": "Bearer fake"}
+    )
+    assert response.status_code == 422
+
+
+def test_quality_check_passes_a_sharp_image(client_as) -> None:
+    client = client_as("Enforcement Officer")
+    response = _post_quality_check(
+        client, "front", _sharp_label_bytes(), headers={"Authorization": "Bearer fake"}
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body == {"passed": True}
+
+
+def test_quality_check_maps_blur_failure_to_frontend_reason(client_as) -> None:
+    client = client_as("Enforcement Officer")
+    # Large enough to pass minimum_resolution, but flat/uniform -> zero
+    # Laplacian variance -> fails only the blur check.
+    blurry = _png_bytes((800, 800), (128, 128, 128))
+    response = _post_quality_check(client, "front", blurry, headers={"Authorization": "Bearer fake"})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["passed"] is False
+    assert body["failureReason"] == "blur"
+
+
+def test_quality_check_maps_darkness_failure_to_no_text_detected(client_as) -> None:
+    client = client_as("Enforcement Officer")
+    # Large + dark but sharp (checkerboard, not flat) -> fails only
+    # darkness, isolating the non-blur fallback mapping.
+    img = Image.new("RGB", (800, 800), color=(5, 5, 5))
+    pixels = img.load()
+    for y in range(0, 800, 4):
+        for x in range(800):
+            pixels[x, y] = (20, 20, 20)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    dark = buf.getvalue()
+    response = _post_quality_check(client, "front", dark, headers={"Authorization": "Bearer fake"})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["passed"] is False
+    assert body["failureReason"] == "no_text_detected"
+
+
+def test_quality_check_never_persists_anything(client_as) -> None:
+    """A rejected (or accepted) photo here writes nothing — no DB call, no
+    S3 upload — since this is a pre-check ahead of the real POST /scans
+    submission, which runs the authoritative quality gate again."""
+    client = client_as("Enforcement Officer")
+    mock_db = MagicMock()
+
+    def _override_get_db():
+        yield mock_db
+
+    from app.db.session import get_db as real_get_db
+
+    client.app.dependency_overrides[real_get_db] = _override_get_db
+
+    response = _post_quality_check(
+        client, "front", _png_bytes((50, 50), (5, 5, 5)), headers={"Authorization": "Bearer fake"}
+    )
+
+    assert response.status_code == 200
+    mock_db.add.assert_not_called()
+    mock_db.commit.assert_not_called()
