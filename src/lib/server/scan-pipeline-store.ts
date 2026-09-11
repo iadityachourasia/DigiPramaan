@@ -96,6 +96,7 @@ const STAGE_DURATION_MS: Record<PipelineStageId, number> = {
   qualityCheck: 0,
   textExtraction: 900,
   fallbackExtraction: 700,
+  barcodeDetection: 500,
   structuring: 700,
   ruleEngine: 600,
   complianceScore: 300,
@@ -107,6 +108,7 @@ const FORCEABLE_STAGES: readonly PipelineStageId[] = [
   "uploading",
   "textExtraction",
   "fallbackExtraction",
+  "barcodeDetection",
   "structuring",
   "ruleEngine",
   "complianceScore",
@@ -117,6 +119,7 @@ const FAILURE_REASON: Record<PipelineStageId, string> = {
   qualityCheck: "Quality check could not run.",
   textExtraction: "OCR engine timed out processing one or more images.",
   fallbackExtraction: "Fallback engine unavailable — try again.",
+  barcodeDetection: "Barcode detection failed — continue inspection normally.",
   structuring: "Could not reconcile fields across the three images.",
   ruleEngine: "Rule engine evaluation failed unexpectedly.",
   complianceScore: "Could not compute a compliance score.",
@@ -335,6 +338,8 @@ function stageSummary(run: StoredPipelineRun, stageId: PipelineStageId): string 
       return `OCR complete — ${highConfidenceCount} of ${declarations.length} fields ≥90% confidence.`;
     case "fallbackExtraction":
       return `Fallback used for 1 field: ${fallbackFieldLabel}.`;
+    case "barcodeDetection":
+      return "No barcode detected.";
     case "structuring":
       return "Fields reconciled across all captured images.";
     case "ruleEngine":
@@ -444,6 +449,11 @@ function buildFinalRecord(run: StoredPipelineRun): ComplianceRecord {
         { fieldId: "retailSalePrice", measuredHeightMm: 3, requiredHeightMm: 4, embossed: false, passed: false },
         { fieldId: "netQuantity", measuredHeightMm: 5, requiredHeightMm: 4, embossed: false, passed: true },
       ],
+      // The mock simulator never generates real barcode candidates (see
+      // stageSummary's own "No barcode detected." for barcodeDetection) —
+      // null here is the honest "not run" state, matching a real record
+      // predating Phase 8 rather than fabricating mock evidence.
+      barcodeAnalysis: null,
     },
     evidence: [],
     /*

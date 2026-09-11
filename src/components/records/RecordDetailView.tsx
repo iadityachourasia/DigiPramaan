@@ -3,7 +3,7 @@
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 
-import { EmptyState, StatusBadge } from "@/components/shared";
+import { BarcodeEvidenceCard, EmptyState, StatusBadge } from "@/components/shared";
 import { Alert } from "@/components/ui/Alert";
 import { Link } from "@/i18n/navigation";
 import { ImageViewer } from "@/components/scan/ImageViewer";
@@ -11,7 +11,12 @@ import { ROUTES } from "@/lib/constants";
 import { useAuth, usePermission, useRecordDetail } from "@/lib/hooks";
 import { fetchReportsForRecord, reportDownloadHref } from "@/lib/api/reports";
 import { formatShortDate } from "@/lib/utils/format";
-import { violationCategory, type CaptureSlotAngle, type GeneratedReport } from "@/types";
+import {
+  violationCategory,
+  type BarcodeDecodeResult,
+  type CaptureSlotAngle,
+  type GeneratedReport,
+} from "@/types";
 
 import { ChecklistRow } from "./ChecklistRow";
 import { EvidenceGallery } from "./EvidenceGallery";
@@ -36,6 +41,7 @@ export function RecordDetailView({ recordId, locale }: RecordDetailViewProps) {
   const tDeclarationField = useTranslations("declarationField");
   const tAuditEvent = useTranslations("recordDetail.auditTrail.eventType");
   const tGrievanceConcern = useTranslations("grievance.concerns");
+  const tBarcode = useTranslations("barcode");
   const { user } = useAuth();
   const canFlagNeedsReview = usePermission("record.flagNeedsReview");
   const canFlagForEnforcement = usePermission("record.flagForEnforcement");
@@ -106,6 +112,12 @@ export function RecordDetailView({ recordId, locale }: RecordDetailViewProps) {
     // correct image (there IS a real citation), just without a misleading box.
     const isDegenerateBbox = bbox[0] === 0 && bbox[1] === 0 && bbox[2] === 1 && bbox[3] === 1;
     setHighlightBbox(isDegenerateBbox ? undefined : bbox);
+    imageSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function handleViewBarcodeEvidence(candidate: BarcodeDecodeResult) {
+    setActiveAngle(candidate.sourceAngle);
+    setHighlightBbox(candidate.bbox ?? undefined);
     imageSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
@@ -281,6 +293,22 @@ export function RecordDetailView({ recordId, locale }: RecordDetailViewProps) {
           </div>
         </div>
       </section>
+
+      <BarcodeEvidenceCard
+        analysis={record.extraction.barcodeAnalysis}
+        onViewEvidence={handleViewBarcodeEvidence}
+        labels={{
+          heading: tBarcode("heading"),
+          checksumValid: tBarcode("checksumValid"),
+          sourceImage: (angle) => tBarcode("sourceImage", { angle: tBarcode(`angle.${angle}`) }),
+          viewEvidence: tBarcode("viewEvidence"),
+          needsReviewHeading: tBarcode("needsReviewHeading"),
+          needsReviewTag: tBarcode("needsReviewTag"),
+          needsReviewBody: tBarcode("needsReviewBody"),
+          viewCandidate: tBarcode("viewCandidate"),
+          invalidChecksum: tBarcode("invalidChecksum"),
+        }}
+      />
 
       <section ref={imageSectionRef} aria-labelledby="source-heading" className="ux4g-card ux4g-card-outline">
         <div className="ux4g-card-body lmcs-page-section-block">

@@ -27,6 +27,14 @@ dependencies = [
   "numpy>=1.26",
   "google-genai>=0.3",
   "python-multipart>=0.0.9",
+  # Barcode decoding (Phase 8). Chosen over pyzbar specifically to avoid a
+  # Dockerfile/apt change: pyzbar needs the libzbar0 shared library, which
+  # this project's python:3.11-slim image does not install; zxing-cpp ships
+  # prebuilt wheels with no system dependency. OpenCV (already a transitive
+  # dependency via paddleocr, see app/services/image_quality.py) supplies
+  # region *detection* (services/barcode/detect.py); zxing-cpp supplies the
+  # actual *decode*, on both the full image and every detected crop.
+  "zxing-cpp>=2.2,<3",
 ]
 
 [project.optional-dependencies]

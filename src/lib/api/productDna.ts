@@ -23,9 +23,19 @@ export interface RecurringViolation {
   count: number;
 }
 
+export interface TrustedIdentifier {
+  value: string;
+  symbology: string;
+}
+
 export interface ProductDna {
   productId: string;
   fingerprintHash: string;
+  /** Phase 8 — the product's checksum-valid barcode/GTIN, if one was ever
+   * decoded (see backend services/barcode/). Extraction evidence, never a
+   * legal declaration — null for a product only ever matched by composite
+   * identity. */
+  trustedIdentifier: TrustedIdentifier | null;
   brand: string | null;
   genericName: string;
   netQuantityNormalized: string;

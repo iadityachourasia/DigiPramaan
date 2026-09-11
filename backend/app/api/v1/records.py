@@ -54,6 +54,7 @@ from app.db.models import (
     ComplianceRecord,
     LegalEntity,
     Product,
+    ProductIdentifier,
     Profile,
     ProductInspectionLink,
     ViolationCase,
@@ -374,6 +375,7 @@ def list_records(
     date_to: str | None = Query(default=None, alias="dateTo"),
     brand: str | None = None,
     legal_entity: str | None = Query(default=None, alias="legalEntity"),
+    barcode: str | None = None,
     page: int = 1,
     page_size: int = Query(default=20, alias="pageSize"),
     db: DbSession = Depends(get_db),
@@ -390,7 +392,13 @@ def list_records(
     use an INNER join through ProductInspectionLink(ACTIVE)->Product-
     >LegalEntity — a record with no product link yet (unverified, or
     Phase 4 enrichment skipped/failed) has no brand/legal-entity to match
-    and is correctly excluded from that specific search, not a bug."""
+    and is correctly excluded from that specific search, not a bug.
+
+    Phase 8: `barcode` joins the same way, one join further through
+    ProductIdentifier — matched as a digit substring against both the
+    normalized (GTIN-14, zero-padded) and raw decoded value, so typing the
+    printed digits (e.g. "890...") matches regardless of the symbology's
+    original length or the normalized form's leading zeros."""
     db_query = apply_officer_scope(db.query(ComplianceRecord), current_user)
 
     if query:
@@ -426,7 +434,7 @@ def list_records(
         parsed = _parse_date_boundary(date_to)
         if parsed is not None:
             db_query = db_query.filter(ComplianceRecord.scanned_at <= parsed)
-    if brand or legal_entity:
+    if brand or legal_entity or barcode:
         db_query = db_query.join(
             ProductInspectionLink,
             (ProductInspectionLink.compliance_record_id == ComplianceRecord.id)
@@ -438,6 +446,17 @@ def list_records(
             db_query = db_query.join(LegalEntity, LegalEntity.id == Product.legal_entity_id).filter(
                 LegalEntity.name.ilike(f"%{legal_entity}%")
             )
+        if barcode:
+            digits = "".join(c for c in barcode if c.isdigit())
+            if digits:
+                db_query = db_query.join(
+                    ProductIdentifier, ProductIdentifier.product_id == Product.id
+                ).filter(
+                    or_(
+                        ProductIdentifier.normalized_value.like(f"%{digits}%"),
+                        ProductIdentifier.raw_value.like(f"%{digits}%"),
+                    )
+                )
 
     total_count = db_query.count()
     page = max(page, 1)

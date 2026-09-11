@@ -13,3 +13,8 @@ export { Skeleton, SkeletonText, SkeletonCircle, type SkeletonProps } from "./Sk
 export { DataTable, type DataTableProps, type DataTableColumn } from "./DataTable";
 export { FilterChip, type FilterChipProps } from "./FilterChip";
 export { Pagination, type PaginationProps } from "./Pagination";
+export {
+  BarcodeEvidenceCard,
+  type BarcodeEvidenceCardLabels,
+  type BarcodeEvidenceCardProps,
+} from "./BarcodeEvidenceCard";

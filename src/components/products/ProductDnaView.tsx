@@ -26,6 +26,7 @@ const RISK_BADGE_CLASS: Record<string, string> = {
 export function ProductDnaView({ productId }: { productId: string }) {
   const t = useTranslations("productDna");
   const tVocab = useTranslations("vocabulary");
+  const tBarcode = useTranslations("barcode");
   const { dna, loading, error, notFound, refetch } = useProductDna(productId);
 
   if (notFound) {
@@ -99,6 +100,14 @@ export function ProductDnaView({ productId }: { productId: string }) {
           {dna.brand ? ` · ${dna.brand}` : ""}
           {dna.netQuantityNormalized ? ` · ${dna.netQuantityNormalized}` : ""}
         </p>
+        {dna.trustedIdentifier ? (
+          <p className="ux4g-body-s-default ux4g-text-neutral-secondary">
+            <span className="ux4g-tag ux4g-tag-tonal-neutral ux4g-tag-s">
+              {dna.trustedIdentifier.symbology} {dna.trustedIdentifier.value}
+            </span>{" "}
+            {tBarcode("trustedCaption")}
+          </p>
+        ) : null}
       </section>
 
       <div className="lmcs-kpi-grid">
