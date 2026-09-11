@@ -9,6 +9,7 @@ from app.db.models.audit_event import AuditEvent
 from app.db.models.case import CaseStatusHistory, ViolationCase
 from app.db.models.compliance_record import ComplianceRecord
 from app.db.models.legal_entity import LegalEntity
+from app.db.models.mobile_handoff import MobileUploadSession
 from app.db.models.product import Product, ProductInspectionLink
 from app.db.models.product_identifier import ProductIdentifier
 from app.db.models.report import Report
@@ -23,6 +24,7 @@ __all__ = [
     "ViolationCase",
     "ComplianceRecord",
     "LegalEntity",
+    "MobileUploadSession",
     "Product",
     "ProductInspectionLink",
     "ProductIdentifier",

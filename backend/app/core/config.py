@@ -110,6 +110,15 @@ class Settings(BaseSettings):
     ecommerce_max_redirects: int = 3
     ecommerce_max_category_listings: int = 20
 
+    # --- Mobile QR Handoff (Phase 10) ---
+    # `frontend_base_url` is where the QR's mobileUrl points
+    # (`{frontend_base_url}/mobile-capture/{token}`) — separate from
+    # `cors_origins` (which can list several) since this is specifically
+    # "the one origin a QR code should send a phone to."
+    frontend_base_url: str = "http://localhost:3000"
+    mobile_handoff_expiry_minutes: int = 15
+    mobile_upload_max_mb: int = 10
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]

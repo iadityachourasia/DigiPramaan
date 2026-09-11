@@ -97,6 +97,29 @@ def initial_stages(quality_summary: str) -> list[dict]:
     return stages
 
 
+def initial_stages_pending_capture() -> list[dict]:
+    """Every stage starts pending — used only by the Mobile QR Handoff's
+    scan-session-creation path (api/v1/mobile_handoff.py), where no image
+    exists yet at creation time. uploading/qualityCheck transition to
+    completed later, via `mark_capture_stages_completed` below, once the
+    officer's own "Continue" click confirms all required images have
+    landed — mirroring what `initial_stages()` above assumes was already
+    true by the time IT runs."""
+    return [{"id": stage_id, "state": "pending"} for stage_id in PIPELINE_STAGE_IDS]
+
+
+def mark_capture_stages_completed(stages: list[dict], quality_summary: str) -> list[dict]:
+    """The Mobile QR Handoff finalize step's counterpart to
+    `initial_stages()`'s already-completed uploading/qualityCheck — called
+    once real EvidenceImage rows exist for every required angle, just
+    before `run_pipeline` is scheduled. Reuses `_with_stage_update` (the
+    same stage-transition primitive every other stage change in this file
+    goes through) rather than re-deriving the stage-list shape by hand."""
+    stages = _with_stage_update(stages, "uploading", state="completed", summary="Evidence stored.")
+    stages = _with_stage_update(stages, "qualityCheck", state="completed", summary=quality_summary)
+    return stages
+
+
 def _find_stage(stages: list[dict], stage_id: str) -> dict:
     for stage in stages:
         if stage["id"] == stage_id:
