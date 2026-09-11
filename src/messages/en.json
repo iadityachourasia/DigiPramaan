@@ -121,7 +121,11 @@
     "retailSalePrice": "Retail sale price (MRP), inclusive of all taxes",
     "countryOfOrigin": "Country of origin",
     "consumerCareDetails": "Consumer care details",
-    "fontSize": "Font size and readability"
+    "fontSize": "Font size and readability",
+    "addressCompleteness": "Complete manufacturer/packer/importer address",
+    "quantityUnitExpression": "Quantity/unit expression",
+    "languageReadability": "Declaration readability",
+    "pdpDeclarationPresence": "Principal display panel declaration placement"
   },
   "common": {
     "actions": {
@@ -767,6 +771,14 @@
       "calibrationMethod": "Calibration method",
       "confidence": "Confidence",
       "result": "Result"
+    },
+    "viewEvidence": "View Evidence",
+    "reportHistory": {
+      "heading": "Report history",
+      "empty": "No reports have been generated for this record yet.",
+      "error": "Could not load report history.",
+      "generatedOn": "Generated {date}",
+      "download": "Download {format}"
     },
     "sourceHeading": "Source & extracted data",
     "sourceImage": {

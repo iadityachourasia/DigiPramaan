@@ -268,6 +268,7 @@ def run_pipeline(scan_session_id: uuid.UUID) -> None:
                     angle=image.angle,
                     overall_verdict=(image.quality_result or {}).get("overall_verdict", "unknown"),
                     reason=(image.quality_result or {}).get("reason"),
+                    checks=(image.quality_result or {}).get("checks", []),
                 )
                 for image in images
             ]

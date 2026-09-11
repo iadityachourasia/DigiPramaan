@@ -1012,8 +1012,16 @@
 
 .lmcs-image-viewer-zoom-btn {
   display: block;
+  position: relative;
   width: 100%;
   cursor: zoom-in;
+}
+
+.lmcs-image-viewer-highlight-box {
+  position: absolute;
+  border: var(--ux4g-border-width-md) solid var(--ux4g-color-primary-600);
+  background: color-mix(in srgb, var(--ux4g-color-primary-600) 15%, transparent);
+  pointer-events: none;
 }
 
 .lmcs-image-viewer-zoom-btn img {
@@ -1229,6 +1237,12 @@
   display: flex;
 }
 
+.lmcs-checklist-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ux4g-gap-column-xs);
+}
+
 .lmcs-checklist-row-explain {
   align-self: flex-start;
 }
@@ -1306,6 +1320,21 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--ux4g-gap-column-m);
+}
+
+.lmcs-report-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-s);
+}
+
+.lmcs-report-history-entry {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-2xs);
+  padding: var(--ux4g-padding-s);
+  border: var(--ux4g-border-width-sm) solid var(--ux4g-border-color-neutral-default);
+  border-radius: var(--ux4g-radius-md);
 }
 
 /* ─── E-commerce Listing Scanner (src/components/ecommerce/*.tsx) ─── */

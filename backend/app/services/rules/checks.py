@@ -340,22 +340,126 @@ def check_rules_11_13_quantity_unit(
     )
 
 
-def check_rule_9_language(language_detected: str | None) -> RuleResult:
-    """'Basic' language/readability check per the task's own wording — text
-    identification only, never a real legibility/contrast/prominence
-    assessment, so this never FAILs, only NEEDS_REVIEW or PASS."""
-    if language_detected is None or language_detected.strip().lower() not in _ALLOWED_LANGUAGES:
+# Phase 7 readability thresholds — MVP, documented judgment calls, same
+# discipline as Rule 7's confidence gate. OCR confidence is the LLM/OCR
+# provider's own self-reported number (0-100); these bands turn it into a
+# deterministic readability verdict, always alongside real image-quality
+# and bbox-validity evidence, never confidence alone.
+_READABILITY_PASS_MIN = 70.0
+_READABILITY_FAIL_BELOW = 40.0
+
+
+def _angle_quality_summary(image_quality_results: list | None, angle: str):
+    return next((iq for iq in (image_quality_results or []) if iq.angle == angle), None)
+
+
+def _angle_has_recapture_check(iq_summary) -> bool:
+    if iq_summary is None:
+        return True  # no quality data at all for this angle — can't vouch for it
+    return any(c.get("verdict") == "RECAPTURE_REQUIRED" for c in (iq_summary.checks or []))
+
+
+def check_rule_9_readability(
+    extraction: StructuredExtraction, image_quality_results: list | None = None, total_ocr_blocks: int = 0
+) -> RuleResult:
+    """Phase 7: real evidence-based readability, replacing the old
+    language-only check (same rule_id/field_id — no contract break).
+    Reuses image_quality_results/total_ocr_blocks already threaded into
+    run_all_rule_checks() — no new I/O, no Gemini call. 'OCR failed to
+    detect a field' alone is never enough to call it illegible (that's
+    Rule 6's presence job); this rule only judges fields that WERE
+    detected, on how legible that detection actually was."""
+    base = {
+        "rule_id": "rule_9_language", "rule_name": "Declaration readability",
+        "field_id": "languageReadability", "legal_basis": "Rule 9",
+    }
+    language_detected = extraction.language_detected
+    language_ok = bool(language_detected) and language_detected.strip().lower() in _ALLOWED_LANGUAGES
+
+    if total_ocr_blocks < _MIN_BLOCKS_FOR_ADEQUATE_SEARCH:
         return RuleResult(
-            rule_id="rule_9_language", rule_name="Language/readability", field_id="languageReadability",
-            status=RuleStatus.NEEDS_REVIEW, legal_basis="Rule 9", value=language_detected,
-            message="Declaration language could not be confirmed as English/Hindi from OCR text — "
-                    "verify legibility, prominence, and language in person.",
+            **base, status=RuleStatus.INSUFFICIENT_EVIDENCE, value=language_detected,
+            message="Too little OCR text was read across this scan to reliably assess readability.",
+            evidence={"totalOcrBlocks": total_ocr_blocks, "reason": "scan_wide_ocr_too_thin"},
+        )
+
+    field_signals: list[dict] = []
+    for internal_name, angle in _FIELD_EXPECTED_ANGLE.items():
+        field: ExtractedField | None = getattr(extraction, internal_name)
+        if field is None or field.not_detected:
+            continue  # nothing detected here — Rule 6's presence job, not this rule's
+        real_evidence = [e for e in field.evidence if not _is_degenerate_bbox(e.bbox)]
+        confidences = [e.ocr_confidence for e in real_evidence if e.ocr_confidence is not None]
+        confidence = min(confidences) if confidences else (field.extraction_confidence or 0.0)
+        iq = _angle_quality_summary(image_quality_results, angle)
+        recapture = _angle_has_recapture_check(iq)
+        verdict = iq.overall_verdict if iq else "unknown"
+
+        if recapture or verdict not in ("PASS", "REVIEW"):
+            field_status = "insufficient"
+        elif not real_evidence:
+            field_status = "review"  # detected, but only via degenerate/whole-image evidence
+        elif confidence < _READABILITY_FAIL_BELOW and verdict == "PASS":
+            field_status = "fail"
+        elif confidence < _READABILITY_PASS_MIN or verdict == "REVIEW":
+            field_status = "review"
+        else:
+            field_status = "pass"
+
+        field_signals.append({
+            "field": internal_name, "fieldId": _value_field_id(internal_name), "angle": angle,
+            "ocrConfidence": confidence, "imageVerdict": verdict, "recaptureRequired": recapture,
+            "hasRealEvidence": bool(real_evidence), "status": field_status,
+        })
+
+    evidence = {"languageDetected": language_detected, "languageOk": language_ok, "fields": field_signals}
+
+    if not field_signals:
+        return RuleResult(
+            **base, status=RuleStatus.INSUFFICIENT_EVIDENCE, value=language_detected,
+            message="No mandatory declaration was detected anywhere to assess readability for.",
+            evidence=evidence,
+        )
+    if any(s["status"] == "insufficient" for s in field_signals):
+        return RuleResult(
+            **base, status=RuleStatus.INSUFFICIENT_EVIDENCE, value=language_detected,
+            message="Image quality on at least one required panel prevents a reliable readability "
+                    "determination — recapture may be needed.",
+            evidence=evidence,
+        )
+    if any(s["status"] == "fail" for s in field_signals):
+        worst = next(s for s in field_signals if s["status"] == "fail")
+        return RuleResult(
+            **base, status=RuleStatus.FAIL, value=language_detected,
+            message=f"{worst['fieldId']} was detected but its OCR confidence ({worst['ocrConfidence']:.0f}) "
+                    "is too low to consider legible, despite adequate image quality — genuinely illegible, "
+                    "not merely an OCR miss.",
+            evidence=evidence,
+        )
+    if any(s["status"] == "review" for s in field_signals) or not language_ok:
+        return RuleResult(
+            **base, status=RuleStatus.NEEDS_REVIEW, value=language_detected,
+            message="Readability is borderline for at least one required declaration, or its language "
+                    "could not be confirmed — verify legibility and language in person.",
+            evidence=evidence,
         )
     return RuleResult(
-        rule_id="rule_9_language", rule_name="Language/readability", field_id="languageReadability",
-        status=RuleStatus.PASS, legal_basis="Rule 9", value=language_detected,
-        message=f"Declarations detected in {language_detected}.",
+        **base, status=RuleStatus.PASS, value=language_detected,
+        message=f"All detected mandatory declarations are clearly readable"
+                f"{f' in {language_detected}' if language_detected else ''}.",
+        evidence=evidence,
     )
+
+
+_FIELD_ID_BY_INTERNAL_NAME = {
+    "manufacturer": "manufacturerDetails", "generic_name": "genericName", "net_quantity": "netQuantity",
+    "mrp": "retailSalePrice", "manufacture_or_import_date": "manufactureDate",
+    "consumer_care": "consumerCareDetails", "address": "addressCompleteness", "country_of_origin": "countryOfOrigin",
+}
+
+
+def _value_field_id(internal_name: str) -> str:
+    return _FIELD_ID_BY_INTERNAL_NAME.get(internal_name, internal_name)
 
 
 def _side_pdp_evidence(extraction: StructuredExtraction) -> list[EvidenceRef]:
@@ -377,18 +481,111 @@ def _side_pdp_evidence(extraction: StructuredExtraction) -> list[EvidenceRef]:
     return evidence
 
 
-def check_rule_8_pdp_presence(extraction: StructuredExtraction) -> RuleResult:
-    if _side_pdp_evidence(extraction):
+def _is_degenerate_bbox(bbox: tuple[float, float, float, float] | None) -> bool:
+    """Same definition as measurement/font_height.py's own check — the
+    Gemini OCR-fallback path stamps every block's bbox as this whole-image
+    placeholder when it has no real per-line geometry. Duplicated as a
+    tiny inline check rather than importing a private helper cross-module."""
+    return bbox is None or tuple(bbox) == (0.0, 0.0, 1.0, 1.0)
+
+
+# Rule 8 (placement) is evaluated for exactly these two declarations — the
+# ones Legal Metrology Rule 6(1) most commonly requires to appear together,
+# prominently, on the Principal Display Panel. Not every mandatory
+# declaration is a PDP declaration (address/consumer care are typically
+# back-panel) — a broader list would be a legally inaccurate guess.
+_PDP_REQUIRED_FIELDS: tuple[str, ...] = ("net_quantity", "mrp")
+_PDP_FIELD_TO_ID = {"net_quantity": "netQuantity", "mrp": "retailSalePrice"}
+
+
+def _pdp_evidence_adequate(image_quality_results: list | None, total_ocr_blocks: int) -> bool:
+    """Mirrors _evidence_adequate()'s exact discipline (enough scan-wide
+    OCR text + the relevant image quality-passed outright), but keyed to
+    the 'side_pdp' angle specifically — _FIELD_EXPECTED_ANGLE has no
+    side_pdp entries (front/back only), so this is a small parallel
+    helper rather than a change to that map or to any Rule 6 behavior."""
+    if total_ocr_blocks < _MIN_BLOCKS_FOR_ADEQUATE_SEARCH:
+        return False
+    return any(
+        iq.angle == "side_pdp" and iq.overall_verdict == "PASS"
+        for iq in (image_quality_results or [])
+    )
+
+
+def check_rule_8_placement(
+    extraction: StructuredExtraction, image_quality_results: list | None = None, total_ocr_blocks: int = 0
+) -> RuleResult:
+    """Phase 7: real placement verification for net quantity + MRP against
+    the dedicated PDP capture ('side_pdp' angle) — deterministic, no
+    physical spacing/margin ever inferred (only "is there real, non-
+    degenerate OCR evidence for this exact declaration on the PDP image").
+    Keeps rule_id/field_id unchanged from the prior binary-presence check —
+    no frontend/aggregate contract break."""
+    base = {
+        "rule_id": "rule_8_pdp_presence", "rule_name": "Principal display panel declaration placement",
+        "field_id": "pdpDeclarationPresence", "legal_basis": "Rule 8",
+    }
+    pdp_adequate = _pdp_evidence_adequate(image_quality_results, total_ocr_blocks)
+
+    per_field: dict[str, dict] = {}
+    for internal_name in _PDP_REQUIRED_FIELDS:
+        field: ExtractedField | None = getattr(extraction, internal_name)
+        pdp_evidence = [e for e in (field.evidence if field else []) if e.image_angle == "side_pdp"]
+        real_evidence = [e for e in pdp_evidence if not _is_degenerate_bbox(e.bbox)]
+        ambiguous_evidence = [e for e in pdp_evidence if _is_degenerate_bbox(e.bbox)]
+        per_field[internal_name] = {
+            "real": real_evidence[0] if real_evidence else None,
+            "ambiguous": ambiguous_evidence[0] if ambiguous_evidence else None,
+        }
+
+    missing = [n for n in _PDP_REQUIRED_FIELDS if per_field[n]["real"] is None and per_field[n]["ambiguous"] is None]
+    ambiguous_only = [n for n in _PDP_REQUIRED_FIELDS if per_field[n]["real"] is None and per_field[n]["ambiguous"] is not None]
+
+    def _evidence_dict(internal_name: str, reason: str) -> dict:
+        entry = per_field[internal_name]["real"] or per_field[internal_name]["ambiguous"]
+        return {
+            "expectedPanel": "side_pdp",
+            "observedPanel": entry.image_angle if entry else None,
+            "imageId": entry.image_id if entry else None,
+            "bbox": list(entry.bbox) if entry and entry.bbox else None,
+            "reason": reason,
+            "confidence": round((entry.ocr_confidence or 0.0) / 100.0, 2) if entry and entry.ocr_confidence else 0.0,
+        }
+
+    if not pdp_adequate:
         return RuleResult(
-            rule_id="rule_8_pdp_presence", rule_name="Principal display panel declaration presence",
-            field_id="pdpDeclarationPresence", status=RuleStatus.PASS, legal_basis="Rule 8",
-            message="OCR found declaration text on the side/PDP image.",
+            **base, status=RuleStatus.INSUFFICIENT_EVIDENCE,
+            message="No adequately-searched, quality-passed PDP image is available — placement "
+                    "cannot be reliably determined from this scan.",
+            evidence={"expectedPanel": "side_pdp", "reason": "pdp_image_inadequate"},
         )
+
+    if ambiguous_only:
+        field_id = ambiguous_only[0]
+        return RuleResult(
+            **base, status=RuleStatus.NEEDS_REVIEW,
+            message=f"{_PDP_FIELD_TO_ID[field_id]} has text on the PDP image, but its exact location "
+                    "could not be geometrically confirmed — verify placement in person.",
+            evidence=_evidence_dict(field_id, "ambiguous_bbox"),
+        )
+
+    if missing:
+        field_id = missing[0]
+        return RuleResult(
+            **base, status=RuleStatus.FAIL,
+            message=f"{_PDP_FIELD_TO_ID[field_id]} was not found anywhere on the PDP image despite "
+                    "adequate, quality-passed evidence — treated as genuinely absent from the required panel.",
+            evidence=_evidence_dict(field_id, "absent_from_required_panel"),
+        )
+
     return RuleResult(
-        rule_id="rule_8_pdp_presence", rule_name="Principal display panel declaration presence",
-        field_id="pdpDeclarationPresence", status=RuleStatus.NEEDS_REVIEW, legal_basis="Rule 8",
-        message="No OCR evidence from the side/PDP image — this does not necessarily mean the PDP "
-                "itself lacks declarations; confirm in person.",
+        **base, status=RuleStatus.PASS,
+        message="Net quantity and MRP both have confirmed placement evidence on the PDP image.",
+        evidence={
+            "expectedPanel": "side_pdp",
+            "netQuantity": _evidence_dict("net_quantity", "confirmed"),
+            "mrp": _evidence_dict("mrp", "confirmed"),
+        },
     )
 
 
@@ -538,8 +735,8 @@ def run_all_rule_checks(
         check_country_of_origin(extraction.country_of_origin, extraction.importer, _adequate("country_of_origin")),
         check_rule_10_address(extraction.address, _adequate("address")),
         check_rules_11_13_quantity_unit(extraction.net_quantity, extraction.quantity_unit_expression),
-        check_rule_9_language(extraction.language_detected),
-        check_rule_8_pdp_presence(extraction),
+        check_rule_9_readability(extraction, image_quality_results, total_ocr_blocks),
+        check_rule_8_placement(extraction, image_quality_results, total_ocr_blocks),
         check_rule_7_font_size(font_measurement, is_embossed),
         check_rule_6_3_stub(),
     ]

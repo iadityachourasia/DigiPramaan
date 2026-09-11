@@ -134,6 +134,23 @@ export function fetchReports(viewerId?: string): Promise<ApiResult<ReportListRes
   return requestJson(`/api/reports${query}`);
 }
 
+/**
+ * Phase 7 — a single record's own report history, from the real backend
+ * (GET /reports/by-record/{id}, now officer-scope-checked). Distinct from
+ * `fetchReports()` above, which is the mock global Download History list —
+ * this is what Record Detail's own "Report history" section calls.
+ */
+export async function fetchReportsForRecord(
+  recordId: string,
+  userId: string,
+  userName: string
+): Promise<ApiResult<GeneratedReport[]>> {
+  const result = await apiGet<RecordReportSummary[]>(API.recordReports.byRecord(recordId));
+  if (!result.ok) return result;
+  const scope: Extract<ReportScope, { kind: "record" }> = { kind: "record", recordId };
+  return { ok: true, data: result.data.map((r) => toGeneratedReport(r, scope, userId, userName)) };
+}
+
 export interface ReportDetailResponse {
   report: GeneratedReport;
   document: ReportDocument;

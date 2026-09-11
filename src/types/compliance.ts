@@ -23,6 +23,24 @@ import type {
  * and a specific, citable detail — 06 §2 is explicit that a generic "non-compliant"
  * flag is far less useful than "MRP Non-Compliance — Rule 6(e)".
  */
+/**
+ * Phase 7 — a rule's own structured evidence (Rule 8's placement evidence,
+ * Rule 9's readability signals), present only for real-backend records and
+ * only when the originating rule populated one. Deliberately loose (most
+ * fields optional/untyped-further) since Rule 8 and Rule 9 populate
+ * different keys — this is inspection/display data for "View Evidence",
+ * never re-derived into a compliance decision on the frontend.
+ */
+export interface RuleEvidence {
+  expectedPanel?: string;
+  observedPanel?: string | null;
+  imageId?: string | null;
+  bbox?: [number, number, number, number] | null;
+  reason?: string;
+  confidence?: number;
+  [key: string]: unknown;
+}
+
 export interface DeclarationCheck {
   /** Matches a DeclarationFieldId, or "fontSize" for the Rule 7 result. */
   fieldId: string;
@@ -44,6 +62,8 @@ export interface DeclarationCheck {
    * mapping. Always undefined for mock data.
    */
   ruleId?: string;
+  /** Phase 7 — see RuleEvidence's own doc comment. */
+  evidence?: RuleEvidence;
 }
 
 /** A resolved violation, ready to render in the Violation Summary. */

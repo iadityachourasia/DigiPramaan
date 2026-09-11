@@ -25,6 +25,12 @@ import type { DeclarationCheck, FontSizeCheck } from "@/types";
  * modal/drawer (none exists to reuse in this app). Only rendered when
  * `recordId` and `line.ruleId` are both present (real-backend records
  * only; mock data never has `ruleId` — see DeclarationCheck's own comment).
+ *
+ * Phase 7: an optional "View Evidence" action, shown when the rule
+ * populated a real (non-null imageId+bbox) `line.evidence` — calls
+ * `onViewEvidence` up to RecordDetailView, which switches the sibling
+ * ImageViewer to the right angle and highlights the cited region. This
+ * component has no image of its own to show; it only ever asks its parent.
  */
 
 export interface ChecklistRowLabels {
@@ -43,6 +49,7 @@ export interface ChecklistRowLabels {
   calibrationMethodLabel: string;
   confidenceLabel: string;
   resultLabel: string;
+  viewEvidence: string;
 }
 
 export interface ChecklistRowProps {
@@ -56,6 +63,8 @@ export interface ChecklistRowProps {
   /** Phase 6 — Rule 7's real measurement, matched by fieldId. */
   fontSizeCheck?: FontSizeCheck;
   labels?: ChecklistRowLabels;
+  /** Phase 7 — called with the cited image id + natural-pixel bbox. */
+  onViewEvidence?: (imageId: string, bbox: [number, number, number, number]) => void;
 }
 
 export function ChecklistRow({
@@ -67,6 +76,7 @@ export function ChecklistRow({
   recordId,
   fontSizeCheck,
   labels,
+  onViewEvidence,
 }: ChecklistRowProps) {
   const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -74,6 +84,9 @@ export function ChecklistRow({
   const [explanation, setExplanation] = useState<ExplanationOutput | null>(null);
 
   const canExplain = !line.passed && Boolean(recordId) && Boolean(line.ruleId) && Boolean(labels);
+  const evidenceImageId = line.evidence?.imageId;
+  const evidenceBbox = line.evidence?.bbox;
+  const canViewEvidence = Boolean(onViewEvidence) && Boolean(evidenceImageId) && Boolean(evidenceBbox) && Boolean(labels);
 
   async function handleExplain() {
     if (!recordId || !line.ruleId) return;
@@ -85,6 +98,11 @@ export function ChecklistRow({
     setLoading(false);
     if (result.ok) setExplanation(result.data.explanation);
     else setError(true);
+  }
+
+  function handleViewEvidence() {
+    if (!onViewEvidence || !evidenceImageId || !evidenceBbox) return;
+    onViewEvidence(evidenceImageId, evidenceBbox);
   }
 
   return (
@@ -111,18 +129,34 @@ export function ChecklistRow({
         {line.value ?? notDetectedLabel}
       </span>
 
-      {canExplain ? (
-        <button
-          type="button"
-          className="ux4g-btn ux4g-btn-outline-primary ux4g-btn-sm lmcs-checklist-row-explain"
-          onClick={handleExplain}
-          disabled={loading}
-        >
-          <span className="ux4g-icon-outlined" aria-hidden="true">
-            auto_awesome
-          </span>
-          {loading ? labels!.explaining : labels!.explainWithAi}
-        </button>
+      {canExplain || canViewEvidence ? (
+        <div className="lmcs-checklist-row-actions">
+          {canViewEvidence ? (
+            <button
+              type="button"
+              className="ux4g-btn ux4g-btn-outline-primary ux4g-btn-sm lmcs-checklist-row-explain"
+              onClick={handleViewEvidence}
+            >
+              <span className="ux4g-icon-outlined" aria-hidden="true">
+                image_search
+              </span>
+              {labels!.viewEvidence}
+            </button>
+          ) : null}
+          {canExplain ? (
+            <button
+              type="button"
+              className="ux4g-btn ux4g-btn-outline-primary ux4g-btn-sm lmcs-checklist-row-explain"
+              onClick={handleExplain}
+              disabled={loading}
+            >
+              <span className="ux4g-icon-outlined" aria-hidden="true">
+                auto_awesome
+              </span>
+              {loading ? labels!.explaining : labels!.explainWithAi}
+            </button>
+          ) : null}
+        </div>
       ) : null}
 
       {expanded && labels ? (

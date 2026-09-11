@@ -13,10 +13,12 @@ from app.services.reports.snapshot import build_report_document
 
 
 def _fake_db_no_cached_explanations() -> MagicMock:
-    """A db whose RuleExplanation query always finds nothing — every
-    violation falls back to the deterministic rule-engine reason."""
+    """A db whose RuleExplanation query always finds nothing (every
+    violation falls back to the deterministic rule-engine reason) AND
+    whose EvidenceImage query returns no rows (empty evidenceImages)."""
     db = MagicMock()
     db.query.return_value.filter.return_value.first.return_value = None
+    db.query.return_value.filter.return_value.order_by.return_value.all.return_value = []
     return db
 
 
@@ -31,6 +33,10 @@ class _FakeRecord:
         self.compliance_status = kwargs.get("compliance_status", "Compliant")
         self.compliance_score = kwargs.get("compliance_score", 100)
         self.violations = kwargs.get("violations", [])
+        self.checklist = kwargs.get("checklist", [])
+        self.verification_status = kwargs.get("verification_status", "Verified")
+        self.source = kwargs.get("source", "Officer-Scanned")
+        self.scanned_at = kwargs.get("scanned_at", datetime.datetime.now(datetime.timezone.utc))
         self.verified_at = kwargs.get("verified_at", datetime.datetime.now(datetime.timezone.utc))
 
 
@@ -105,6 +111,7 @@ def test_uses_cached_explanation_summary_when_present():
     cached = MagicMock()
     cached.explanation = {"summary": "The MRP declaration could not be found on the label."}
     db.query.return_value.filter.return_value.first.return_value = cached
+    db.query.return_value.filter.return_value.order_by.return_value.all.return_value = []
 
     doc = build_report_document(record, _FakeProfile(), base_url="http://localhost:3000", db=db)
     section = doc["records"][0]
