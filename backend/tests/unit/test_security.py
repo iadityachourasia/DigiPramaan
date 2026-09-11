@@ -31,8 +31,9 @@ def _make_token(
     audience: str = "authenticated",
     issuer: str | None = None,
     expires_in: int = 3600,
+    iat_offset: int = 0,
 ) -> str:
-    now = int(time.time())
+    now = int(time.time()) + iat_offset
     claims: dict = {"aud": audience, "iat": now, "exp": now + expires_in}
     if sub is not None:
         claims["sub"] = sub
@@ -88,3 +89,22 @@ def test_missing_subject_claim_rejected() -> None:
 def test_malformed_token_rejected() -> None:
     with pytest.raises(AuthError, match="[Mm]alformed"):
         verify_supabase_jwt("not-a-jwt-at-all", _settings())
+
+
+def test_token_issued_slightly_in_the_future_tolerated() -> None:
+    """A few seconds of `iat`-in-the-future clock drift between this server
+    and Supabase's must not fail verification — found as a real, flaky
+    failure on a refresh-then-verify round trip against the live project,
+    where the freshly-minted token's `iat` could be a fraction of a second
+    ahead of local time."""
+    token = _make_token(iat_offset=5)
+    claims = verify_supabase_jwt(token, _settings())
+    assert claims["sub"]
+
+
+def test_token_issued_far_in_the_future_still_rejected() -> None:
+    # The leeway is generous enough for real clock drift, not so generous
+    # that a token minted an hour from now silently passes.
+    token = _make_token(iat_offset=3600)
+    with pytest.raises(AuthError, match="not yet valid"):
+        verify_supabase_jwt(token, _settings())

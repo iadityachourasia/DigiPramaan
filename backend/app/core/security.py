@@ -58,6 +58,15 @@ def verify_supabase_jwt(token: str, settings) -> dict:
 
     algorithm = header.get("alg", "HS256")
 
+    # A few seconds of tolerance against `exp`/`iat`/`nbf` for clock drift
+    # between this server and Supabase's — with zero leeway, a token
+    # verified within roughly a second of being issued (e.g. immediately
+    # after POST /auth/refresh) can fail as "not yet valid" purely because
+    # the two clocks disagree by a fraction of a second, not because
+    # anything is actually wrong with the token. Found via a real, flaky
+    # failure on a refresh-then-verify round trip against the live project.
+    _CLOCK_SKEW_LEEWAY_SECONDS = 10
+
     try:
         if algorithm.startswith("HS"):
             claims = jwt.decode(
@@ -65,6 +74,7 @@ def verify_supabase_jwt(token: str, settings) -> dict:
                 settings.supabase_jwt_secret,
                 algorithms=["HS256"],
                 audience=SUPABASE_AUDIENCE,
+                leeway=_CLOCK_SKEW_LEEWAY_SECONDS,
                 options={"verify_iss": False},  # soft-checked manually below
             )
         else:
@@ -75,10 +85,13 @@ def verify_supabase_jwt(token: str, settings) -> dict:
                 signing_key.key,
                 algorithms=[algorithm],
                 audience=SUPABASE_AUDIENCE,
+                leeway=_CLOCK_SKEW_LEEWAY_SECONDS,
                 options={"verify_iss": False},
             )
     except jwt.ExpiredSignatureError as exc:
         raise AuthError("Token has expired") from exc
+    except jwt.ImmatureSignatureError as exc:
+        raise AuthError("Token is not yet valid") from exc
     except jwt.InvalidAudienceError as exc:
         raise AuthError("Token has the wrong audience") from exc
     except jwt.PyJWTError as exc:

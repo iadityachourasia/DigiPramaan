@@ -42,6 +42,13 @@ export interface Session {
   user: User;
   /** Opaque token from the backend. Never rendered. */
   token: string;
+  /**
+   * Used only to call POST /auth/refresh before `expiresAt` — the A-11 /
+   * WCAG 2.2.1 "stay signed in" action. Never sent anywhere else. Supabase
+   * rotates it on every refresh, so whichever one came back most recently
+   * is the only one still valid.
+   */
+  refreshToken: string;
   /** ISO 8601 expiry, drives the A-11 pre-expiry warning. */
   expiresAt: string;
 }

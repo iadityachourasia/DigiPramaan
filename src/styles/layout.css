@@ -52,6 +52,16 @@
   flex: 1;
 }
 
+/*
+ * SessionExpiryWarning sits between Header and the content area with no
+ * flex `gap` between them (unlike `.lmcs-page-section`'s children) — this
+ * gives it its own spacing only when it actually renders, since it returns
+ * null most of the time and an always-on margin would leave a stray gap.
+ */
+.lmcs-session-expiry-warning {
+  margin: var(--ux4g-gap-row-s) var(--ux4g-padding-m) 0;
+}
+
 /* ─── Sidebar ─── */
 
 .lmcs-sidebar {

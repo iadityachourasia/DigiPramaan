@@ -67,6 +67,7 @@ def test_login_success_returns_session_shape(client_with_db) -> None:
         "app.api.v1.auth.sign_in_with_password",
         return_value={
             "access_token": "fake-access-token",
+            "refresh_token": "fake-refresh-token",
             "expires_at": 9999999999,
             "user": {"id": TEST_USER_ID, "email": "inspector@dp.com"},
         },
@@ -79,6 +80,7 @@ def test_login_success_returns_session_shape(client_with_db) -> None:
     assert response.status_code == 200
     body = response.json()
     assert body["token"] == "fake-access-token"
+    assert body["refreshToken"] == "fake-refresh-token"
     assert body["user"]["role"] == "Enforcement Officer"
     assert body["user"]["fullName"] == "Field Inspector"
     assert "expiresAt" in body
@@ -114,6 +116,63 @@ def test_login_unknown_username_returns_401_without_calling_supabase(client_with
     # A username that resolves to nothing locally must never even reach
     # Supabase — there's no email to send it.
     mock_sign_in.assert_not_called()
+
+
+def test_refresh_success_returns_new_session_shape(client_with_db) -> None:
+    client, mock_db = client_with_db
+    mock_db.get.return_value = _fake_profile()
+
+    with patch(
+        "app.api.v1.auth.refresh_access_token",
+        return_value={
+            "access_token": "new-access-token",
+            "refresh_token": "new-refresh-token",
+            "expires_at": 9999999999,
+            "user": {"id": TEST_USER_ID, "email": "inspector@dp.com"},
+        },
+    ) as mock_refresh:
+        response = client.post(
+            "/api/v1/auth/refresh",
+            json={"refreshToken": "old-refresh-token"},
+        )
+
+    mock_refresh.assert_called_once()
+    assert mock_refresh.call_args[0][0] == "old-refresh-token"
+    assert response.status_code == 200
+    body = response.json()
+    assert body["token"] == "new-access-token"
+    assert body["refreshToken"] == "new-refresh-token"
+    assert body["user"]["role"] == "Enforcement Officer"
+
+
+def test_refresh_invalid_token_returns_401(client_with_db) -> None:
+    client, _mock_db = client_with_db
+
+    with patch(
+        "app.api.v1.auth.refresh_access_token",
+        side_effect=SupabaseAuthError("Session could not be refreshed", status_code=401),
+    ):
+        response = client.post(
+            "/api/v1/auth/refresh",
+            json={"refreshToken": "expired-or-invalid"},
+        )
+
+    assert response.status_code == 401
+
+
+def test_refresh_service_unavailable_returns_503(client_with_db) -> None:
+    client, _mock_db = client_with_db
+
+    with patch(
+        "app.api.v1.auth.refresh_access_token",
+        side_effect=SupabaseAuthError("Could not reach the authentication service", status_code=503),
+    ):
+        response = client.post(
+            "/api/v1/auth/refresh",
+            json={"refreshToken": "whatever"},
+        )
+
+    assert response.status_code == 503
 
 
 def test_login_authenticated_but_no_profile_returns_401(client_with_db) -> None:

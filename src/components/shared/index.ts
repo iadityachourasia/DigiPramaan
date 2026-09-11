@@ -18,3 +18,4 @@ export {
   type BarcodeEvidenceCardLabels,
   type BarcodeEvidenceCardProps,
 } from "./BarcodeEvidenceCard";
+export { SessionExpiryWarning } from "./SessionExpiryWarning";
