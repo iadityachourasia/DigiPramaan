@@ -23,3 +23,6 @@ backend/.pytest_cache/
 backend/.env
 backend/*.egg-info/
 backend/app/seed/demo_profiles.json
+
+.vercel
+.env*
