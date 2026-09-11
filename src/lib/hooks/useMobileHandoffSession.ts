@@ -54,7 +54,14 @@ export function useMobileHandoffSession(scanDraftId: string, active: boolean) {
   }, [active, scanDraftId]);
 
   const regenerate = useCallback(() => {
-    createMobileSession(scanDraftId).then((result) => {
+    /*
+     * Real mode: pass the EXISTING real scan id (if a session was already
+     * created) so regenerating the QR revokes-and-replaces the token for
+     * the SAME scan session rather than abandoning any images already
+     * captured under it — see createMobileHandoff's own scanId-aware
+     * branch on the backend.
+     */
+    createMobileSession(scanDraftId, sessionRef.current?.scanDraftId).then((result) => {
       if (result.ok) setSession(result.data);
     });
   }, [scanDraftId]);
@@ -77,7 +84,10 @@ export function useMobileHandoffSession(scanDraftId: string, active: boolean) {
   const cancel = useCallback(() => {
     const current = sessionRef.current;
     if (!current) return;
-    cancelMobileSession(current.token).then((result) => {
+    /* `scanDraftId` carries the real backend scan id in real mode (see
+     * scans.ts's own docstring on this) — mock mode's cancelMobileSession
+     * ignores the second argument entirely. */
+    cancelMobileSession(current.token, current.scanDraftId).then((result) => {
       if (result.ok) setSession(result.data);
     });
   }, []);

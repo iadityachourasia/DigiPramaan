@@ -22,11 +22,25 @@ export const API = {
     pipelineRetry: (scanId: string, stageId: string) =>
       `/scans/${scanId}/pipeline/${stageId}/retry` as const,
     calibrate: (scanId: string) => `/scans/${scanId}/calibration` as const,
-    mobileSession: {
-      create: "/scans/mobile-session",
-      poll: (token: string) => `/scans/mobile-session/${token}` as const,
-      cancel: (token: string) => `/scans/mobile-session/${token}/cancel` as const,
-    },
+  },
+
+  /**
+   * Real Mobile QR Handoff backend (Phase 10). Officer-side routes are
+   * scoped by scanId under normal Bearer auth; token-side routes take
+   * the raw handoff token as the sole credential — see
+   * backend/app/api/deps/mobile_handoff.py's own docstring on why that's
+   * a genuinely separate auth mechanism, not an extension of the officer
+   * JWT one.
+   */
+  mobileHandoff: {
+    create: "/scans/mobile-handoff",
+    status: (scanId: string) => `/scans/${scanId}/mobile-handoff/status` as const,
+    revoke: (scanId: string) => `/scans/${scanId}/mobile-handoff/revoke` as const,
+    finalize: (scanId: string) => `/scans/${scanId}/mobile-handoff/finalize` as const,
+    tokenStatus: (token: string) => `/mobile-handoff/${token}` as const,
+    uploadImage: (token: string, angle: string) =>
+      `/mobile-handoff/${token}/images/${angle}` as const,
+    complete: (token: string) => `/mobile-handoff/${token}/complete` as const,
   },
 
   records: {

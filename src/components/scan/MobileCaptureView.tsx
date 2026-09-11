@@ -3,7 +3,14 @@
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 
-import { checkImageQuality, connectMobileSession, reportMobileCapture } from "@/lib/api/scans";
+import {
+  checkImageQuality,
+  connectMobileSession,
+  completeMobileHandoff,
+  reportMobileCapture,
+  uploadMobileCaptureImage,
+} from "@/lib/api/scans";
+import { isMockMode } from "@/lib/api/client";
 import type { CaptureSlotAngle, MobileHandoffSession, QualityFailureReason } from "@/types";
 
 import { CameraPreview } from "./CameraPreview";
@@ -111,24 +118,59 @@ export function MobileCaptureView({ token }: MobileCaptureViewProps) {
     setLocalStatus("checking");
     setFailureReason(null);
 
-    const result = await checkImageQuality({ angle: nextAngle!, file });
+    if (isMockMode()) {
+      const result = await checkImageQuality({ angle: nextAngle!, file });
 
-    if (!result.ok || !result.data.passed) {
-      setFailureReason(result.ok ? (result.data.failureReason ?? null) : null);
+      if (!result.ok || !result.data.passed) {
+        setFailureReason(result.ok ? (result.data.failureReason ?? null) : null);
+        setLocalStatus("failed");
+        return;
+      }
+
+      const dataUrl = await fileToDataUrl(file);
+      const reportResult = await reportMobileCapture(token, {
+        angle: nextAngle!,
+        fileName: file.name,
+        sizeBytes: file.size,
+        dataUrl,
+      });
+
+      setLocalStatus("idle");
+      if (reportResult.ok) setSession(reportResult.data);
+      return;
+    }
+
+    /*
+     * Real mode: one call does what mock mode needed two for — the
+     * backend's own evaluate_image_quality() runs server-side and the
+     * image is persisted as real EvidenceImage in the same request, so
+     * there's no separate pre-check round trip here (also sidesteps a
+     * known, separate, pre-existing gap: checkImageQuality's own real
+     * branch calls a backend endpoint that doesn't exist yet).
+     */
+    const uploadResult = await uploadMobileCaptureImage(token, nextAngle!, file);
+    if (!uploadResult.ok) {
+      setFailureReason(null);
+      setLocalStatus("failed");
+      return;
+    }
+    if (!uploadResult.data.passed) {
+      setFailureReason(uploadResult.data.failureReason);
       setLocalStatus("failed");
       return;
     }
 
-    const dataUrl = await fileToDataUrl(file);
-    const reportResult = await reportMobileCapture(token, {
-      angle: nextAngle!,
-      fileName: file.name,
-      sizeBytes: file.size,
-      dataUrl,
-    });
-
     setLocalStatus("idle");
-    if (reportResult.ok) setSession(reportResult.data);
+    const nextStatus = await connectMobileSession(token);
+    if (nextStatus.ok) {
+      setSession(nextStatus.data);
+      const allCaptured = REQUIRED_ORDER.every((angle) =>
+        nextStatus.data.capturedAngles.includes(angle)
+      );
+      if (allCaptured) {
+        await completeMobileHandoff(token);
+      }
+    }
   }
 
   return (

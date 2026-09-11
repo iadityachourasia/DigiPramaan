@@ -75,9 +75,22 @@ export async function createScan(
       },
     };
   }
+  /*
+   * The real POST /scans backend requires actual file bytes as three
+   * named multipart fields (front/back/side_pdp) — a JSON-encoded
+   * `images` array of {angle, fileName, url, sizeBytes} describes a
+   * photo without ever attaching one, and the endpoint has no way to
+   * fetch pixels from a client-only blob: URL itself. Each image's
+   * `url` here is a same-document `URL.createObjectURL()` blob (see
+   * useCaptureSlots.ts) — fetchable back into a real Blob before upload,
+   * which is the minimal fix: no slot-state shape change needed.
+   */
   const formData = new FormData();
   formData.append("metadata", JSON.stringify(request.metadata));
-  formData.append("images", JSON.stringify(request.images));
+  for (const image of request.images) {
+    const blob = await fetch(image.url).then((r) => r.blob());
+    formData.append(image.angle, blob, image.fileName);
+  }
   return apiUpload(API.scans.create, formData);
 }
 
@@ -179,14 +192,23 @@ export async function checkImageQuality(
 /* ------------------------------------------------------------------ *
  * Mobile Handoff session (03-scan-upload.md §2, Mobile Handoff Panel)
  * ------------------------------------------------------------------ *
- * Deliberately NOT gated by isMockMode(). This is the one part of the
- * page's data layer where "mock" and "real" already share the exact same
- * client-side code path — the desktop tab and the phone are two separate
- * browser contexts that both need to see one shared session, which no
- * client-side mock branch can provide (see mobile-session-store.ts). The
- * mock-ness lives entirely in that server module; swapping in a real backend
- * later means changing the route handlers, not these functions or their
- * callers.
+ * Phase 10 — real backend. Gated by isMockMode() like every other real
+ * API client in this file now: mock mode keeps calling the local
+ * mobile-session-store.ts route handlers unchanged (its own header
+ * comment already explains that mock's own reasoning); real mode calls
+ * the backend's officer-side (`/scans/mobile-handoff*`, real Bearer
+ * auth) and phone-side (`/mobile-handoff/{token}*`, token-only auth —
+ * see backend/app/api/deps/mobile_handoff.py) routes.
+ *
+ * `scanDraftId` on the returned `MobileHandoffSession` carries the REAL
+ * backend scan id in real mode (more correct than the client-fabricated
+ * placeholder mock mode still uses) — `ScanWizard`'s finalize step reads
+ * it as the real scanId, no separate field needed.
+ *
+ * `capturedImages` is always `{}` in real mode: images are already
+ * persisted server-side the moment the phone uploads them, so the
+ * desktop tab never needs the actual bytes/blob — only `capturedAngles`
+ * (which angles have arrived) drives the UI.
  */
 
 async function requestJson<T>(path: string, init?: RequestInit): Promise<ApiResult<T>> {
@@ -206,34 +228,166 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<ApiResu
   }
 }
 
+interface BackendHandoffCreateResponse {
+  handoffId: string;
+  scanId: string;
+  mobileUrl: string;
+  expiresAt: string;
+  status: string;
+}
+
+/** The backend's own REQUIRED_ANGLES — "additional" (CaptureSlotAngle's
+ * 4th, e-commerce-only variant) never appears in a mobile-handoff angles
+ * map. */
+type RequiredCaptureAngle = "front" | "back" | "side_pdp";
+
+interface BackendHandoffStatusResponse {
+  status: string;
+  expiresAt: string;
+  angles: Record<RequiredCaptureAngle, "waiting" | "received">;
+}
+
+/** ACTIVE/COMPLETED/EXPIRED/REVOKED (backend) -> waiting/connected/expired/
+ * cancelled (frontend). The mock's own model has no dedicated "done"
+ * status — completion is inferred from `capturedAngles` covering all
+ * three, which real mode's `angles` map already drives identically. */
+function mapBackendStatus(backendStatus: string): MobileHandoffSession["status"] {
+  switch (backendStatus) {
+    case "EXPIRED":
+      return "expired";
+    case "REVOKED":
+      return "cancelled";
+    case "COMPLETED":
+      return "connected";
+    default:
+      return "waiting";
+  }
+}
+
+function sessionFromAngles(
+  token: string,
+  scanId: string,
+  expiresAt: string,
+  backendStatus: string,
+  angles: Record<RequiredCaptureAngle, "waiting" | "received">
+): MobileHandoffSession {
+  return {
+    token,
+    scanDraftId: scanId,
+    status: mapBackendStatus(backendStatus),
+    createdAt: new Date().toISOString(),
+    expiresAt,
+    capturedAngles: (Object.keys(angles) as RequiredCaptureAngle[]).filter(
+      (angle) => angles[angle] === "received"
+    ),
+    capturedImages: {},
+  };
+}
+
 export function createMobileSession(
-  scanDraftId: string
+  scanDraftId: string,
+  existingScanId?: string
 ): Promise<ApiResult<MobileHandoffSession>> {
-  return requestJson("/api/mobile-sessions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ scanDraftId }),
+  if (isMockMode()) {
+    return requestJson("/api/mobile-sessions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ scanDraftId }),
+    });
+  }
+  return apiPost<BackendHandoffCreateResponse>(
+    API.mobileHandoff.create,
+    existingScanId ? { scanId: existingScanId } : {}
+  ).then((result) => {
+    if (!result.ok) return result;
+    const token = result.data.mobileUrl.split("/").pop() ?? "";
+    return {
+      ok: true,
+      data: {
+        token,
+        scanDraftId: result.data.scanId,
+        status: mapBackendStatus(result.data.status),
+        createdAt: new Date().toISOString(),
+        expiresAt: result.data.expiresAt,
+        capturedAngles: [],
+        capturedImages: {},
+      },
+    };
   });
 }
 
 export function pollMobileSession(token: string): Promise<ApiResult<MobileHandoffSession>> {
-  return requestJson(`/api/mobile-sessions/${token}`);
+  if (isMockMode()) {
+    return requestJson(`/api/mobile-sessions/${token}`);
+  }
+  return apiGet<{ scanSessionId: string } & BackendHandoffStatusResponse>(
+    API.mobileHandoff.tokenStatus(token)
+  ).then((result) => {
+    if (!result.ok) return result;
+    return {
+      ok: true,
+      data: sessionFromAngles(
+        token,
+        result.data.scanSessionId,
+        result.data.expiresAt,
+        result.data.status,
+        result.data.angles
+      ),
+    };
+  });
 }
 
-export function cancelMobileSession(token: string): Promise<ApiResult<MobileHandoffSession>> {
-  return requestJson(`/api/mobile-sessions/${token}`, { method: "DELETE" });
+export function cancelMobileSession(
+  token: string,
+  scanId?: string
+): Promise<ApiResult<MobileHandoffSession>> {
+  if (isMockMode()) {
+    return requestJson(`/api/mobile-sessions/${token}`, { method: "DELETE" });
+  }
+  if (!scanId) {
+    return Promise.resolve({ ok: false, status: 0, message: "Missing scan id" });
+  }
+  return apiPost<{ status: string }>(API.mobileHandoff.revoke(scanId), {}).then((result) => {
+    if (!result.ok) return result;
+    return {
+      ok: true,
+      data: sessionFromAngles(token, scanId, "", result.data.status, {
+        front: "waiting",
+        back: "waiting",
+        side_pdp: "waiting",
+      }),
+    };
+  });
 }
 
 export function connectMobileSession(token: string): Promise<ApiResult<MobileHandoffSession>> {
-  return requestJson(`/api/mobile-sessions/${token}/connect`, { method: "POST" });
+  if (isMockMode()) {
+    return requestJson(`/api/mobile-sessions/${token}/connect`, { method: "POST" });
+  }
+  return pollMobileSession(token);
 }
 
 export interface ReportMobileCaptureRequest {
   angle: CaptureSlotAngle;
   fileName: string;
   sizeBytes: number;
-  /** A data: URL — see mobile-session-store.ts for why. */
+  /** A data: URL — mock mode only, see mobile-session-store.ts. */
   dataUrl: string;
+}
+
+/** Real mode's own upload, taking the actual File — mock mode keeps the
+ * data-URL/JSON shape above via `reportMobileCapture`. Kept as a
+ * separate function (rather than widening `ReportMobileCaptureRequest`
+ * with an optional `file`) since the two modes' payloads are genuinely
+ * different shapes, not the same shape with an optional field. */
+export function uploadMobileCaptureImage(
+  token: string,
+  angle: CaptureSlotAngle,
+  file: File
+): Promise<ApiResult<{ passed: boolean; failureReason: QualityFailureReason | null }>> {
+  const formData = new FormData();
+  formData.append("file", file);
+  return apiUpload(API.mobileHandoff.uploadImage(token, angle), formData);
 }
 
 export function reportMobileCapture(
@@ -244,6 +398,21 @@ export function reportMobileCapture(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(request),
+  });
+}
+
+export function completeMobileHandoff(token: string): Promise<ApiResult<{ status: string }>> {
+  return apiPost(API.mobileHandoff.complete(token), {});
+}
+
+export function finalizeMobileHandoff(
+  scanId: string,
+  metadata: ScanMetadata
+): Promise<ApiResult<ScanResponse>> {
+  return apiPost(API.mobileHandoff.finalize(scanId), {
+    category: metadata.category,
+    region: metadata.region,
+    ...(metadata.manufacturerName ? { manufacturerName: metadata.manufacturerName } : {}),
   });
 }
 
