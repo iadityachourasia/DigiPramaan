@@ -77,13 +77,32 @@ for (const locale of targets) {
     ...merged,
   };
 
-  const serialized = JSON.stringify(withMeta, null, 2) + "\n";
-  const current = fs.existsSync(path.join(DIR, `${locale}.json`))
-    ? fs.readFileSync(path.join(DIR, `${locale}.json`), "utf8")
+  const localePath = path.join(DIR, `${locale}.json`);
+  const current = fs.existsSync(localePath)
+    ? fs.readFileSync(localePath, "utf8")
     : "";
 
+  /*
+   * FIXED: this used to serialize with a hardcoded "\n" and compare that
+   * verbatim against the file on disk. On a Windows checkout (this repo
+   * has no .gitattributes/.editorconfig, and core.autocrlf=true), every
+   * text file — hi.json included — is checked out with CRLF regardless of
+   * what's committed, so that raw string comparison failed on EVERY run
+   * here even when the translation content was fully in sync. Preserving
+   * whichever EOL the file already uses (CRLF if present, else LF) keeps
+   * `i18n:sync` from rewriting every line purely over line-ending churn,
+   * and comparing the LF-normalized forms in `--check` mode means the gate
+   * only fails on an actual content difference, on any platform.
+   */
+  const eol = current.includes("\r\n") ? "\r\n" : "\n";
+  const serialized = (JSON.stringify(withMeta, null, 2) + "\n").replace(
+    /\n/g,
+    eol
+  );
+  const normalize = (str) => str.replace(/\r\n/g, "\n");
+
   if (checkOnly) {
-    if (current !== serialized) {
+    if (normalize(current) !== normalize(serialized)) {
       console.error(
         `\x1b[31mFAIL\x1b[0m src/messages/${locale}.json is out of step with ${BASE}.json. Run \`npm run i18n:sync\`.`
       );
@@ -94,7 +113,7 @@ for (const locale of targets) {
       );
     }
   } else {
-    fs.writeFileSync(path.join(DIR, `${locale}.json`), serialized, "utf8");
+    fs.writeFileSync(localePath, serialized, "utf8");
     console.log(
       `OK   wrote src/messages/${locale}.json — ${untranslated.length} key(s) untranslated`
     );
