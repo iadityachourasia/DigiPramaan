@@ -59,61 +59,71 @@ def _extension_for(upload: UploadFile) -> str:
     return "jpg"
 
 
-@router.post("/scans", status_code=status.HTTP_201_CREATED)
-async def create_scan(
+def create_scan_session_from_images(
+    *,
+    db: DbSession,
+    settings: Settings,
     background_tasks: BackgroundTasks,
-    metadata: str = Form(...),
-    front: UploadFile = File(...),
-    back: UploadFile = File(...),
-    side_pdp: UploadFile = File(...),
-    current_user: Profile = Depends(require_permission("scan.create")),
-    db: DbSession = Depends(get_db),
-    settings: Settings = Depends(get_settings),
+    created_by: uuid.UUID,
+    category: str | None,
+    region: str | None,
+    source: str,
+    images: list[tuple[str, str, bytes]],
+    ecommerce_listing_url: str | None = None,
+    batch_id: uuid.UUID | None = None,
 ) -> dict:
-    try:
-        meta = json.loads(metadata)
-    except json.JSONDecodeError as exc:
-        raise HTTPException(status_code=422, detail="metadata must be valid JSON") from exc
+    """The one place a scan session is actually created — quality-check
+    every image, upload to B2, persist `ScanSession`/`EvidenceImage` rows,
+    schedule `run_pipeline`. `POST /scans` (real camera capture) and the
+    E-commerce Listing Scanner's routes both call this, rather than each
+    reimplementing it — the same "one function, one call site" discipline
+    `resolve_product()` established for identity resolution (Phase 8).
 
-    uploads = {"front": front, "back": back, "side_pdp": side_pdp}
-    image_bytes_by_angle: dict[str, bytes] = {}
-    quality_by_angle = {}
-    hashes_by_angle: dict[str, str] = {}
+    `images` is `(angle, filename, bytes)` — keyed by POSITION internally,
+    never by `angle` as a dict key: a physically captured scan has exactly
+    3 distinct angles (front/back/side_pdp), but an e-commerce listing's
+    images share "front"/"additional" labels (see the frontend's own
+    `toPipelineImages`), so `angle` is NOT a safe dict key here.
+    """
+    image_bytes_list = [b for _angle, _filename, b in images]
+    qualities = [evaluate_image_quality(b) for b in image_bytes_list]
+    hashes_by_position = {str(i): q.content_hash for i, q in enumerate(qualities)}
+    duplicate_positions = find_duplicate_angles(hashes_by_position)
 
-    for angle, upload in uploads.items():
-        image_bytes = await upload.read()
-        quality = evaluate_image_quality(image_bytes)
-        image_bytes_by_angle[angle] = image_bytes
-        quality_by_angle[angle] = quality
-        hashes_by_angle[angle] = quality.content_hash
-
-    duplicate_angles = find_duplicate_angles(hashes_by_angle)
-
-    rejected = {
-        angle: q
-        for angle, q in quality_by_angle.items()
-        if q.overall_verdict == QualityVerdict.RECAPTURE_REQUIRED
-    }
-    if rejected or duplicate_angles:
+    rejected = [
+        (images[i][0], q) for i, q in enumerate(qualities) if q.overall_verdict == QualityVerdict.RECAPTURE_REQUIRED
+    ]
+    if rejected or duplicate_positions:
+        # Keyed by angle, matching this response's existing contract (a
+        # physically captured scan has 3 distinct angle names) — a position
+        # index would break that for POST /scans's real callers. Two
+        # e-commerce images sharing one angle label (e.g. "additional")
+        # both failing quality is a rare, acceptable edge case where only
+        # the last one's detail survives here — the request is rejected
+        # either way, which is the part that actually matters.
+        rejected_detail: dict[str, dict] = {}
+        for angle, q in rejected:
+            rejected_detail[angle] = {"reason": q.reason, "checks": [c.model_dump() for c in q.checks]}
         detail = {
             "error": "One or more images failed the quality check.",
-            "rejected": {
-                angle: {"reason": q.reason, "checks": [c.model_dump() for c in q.checks]}
-                for angle, q in rejected.items()
-            },
-            "duplicateAngles": duplicate_angles,
+            "rejected": rejected_detail,
+            "duplicateAngles": [images[int(p)][0] for p in duplicate_positions],
         }
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
 
-    # All three passed (PASS or non-blocking REVIEW) — create the scan
+    # All images passed (PASS or non-blocking REVIEW) — create the scan
     # session, upload evidence, kick off the async pipeline.
     scan_session = ScanSession(
-        created_by=current_user.id,
-        category=meta.get("category"),
-        region=meta.get("region"),
+        created_by=created_by,
+        category=category,
+        region=region,
+        source=source,
+        ecommerce_listing_url=ecommerce_listing_url,
+        batch_id=batch_id,
         stages=initial_stages(
             quality_summary="; ".join(
-                f"{angle}: {q.overall_verdict.value}" for angle, q in quality_by_angle.items()
+                f"{angle}: {q.overall_verdict.value}"
+                for (angle, _filename, _bytes), q in zip(images, qualities)
             )
         ),
         status="pending",
@@ -124,9 +134,8 @@ async def create_scan(
     s3_client = get_s3_client(settings)
     uploaded_keys: list[str] = []
     try:
-        for angle, image_bytes in image_bytes_by_angle.items():
-            quality = quality_by_angle[angle]
-            ext = _extension_for(uploads[angle])
+        for (angle, filename, image_bytes), quality in zip(images, qualities):
+            ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "jpg"
             storage_key = f"evidence/{scan_session.id}/{angle}-{quality.content_hash[:12]}.{ext}"
             s3_client.put_object(Bucket=settings.s3_bucket, Key=storage_key, Body=image_bytes)
             uploaded_keys.append(storage_key)
@@ -171,6 +180,41 @@ async def create_scan(
         if scan_session.created_at
         else datetime.now(timezone.utc).isoformat(),
     }
+
+
+@router.post("/scans", status_code=status.HTTP_201_CREATED)
+async def create_scan(
+    background_tasks: BackgroundTasks,
+    metadata: str = Form(...),
+    front: UploadFile = File(...),
+    back: UploadFile = File(...),
+    side_pdp: UploadFile = File(...),
+    current_user: Profile = Depends(require_permission("scan.create")),
+    db: DbSession = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> dict:
+    try:
+        meta = json.loads(metadata)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=422, detail="metadata must be valid JSON") from exc
+
+    uploads = [("front", front), ("back", back), ("side_pdp", side_pdp)]
+    images: list[tuple[str, str, bytes]] = []
+    for angle, upload in uploads:
+        image_bytes = await upload.read()
+        filename = upload.filename or f"{angle}.{_extension_for(upload)}"
+        images.append((angle, filename, image_bytes))
+
+    return create_scan_session_from_images(
+        db=db,
+        settings=settings,
+        background_tasks=background_tasks,
+        created_by=current_user.id,
+        category=meta.get("category"),
+        region=meta.get("region"),
+        source="Officer-Scanned",
+        images=images,
+    )
 
 
 @router.get("/scans/{scan_id}/pipeline")

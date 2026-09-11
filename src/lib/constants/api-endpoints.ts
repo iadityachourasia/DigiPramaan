@@ -76,6 +76,7 @@ export const API = {
   },
 
   ecommerce: {
+    scrapePreview: "/ecommerce/scrape-preview",
     scan: "/ecommerce/scan",
     batch: "/ecommerce/batch",
     batchDetail: (id: string) => `/ecommerce/batch/${id}` as const,

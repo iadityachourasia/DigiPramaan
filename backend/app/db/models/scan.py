@@ -49,6 +49,14 @@ class ScanSession(Base):
         ForeignKey("compliance_records.id", name="fk_scan_sessions_record_id"),
         nullable=True,
     )
+    # "Officer-Scanned" | "Citizen-Reported" | "E-commerce-Sourced" (Phase 9)
+    # — copied onto the produced ComplianceRecord verbatim by run_pipeline().
+    source: Mapped[str] = mapped_column(String, nullable=False, default="Officer-Scanned")
+    # Set only for source == "E-commerce-Sourced".
+    ecommerce_listing_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    batch_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ecommerce_batches.id"), nullable=True, index=True
+    )
     # PipelineStage[] — { id, state, summary?, failureReason? } per element,
     # persisted after every transition (see module docstring).
     stages: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
@@ -80,5 +88,28 @@ class EvidenceImage(Base):
     # underlying object still exists.
     quality_result: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     uploaded_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class EcommerceBatch(Base):
+    """One bulk-mode submission (Phase 9): the category/search page an
+    officer scanned, grouping the independent `ScanSession` rows it
+    produced. A real FK target rather than a bare string column, so
+    `scan_sessions.batch_id` has referential integrity — this table
+    carries the ONE thing no individual listing's own
+    `ecommerce_listing_url` can hold: the category page itself, distinct
+    from any of the product pages found on it."""
+
+    __tablename__ = "ecommerce_batches"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
+    )
+    source_url: Mapped[str] = mapped_column(String, nullable=False)
+    created_by: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("profiles.id"), nullable=False
+    )
+    created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
