@@ -84,6 +84,11 @@ def _parsed_listing_to_frontend(parsed: ParsedListing) -> dict:
                 "url": image.url,
                 "sizeBytes": 0,
                 "angle": "front" if i == 0 else "additional",
+                # A-02: alt text is mandatory, never empty. Real alt text
+                # when the source page's own <img alt> carried one;
+                # otherwise a generic-but-honest fallback naming the
+                # listing itself rather than a blank string.
+                "altText": image.alt or parsed.title or "Product photo from listing",
             }
             for i, image in enumerate(parsed.images)
         ],
