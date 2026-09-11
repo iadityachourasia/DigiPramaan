@@ -316,6 +316,7 @@ function buildRecord(seed: RecordSeed): ComplianceRecord {
       overallConfidence,
       declarations,
       fontSizeChecks: seed.fontSize ?? [],
+      barcodeAnalysis: null,
     },
     evidence: buildEvidence(seed),
     auditTrail: buildAuditTrail(seed),

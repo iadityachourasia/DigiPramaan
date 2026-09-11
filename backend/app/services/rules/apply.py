@@ -16,6 +16,7 @@ just takes the recomputed checklist/violations/status/score directly.
 from __future__ import annotations
 
 from app.db.models import ComplianceRecord
+from app.services.barcode import barcode_analysis_to_frontend
 from app.services.extraction.adapter import to_extraction_result
 from app.services.extraction.schema import ComplianceEvidenceBundle
 from app.services.measurement.font_height import FontMeasurementResult
@@ -85,6 +86,14 @@ def reapply_rules(
                 "passed": rule7_result.effective_status == RuleStatus.PASS,
             })
     extraction_result["fontSizeChecks"] = font_size_checks
+
+    # Phase 8 — carries the deterministic barcode analysis (already computed
+    # once by the pipeline's own barcodeDetection stage, never recomputed
+    # here — reapply_rules() re-runs the RULE engine, not the barcode
+    # detector) through to the frontend's extraction contract.
+    extraction_result["barcodeAnalysis"] = (
+        barcode_analysis_to_frontend(bundle.barcode_analysis) if bundle.barcode_analysis else None
+    )
 
     return {
         "rule_results": rule_results,

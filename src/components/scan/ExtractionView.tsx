@@ -8,11 +8,11 @@ import { Alert } from "@/components/ui/Alert";
 import { Checkbox } from "@/components/ui/Checkbox";
 import { Select } from "@/components/ui/Select";
 import { TextField } from "@/components/ui/TextField";
-import { EmptyState } from "@/components/shared";
+import { BarcodeEvidenceCard, EmptyState } from "@/components/shared";
 import { useRouter } from "@/i18n/navigation";
 import { ROUTES } from "@/lib/constants";
 import { useAuth, useComplianceRecord, usePermission } from "@/lib/hooks";
-import type { DeclarationFieldId, ExtractedDeclaration } from "@/types";
+import type { BarcodeDecodeResult, DeclarationFieldId, ExtractedDeclaration } from "@/types";
 
 import { ExtractionPanel } from "./ExtractionPanel";
 import { ImageViewer, type ImagePoint } from "./ImageViewer";
@@ -38,6 +38,7 @@ export function ExtractionView({ recordId }: ExtractionViewProps) {
   const tVocab = useTranslations("vocabulary");
   const tDeclarationField = useTranslations("declarationField");
   const tCommon = useTranslations("common.actions");
+  const tBarcode = useTranslations("barcode");
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
@@ -75,6 +76,14 @@ export function ExtractionView({ recordId }: ExtractionViewProps) {
   const [calibrationSubmitting, setCalibrationSubmitting] = useState(false);
   const [calibrationError, setCalibrationError] = useState(false);
 
+  // Phase 8 — barcode evidence highlight. Independent of calibration state
+  // (mutually exclusive by construction, same as RecordDetailView's own
+  // highlightBbox usage — calibration is a modal-like toggle, never
+  // concurrent with viewing evidence).
+  const [barcodeHighlightBbox, setBarcodeHighlightBbox] = useState<
+    [number, number, number, number] | undefined
+  >(undefined);
+
   if (notFound) {
     return (
       <EmptyState icon="search_off" title={t("notFoundTitle")} description={t("notFoundBody")} />
@@ -107,6 +116,11 @@ export function ExtractionView({ recordId }: ExtractionViewProps) {
     setDrawerAngle(angle);
     setActiveAngle(angle);
     setDrawerOpen(true);
+  }
+
+  function handleViewBarcodeEvidence(candidate: BarcodeDecodeResult) {
+    setActiveAngle(candidate.sourceAngle);
+    setBarcodeHighlightBbox(candidate.bbox ?? undefined);
   }
 
   function handleCorrect(fieldId: DeclarationFieldId, value: string) {
@@ -220,11 +234,15 @@ export function ExtractionView({ recordId }: ExtractionViewProps) {
           <ImageViewer
             images={record.capturedImages}
             activeAngle={activeAngle}
-            onActiveAngleChange={setActiveAngle}
+            onActiveAngleChange={(angle) => {
+              setActiveAngle(angle);
+              setBarcodeHighlightBbox(undefined);
+            }}
             labels={{ angle: angleLabel, zoomIn: t("zoomIn"), zoomOut: t("zoomOut") }}
             calibrationActive={calibrationActive}
             calibrationResetToken={calibrationResetToken}
             onCalibrationPoints={setCalibrationPoints}
+            {...(!calibrationActive && barcodeHighlightBbox ? { highlightBbox: barcodeHighlightBbox } : {})}
           />
 
           {!readOnly &&
@@ -314,6 +332,23 @@ export function ExtractionView({ recordId }: ExtractionViewProps) {
               </div>
             </section>
           ) : null}
+
+          <BarcodeEvidenceCard
+            analysis={record.extraction.barcodeAnalysis}
+            onViewEvidence={handleViewBarcodeEvidence}
+            className="ux4g-mt-m"
+            labels={{
+              heading: tBarcode("heading"),
+              checksumValid: tBarcode("checksumValid"),
+              sourceImage: (angle) => tBarcode("sourceImage", { angle: tBarcode(`angle.${angle}`) }),
+              viewEvidence: tBarcode("viewEvidence"),
+              needsReviewHeading: tBarcode("needsReviewHeading"),
+              needsReviewTag: tBarcode("needsReviewTag"),
+              needsReviewBody: tBarcode("needsReviewBody"),
+              viewCandidate: tBarcode("viewCandidate"),
+              invalidChecksum: tBarcode("invalidChecksum"),
+            }}
+          />
         </section>
 
         <section aria-labelledby="declarations-heading">

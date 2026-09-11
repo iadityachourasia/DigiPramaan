@@ -337,7 +337,14 @@ export function ScanWizard() {
           onClick={handleSubmitClick}
           disabled={submitting}
         >
-          {submitting ? t("submit.submitting") : t("submit.action")}
+          {submitting ? (
+            <>
+              <span className="ux4g-spinner ux4g-spinner-sm" aria-hidden="true" />
+              {t("submit.submitting")}
+            </>
+          ) : (
+            t("submit.action")
+          )}
         </button>
         {attemptedSubmit && (mode || manualEntryActive) && !captureComplete ? (
           <p className="ux4g-upload-error-msg" role="alert">

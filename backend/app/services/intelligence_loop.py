@@ -78,8 +78,14 @@ def run_post_verification_loop(record: ComplianceRecord, db: Session) -> None:
         raise EnrichmentSkipped("Net quantity unavailable — cannot resolve Product identity.")
 
     legal_entity = resolve_legal_entity(manufacturer_name, db)
+    trusted_identifier = (
+        bundle.barcode_analysis.trusted_identifier
+        if bundle.barcode_analysis is not None and bundle.barcode_analysis.status == "trusted"
+        else None
+    )
     product, match_method = resolve_product(
-        legal_entity.id, brand, generic_name, net_quantity_raw, record.category, db
+        legal_entity.id, brand, generic_name, net_quantity_raw, record.category, db,
+        trusted_identifier=trusted_identifier,
     )
 
     existing_link = (
