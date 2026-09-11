@@ -6,7 +6,8 @@ import { useId, useState } from "react";
 
 import { EmptyState } from "@/components/shared";
 import { useRouter } from "@/i18n/navigation";
-import { createScan } from "@/lib/api/scans";
+import { isMockMode } from "@/lib/api/client";
+import { createScan, finalizeMobileHandoff } from "@/lib/api/scans";
 import { ROUTES } from "@/lib/constants";
 import { useAuth, useCaptureSlots, useMobileHandoffSession, usePermission } from "@/lib/hooks";
 import { PRODUCT_NAME_MAX_LENGTH } from "@/lib/validations/scan";
@@ -148,6 +149,24 @@ export function ScanWizard() {
 
   async function finishSubmit(metadata: ScanMetadata) {
     setSubmitting(true);
+
+    /*
+     * Real mode's mobile path never batches images here — each one was
+     * already persisted as a real EvidenceImage the moment the phone
+     * uploaded it (see scans.ts's uploadMobileCaptureImage). This step is
+     * the officer's own explicit "Continue" click finishing what the
+     * phone started: fill in category/region (only just collected, at
+     * this Details step) and hand off to the SAME finalize->run_pipeline
+     * path device/camera mode's own createScan() already schedules.
+     */
+    if (mode === "mobile" && mobileSession && !isMockMode()) {
+      const finalizeResult = await finalizeMobileHandoff(mobileSession.scanDraftId, metadata);
+      setSubmitting(false);
+      if (finalizeResult.ok) {
+        router.push(ROUTES.scanStatus(finalizeResult.data.id));
+      }
+      return;
+    }
 
     const images =
       mode === "mobile" && mobileSession
