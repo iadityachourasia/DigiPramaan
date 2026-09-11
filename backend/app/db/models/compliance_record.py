@@ -53,6 +53,9 @@ class ComplianceRecord(Base):
     category: Mapped[str | None] = mapped_column(String, nullable=True)
     region: Mapped[str | None] = mapped_column(String, nullable=True)
     source: Mapped[str] = mapped_column(String, nullable=False, default="Officer-Scanned")
+    # Set only when source == "E-commerce-Sourced" — the listing page this
+    # record's evidence images came from (Phase 9).
+    ecommerce_listing_url: Mapped[str | None] = mapped_column(String, nullable=True)
 
     verification_status: Mapped[str] = mapped_column(String, nullable=False, default="Extracted")
     compliance_status: Mapped[str] = mapped_column(String, nullable=False, default="Pending")

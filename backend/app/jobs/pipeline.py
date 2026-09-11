@@ -393,7 +393,8 @@ def run_pipeline(scan_session_id: uuid.UUID) -> None:
         record.manufacturer_name_observed = extraction_result["declarations"][0]["value"]
         record.category = session.category
         record.region = session.region
-        record.source = "Officer-Scanned"
+        record.source = session.source
+        record.ecommerce_listing_url = session.ecommerce_listing_url
         # verification_status stays "Extracted" until an officer explicitly
         # verifies (see api/v1/records.py) — but compliance_status/score/
         # checklist/violations now reflect the REAL deterministic rule
