@@ -74,6 +74,7 @@ export async function login(request: LoginRequest): Promise<LoginResult> {
       session: {
         user,
         token: `mock-session-${match.userId}`,
+        refreshToken: `mock-refresh-${match.userId}`,
         expiresAt: new Date(
           Date.now() + MOCK_SESSION_MINUTES * 60 * 1000
         ).toISOString(),
@@ -94,6 +95,52 @@ export async function login(request: LoginRequest): Promise<LoginResult> {
     return { outcome: "success", session: (await response.json()) as Session };
   } catch {
     /* Network failure, DNS, CORS, offline. All of it is "we could not reach it". */
+    return { outcome: "serverUnavailable" };
+  }
+}
+
+/**
+ * WCAG 2.2.1 / BRD A-11's "stay signed in" action — exchanges the current
+ * session's refresh token for a new one before `expiresAt`. Same outcome
+ * shape as `login`: a refresh token can be invalid/expired exactly like a
+ * password can, and the caller (the pre-expiry warning banner) needs to
+ * tell "extend failed, sign out" apart from "the service is unreachable,
+ * let them retry."
+ */
+export async function refreshSession(refreshToken: string): Promise<LoginResult> {
+  if (USE_MOCK) {
+    await delay(300);
+    if (!refreshToken.startsWith("mock-refresh-")) return { outcome: "invalidCredentials" };
+
+    const userId = refreshToken.slice("mock-refresh-".length);
+    const user = findMockUser(userId);
+    if (!user) return { outcome: "invalidCredentials" };
+
+    return {
+      outcome: "success",
+      session: {
+        user,
+        token: `mock-session-${userId}`,
+        refreshToken: `mock-refresh-${userId}`,
+        expiresAt: new Date(
+          Date.now() + MOCK_SESSION_MINUTES * 60 * 1000
+        ).toISOString(),
+      },
+    };
+  }
+
+  try {
+    const response = await fetch(`${API_BASE}/auth/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refreshToken }),
+    });
+
+    if (response.status === 401) return { outcome: "invalidCredentials" };
+    if (!response.ok) return { outcome: "serverUnavailable" };
+
+    return { outcome: "success", session: (await response.json()) as Session };
+  } catch {
     return { outcome: "serverUnavailable" };
   }
 }
