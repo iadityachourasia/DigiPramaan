@@ -238,7 +238,13 @@
     "successTitle": "Signed in",
     "successBody": "Taking you to your dashboard.",
     "demoHint": "Demonstration accounts",
-    "demoBody": "This build has no live directory. Sign in as r.deshmukh (Enforcement Officer), s.iyer (Admin) or a.banerjee (Reviewer), password Demo@2026."
+    "demoBody": "This build has no live directory. Use one of the quick sign-in buttons above, or sign in as inspector@dp.com (Enforcement Officer), seniorinspector@dp.com (Reviewer) or oldofficer@dp.com (Admin).",
+    "quickSignIn": {
+      "label": "Quick sign-in (demo)",
+      "inspector": "Field Inspector",
+      "seniorInspector": "Senior Inspector",
+      "admin": "Administrator"
+    }
   },
   "errors": {
     "genericTitle": "Something went wrong",
