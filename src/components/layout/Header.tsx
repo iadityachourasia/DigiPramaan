@@ -1,10 +1,10 @@
 "use client";
 
-import Image from "next/image";
 import { useTranslations } from "next-intl";
 
 import { MOCK_DASHBOARD_ALERTS } from "@/lib/mock";
 import { useAuth } from "@/lib/hooks";
+import { DigiPramaanLogo } from "@/components/shared";
 
 /**
  * Header — the top bar for authenticated pages.
@@ -55,14 +55,7 @@ export function Header({ onMenuToggle }: HeaderProps) {
         </button>
 
         <div className="lmcs-header-brand">
-          <span className="lmcs-brand-mark lmcs-brand-mark-compact">
-            <Image
-              src="/images/digi-pramaan-logo.png"
-              alt=""
-              width={32}
-              height={32}
-            />
-          </span>
+          <DigiPramaanLogo size="sm" className="lmcs-brand-mark-compact" />
           <div className="lmcs-header-titles">
             <span className="ux4g-title-s-strong">{t("app.name")}</span>
             <span className="ux4g-label-s-default ux4g-text-neutral-secondary">
