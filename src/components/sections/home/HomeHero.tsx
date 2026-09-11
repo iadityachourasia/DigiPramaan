@@ -99,6 +99,26 @@ export async function HomeHero() {
               </span>
             </div>
 
+            {/*
+              A miniature version of the same flow HomePipeline explains in full
+              below — this is what a judge sees first, so the "photo in, verified
+              record out" shape should be visible before they scroll.
+            */}
+            <div className="lmcs-demo-flow">
+              {(["scan", "ocr", "rules", "verified"] as const).map((step, index, arr) => (
+                <span key={step} className="lmcs-demo-flow-step">
+                  <span className="ux4g-tag ux4g-tag-outline-neutral ux4g-tag-s">
+                    {t(`home.hero.demoFlow.${step}`)}
+                  </span>
+                  {index < arr.length - 1 ? (
+                    <span className="ux4g-icon-outlined lmcs-demo-flow-arrow">
+                      chevron_right
+                    </span>
+                  ) : null}
+                </span>
+              ))}
+            </div>
+
             <div className="lmcs-demo-body">
               {rows.map((row) => (
                 <div key={row.fieldId} className="lmcs-demo-row">

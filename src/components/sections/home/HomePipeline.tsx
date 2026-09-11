@@ -13,10 +13,16 @@ import { usePrefersReducedMotion } from "@/lib/hooks";
  * §4.1 is the product's actual differentiator and a judge should be able to see
  * the stages named.
  *
- * The second-opinion stage is marked as conditional rather than shown as an
- * equal peer: it only runs when a field's confidence falls below threshold.
- * Drawing it as one of seven identical boxes would misrepresent the design, and
- * the addendum is explicit that a skipped stage must read as intentional rather
+ * This is a landing-page narrative simplification, not a claim about the
+ * backend's actual internal stage names or execution order (see
+ * `backend/app/jobs/pipeline.py` for those) — it collapses OCR/fallback/
+ * structuring into "Extract" and adds the officer-facing "Verify"/"Report"
+ * steps (Phases 3 and 5) that a visitor would otherwise never see described.
+ *
+ * The Explain stage is marked as conditional rather than shown as an equal
+ * peer: it only applies to a flagged declaration, not every field. Drawing it
+ * as one of six identical boxes would misrepresent the design, and the
+ * addendum is explicit that a skipped stage must read as intentional rather
  * than be silently omitted.
  *
  * Brand budget: only the conditional node is tinted. Colouring every node would
@@ -37,12 +43,11 @@ import { usePrefersReducedMotion } from "@/lib/hooks";
  */
 const STAGES = [
   { key: "capture", conditional: false },
-  { key: "quality", conditional: false },
-  { key: "ocr", conditional: false },
-  { key: "fallback", conditional: true },
-  { key: "structuring", conditional: false },
-  { key: "rules", conditional: false },
-  { key: "score", conditional: false },
+  { key: "extract", conditional: false },
+  { key: "validate", conditional: false },
+  { key: "explain", conditional: true },
+  { key: "verify", conditional: false },
+  { key: "report", conditional: false },
 ] as const;
 
 export function HomePipeline() {
@@ -74,7 +79,7 @@ export function HomePipeline() {
   return (
     <section
       id="how-it-works"
-      className="lmcs-section lmcs-section-elevated"
+      className="lmcs-section lmcs-section-default"
     >
       <div className="ux4g-container">
         <div className="lmcs-section-head">
