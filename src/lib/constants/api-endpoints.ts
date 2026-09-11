@@ -112,8 +112,16 @@ export const API = {
     generate: (recordId: string) => `/records/${recordId}/reports` as const,
     byRecord: (recordId: string) => `/reports/by-record/${recordId}` as const,
     detail: (reportId: string) => `/reports/${reportId}` as const,
+    retry: (reportId: string) => `/reports/${reportId}/retry` as const,
     download: (reportId: string, format: string) =>
       `/reports/${reportId}/download/${format}` as const,
+  },
+
+  /** Public, unauthenticated — the QR-verification page's data source.
+   * No session token, no scope check; the backend response itself is
+   * deliberately minimal (see backend/app/api/v1/reports.py::verify_report). */
+  publicVerification: {
+    report: (reportId: string) => `/verify/reports/${reportId}` as const,
   },
 
   evidenceImages: {

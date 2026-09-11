@@ -1436,6 +1436,30 @@
       }
     }
   },
+  "reportVerification": {
+    "meta": {
+      "title": "Verify Compliance Report"
+    },
+    "description": "Confirm the authenticity of a DigiPramaan compliance inspection report.",
+    "heading": "Report Verification",
+    "intro": "Scanning a report's QR code brings you here. This page confirms whether the report ID is genuine — it never shows the report's own contents.",
+    "reportIdLabel": "Report ID",
+    "inspectionIdLabel": "Inspection ID",
+    "generatedAtLabel": "Generated At",
+    "statusLabel": "Status",
+    "hashLabel": "PDF SHA-256",
+    "copyHash": "Copy",
+    "hashCopied": "Copied",
+    "valid": {
+      "badge": "VALID",
+      "body": "This report ID matches a record DigiPramaan generated. This page does not confirm the report's contents have not been altered after download — only that the ID itself is authentic."
+    },
+    "notFound": {
+      "badge": "NOT FOUND",
+      "body": "No report matches this ID. It may be mistyped, or the report may no longer exist."
+    },
+    "loading": "Checking report ID…"
+  },
   "activity": {
     "meta": {
       "title": "Activity Log"
