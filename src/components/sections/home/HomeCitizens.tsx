@@ -22,7 +22,7 @@ export async function HomeCitizens() {
   const t = await getTranslations("home.citizens");
 
   return (
-    <section id="for-citizens" className="lmcs-section-xl lmcs-section-default">
+    <section id="for-citizens" className="lmcs-section-xl lmcs-section-elevated">
       <div className="ux4g-container lmcs-split">
         <div className="lmcs-split-main">
           <div className="lmcs-section-head">

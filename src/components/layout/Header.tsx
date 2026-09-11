@@ -3,20 +3,22 @@
 import { useTranslations } from "next-intl";
 
 import { MOCK_DASHBOARD_ALERTS } from "@/lib/mock";
-import { useAuth } from "@/lib/hooks";
 import { DigiPramaanLogo } from "@/components/shared";
+
+import { OfficerProfileButton } from "./OfficerProfileButton";
 
 /**
  * Header — the top bar for authenticated pages.
  *
  * Carries what `02-dashboard.md` §2 requires of the shell: the app identity,
- * the signed-in user with their role as a badge, notifications with
- * an unread count, and the sign-out action.
+ * notifications with an unread count, and the signed-in officer's account
+ * control (name, role, and — via `OfficerProfileButton` — View Profile/Logout).
  *
- * The role badge pairs a status token with an icon and a visible text label, so
- * it never signals by colour alone (A-10 / A-14). Its wording comes from the
- * `vocabulary.role` catalogue rather than printing `user.role` directly, which
- * would bypass i18n and, in Hindi, print an English string.
+ * The role badge (inside `OfficerProfileButton`) pairs a status token with an
+ * icon and a visible text label, so it never signals by colour alone
+ * (A-10 / A-14). Its wording comes from the `vocabulary.role` catalogue
+ * rather than printing `user.role` directly, which would bypass i18n and, in
+ * Hindi, print an English string.
  */
 
 export interface HeaderProps {
@@ -26,7 +28,6 @@ export interface HeaderProps {
 
 export function Header({ onMenuToggle }: HeaderProps) {
   const t = useTranslations();
-  const { user, signOut } = useAuth();
 
   /*
    * TODO: sourced from the dashboard alert fixtures until a notifications
@@ -90,28 +91,7 @@ export function Header({ onMenuToggle }: HeaderProps) {
           ) : null}
         </button>
 
-        {user ? (
-          <div className="lmcs-header-user">
-            <span className="ux4g-label-m-default">{user.fullName}</span>
-            <span className="ux4g-tag ux4g-tag-tonal-primary ux4g-tag-s">
-              <span className="ux4g-icon-outlined" aria-hidden="true">
-                badge
-              </span>
-              {t(`vocabulary.role.${user.role}`)}
-            </span>
-          </div>
-        ) : null}
-
-        <button
-          type="button"
-          className="ux4g-btn ux4g-btn-text-neutral lmcs-header-action"
-          onClick={signOut}
-          aria-label={t("navigation.logout")}
-        >
-          <span className="ux4g-icon-outlined" aria-hidden="true">
-            logout
-          </span>
-        </button>
+        <OfficerProfileButton />
       </div>
     </header>
   );
