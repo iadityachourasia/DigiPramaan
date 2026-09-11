@@ -34,6 +34,7 @@ import pytest
 from PIL import Image
 
 from app.api.v1.reports import download_report, generate_report, get_report, list_reports_for_record
+from app.jobs.reports import generate_report_job
 from app.api.v1.records import list_records
 from app.api.v1.scans import get_evidence_image
 from app.core.config import get_settings
@@ -49,7 +50,7 @@ from app.services.extraction.schema import (
 )
 from app.services.records.serialize import to_frontend_record
 from app.services.rules.apply import reapply_rules
-from fastapi import HTTPException
+from fastapi import BackgroundTasks, HTTPException
 
 pytestmark = pytest.mark.integration
 
@@ -438,9 +439,12 @@ def test_report_history_and_download_scoped_to_jurisdiction(db):
     db.commit()
 
     owner = _FakeProfileForReports(_INSPECTOR_ID, "Maharashtra")
-    summary = generate_report(record.id, db=db, settings=settings, current_user=owner)
+    summary = generate_report(record.id, background_tasks=BackgroundTasks(), db=db, current_user=owner)
     report_id = uuid.UUID(summary["id"])
     db.info["created_report_ids"].append(report_id)
+    db.commit()
+    generate_report_job(report_id)
+    db.expire_all()
 
     # in-scope: history, metadata, and download all succeed
     history = list_reports_for_record(record.id, db=db, current_user=owner)

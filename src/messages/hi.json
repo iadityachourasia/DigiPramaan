@@ -2,7 +2,7 @@
   "_meta": {
     "note": "Scaffolded locale. Values still identical to en.json are untranslated.",
     "generatedBy": "scripts/sync-locales.mjs",
-    "untranslatedCount": 1183,
+    "untranslatedCount": 1199,
     "untranslated": [
       "app.descriptor",
       "app.department",
@@ -1007,6 +1007,22 @@
       "grievance.lookup.explain.Received",
       "grievance.lookup.explain.Under Review",
       "grievance.lookup.explain.Resolved",
+      "reportVerification.meta.title",
+      "reportVerification.description",
+      "reportVerification.heading",
+      "reportVerification.intro",
+      "reportVerification.reportIdLabel",
+      "reportVerification.inspectionIdLabel",
+      "reportVerification.generatedAtLabel",
+      "reportVerification.statusLabel",
+      "reportVerification.hashLabel",
+      "reportVerification.copyHash",
+      "reportVerification.hashCopied",
+      "reportVerification.valid.badge",
+      "reportVerification.valid.body",
+      "reportVerification.notFound.badge",
+      "reportVerification.notFound.body",
+      "reportVerification.loading",
       "activity.meta.title",
       "activity.heading",
       "activity.description",
@@ -2625,6 +2641,30 @@
         "Resolved": "An officer has finished reviewing your report."
       }
     }
+  },
+  "reportVerification": {
+    "meta": {
+      "title": "Verify Compliance Report"
+    },
+    "description": "Confirm the authenticity of a DigiPramaan compliance inspection report.",
+    "heading": "Report Verification",
+    "intro": "Scanning a report's QR code brings you here. This page confirms whether the report ID is genuine — it never shows the report's own contents.",
+    "reportIdLabel": "Report ID",
+    "inspectionIdLabel": "Inspection ID",
+    "generatedAtLabel": "Generated At",
+    "statusLabel": "Status",
+    "hashLabel": "PDF SHA-256",
+    "copyHash": "Copy",
+    "hashCopied": "Copied",
+    "valid": {
+      "badge": "VALID",
+      "body": "This report ID matches a record DigiPramaan generated. This page does not confirm the report's contents have not been altered after download — only that the ID itself is authentic."
+    },
+    "notFound": {
+      "badge": "NOT FOUND",
+      "body": "No report matches this ID. It may be mistyped, or the report may no longer exist."
+    },
+    "loading": "Checking report ID…"
   },
   "activity": {
     "meta": {

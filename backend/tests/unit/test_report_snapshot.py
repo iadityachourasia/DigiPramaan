@@ -1,6 +1,12 @@
 """
-Unit tests for app/services/reports/snapshot.py's build_report_document() —
+Unit tests for app/services/reports/snapshot.py's build_report_snapshot() —
 pure, no DB. Same fake-object convention as test_risk_engine.py.
+
+Fixtures exercise the conditional sections the Advanced Regulatory Report
+upgrade requires: a simple compliant product, a non-compliant product with
+a confirmed violation, a Rule 7 NEEDS_REVIEW case (the legal-safety
+regression guard — must never fabricate "4mm"/"6mm" as authoritative), a
+trusted barcode, and a needs_review/conflicting barcode.
 """
 
 from __future__ import annotations
@@ -9,17 +15,38 @@ import datetime
 import uuid
 from unittest.mock import MagicMock
 
-from app.services.reports.snapshot import build_report_document
+from app.services.reports.schema import ReportSnapshotV2
+from app.services.reports.snapshot import build_report_snapshot
 
 
 def _fake_db_no_cached_explanations() -> MagicMock:
-    """A db whose RuleExplanation query always finds nothing (every
-    violation falls back to the deterministic rule-engine reason) AND
-    whose EvidenceImage query returns no rows (empty evidenceImages)."""
     db = MagicMock()
     db.query.return_value.filter.return_value.first.return_value = None
     db.query.return_value.filter.return_value.order_by.return_value.all.return_value = []
     return db
+
+
+class _FakeSettings:
+    frontend_base_url = "http://localhost:3000"
+
+
+class _FakeProfile:
+    def __init__(self, full_name="Field Inspector", role="Enforcement Officer", region="Maharashtra"):
+        self.full_name = full_name
+        self.role = role
+        self.region = region
+
+
+def _extracted_field(value, not_detected=False, corrected=False):
+    return {"value": value, "not_detected": not_detected, "evidence": [], "extraction_confidence": 0.9, "corrected": corrected, "corrected_by": None}
+
+
+def _rule_result(rule_id, rule_name, status, legal_basis, field_id=None, value=None, message="", evidence=None, resolution=None):
+    return {
+        "rule_id": rule_id, "rule_name": rule_name, "field_id": field_id,
+        "status": status, "message": message, "legal_basis": legal_basis,
+        "value": value, "resolution": resolution, "evidence": evidence,
+    }
 
 
 class _FakeRecord:
@@ -32,100 +59,187 @@ class _FakeRecord:
         self.region = kwargs.get("region", "Maharashtra")
         self.compliance_status = kwargs.get("compliance_status", "Compliant")
         self.compliance_score = kwargs.get("compliance_score", 100)
-        self.violations = kwargs.get("violations", [])
-        self.checklist = kwargs.get("checklist", [])
+        self.compliance_band = kwargs.get("compliance_band", "Excellent")
         self.verification_status = kwargs.get("verification_status", "Verified")
         self.source = kwargs.get("source", "Officer-Scanned")
         self.scanned_at = kwargs.get("scanned_at", datetime.datetime.now(datetime.timezone.utc))
         self.verified_at = kwargs.get("verified_at", datetime.datetime.now(datetime.timezone.utc))
+        self.evidence_bundle = kwargs.get("evidence_bundle", {
+            "structured_extraction": {
+                "manufacturer": _extracted_field("SAHYADRI FOODS PVT LTD"),
+                "generic_name": _extracted_field("Refined Groundnut Oil"),
+                "net_quantity": _extracted_field("1 L"),
+                "mrp": _extracted_field("Rs 199"),
+            },
+            "rule_results": [],
+        })
 
 
-class _FakeProfile:
-    def __init__(self, full_name="Field Inspector", role="Enforcement Officer", region="Maharashtra"):
-        self.full_name = full_name
-        self.role = role
-        self.region = region
+def _build(record, profile=None) -> ReportSnapshotV2:
+    return build_report_snapshot(
+        record, profile or _FakeProfile(), db=_fake_db_no_cached_explanations(),
+        settings=_FakeSettings(), report_id=uuid.uuid4(), reference_code=str(uuid.uuid4()),
+    )
 
 
-def test_build_report_document_shape():
-    record = _FakeRecord()
-    profile = _FakeProfile()
-    doc = build_report_document(record, profile, base_url="http://localhost:3000", db=_fake_db_no_cached_explanations())
-
-    assert doc["title"] == "Legal Metrology Compliance Report"
-    assert doc["totalRecords"] == 1
-    assert doc["truncated"] is False
-    assert doc["referenceCode"]
-    assert doc["verifyUrl"].startswith("http://localhost:3000/en/reports?reference=")
-    assert doc["attribution"] == {
-        "kind": "verifier",
-        "name": "Field Inspector",
-        "role": "Enforcement Officer",
-        "region": "Maharashtra",
-        "verifiedAt": record.verified_at.isoformat(),
-    }
-    section = doc["records"][0]
-    assert section["recordId"] == str(record.id)
-    assert section["productName"] == "Refined Groundnut Oil"
-    assert section["manufacturerName"] == "SAHYADRI FOODS PVT LTD"
-    assert section["complianceStatus"] == "Compliant"
-    assert section["complianceScore"] == 100
-    assert section["violations"] == []
+def test_compliant_simple_product_has_no_violations():
+    record = _FakeRecord(evidence_bundle={
+        "structured_extraction": {"manufacturer": _extracted_field("SAHYADRI FOODS PVT LTD")},
+        "rule_results": [_rule_result("rule_6a_manufacturer", "Manufacturer details", "PASS", "Rule 6(a)", value="SAHYADRI FOODS PVT LTD")],
+    })
+    snapshot = _build(record)
+    assert snapshot.overall_assessment.compliance_status == "Compliant"
+    assert snapshot.violations == []
+    assert snapshot.compliance_checklist[0].result == "PASS"
+    assert snapshot.barcode_evidence is None
 
 
-def test_build_report_document_carries_violations():
+def test_non_compliant_with_violation_carries_explanation_and_evidence():
     record = _FakeRecord(
         compliance_status="Non-Compliant",
         compliance_score=40,
-        violations=[
-            {"categoryId": "mrp-non-compliance", "category": "MRP Non-Compliance", "legalBasis": "Rule 6(e)", "detail": "MRP absent"},
-        ],
-    )
-    doc = build_report_document(
-        record, _FakeProfile(), base_url="http://localhost:3000", db=_fake_db_no_cached_explanations()
-    )
-    section = doc["records"][0]
-    assert section["violations"] == [
-        {
-            "category": "MRP Non-Compliance", "legalBasis": "Rule 6(e)", "detail": "MRP absent",
-            # No cached Gemini explanation in this test — falls back to the
-            # deterministic rule-engine reason (`detail`), never blank.
-            "explanation": "MRP absent",
-        }
-    ]
-
-
-def test_uses_cached_explanation_summary_when_present():
-    """(L) complement: when a cached RuleExplanation exists, its summary is
-    used instead of the deterministic fallback."""
-    record = _FakeRecord(
-        compliance_status="Non-Compliant",
-        violations=[
-            {
-                "categoryId": "mrp-non-compliance", "category": "MRP Non-Compliance",
-                "legalBasis": "Rule 6(e)", "detail": "MRP absent", "ruleId": "rule_6e_mrp",
-            },
-        ],
+        evidence_bundle={
+            "structured_extraction": {"mrp": _extracted_field(None, not_detected=True)},
+            "rule_results": [
+                _rule_result(
+                    "rule_6e_mrp", "Retail sale price (MRP)", "FAIL", "Rule 6(e)/2(m)",
+                    field_id="retailSalePrice", message="MRP absent",
+                    evidence={"imageId": "img-1", "bbox": [10, 10, 50, 30]},
+                )
+            ],
+        },
     )
     db = MagicMock()
     cached = MagicMock()
-    cached.explanation = {"summary": "The MRP declaration could not be found on the label."}
+    cached.explanation = {"summary": "The MRP declaration could not be found.", "whatWasFound": "", "whatIsMissingOrWrong": "", "legalContext": "", "evidenceExplanation": "", "officerGuidance": "", "insufficientContext": False}
     db.query.return_value.filter.return_value.first.return_value = cached
     db.query.return_value.filter.return_value.order_by.return_value.all.return_value = []
 
-    doc = build_report_document(record, _FakeProfile(), base_url="http://localhost:3000", db=db)
-    section = doc["records"][0]
-    assert section["violations"][0]["explanation"] == "The MRP declaration could not be found on the label."
+    snapshot = build_report_snapshot(
+        record, _FakeProfile(), db=db, settings=_FakeSettings(),
+        report_id=uuid.uuid4(), reference_code=str(uuid.uuid4()),
+    )
+    assert len(snapshot.violations) == 1
+    v = snapshot.violations[0]
+    assert v.legal_basis == "Rule 6(e)/2(m)"
+    assert v.result == "FAIL"
+    assert v.ai_explanation["summary"] == "The MRP declaration could not be found."
+    assert v.ai_explanation_label == "AI-assisted explanation — interpretive aid only"
+    assert v.bbox == [10, 10, 50, 30]
+
+
+def test_degenerate_bbox_is_suppressed():
+    record = _FakeRecord(
+        compliance_status="Non-Compliant",
+        evidence_bundle={
+            "structured_extraction": {},
+            "rule_results": [
+                _rule_result(
+                    "rule_6e_mrp", "Retail sale price (MRP)", "FAIL", "Rule 6(e)/2(m)",
+                    message="MRP absent", evidence={"imageId": "img-1", "bbox": [0.0, 0.0, 1.0, 1.0]},
+                )
+            ],
+        },
+    )
+    snapshot = _build(record)
+    assert snapshot.violations[0].bbox is None
+    assert snapshot.violations[0].crop_image_ref is None
+
+
+def test_rule_7_needs_review_never_states_authoritative_threshold():
+    record = _FakeRecord(evidence_bundle={
+        "structured_extraction": {},
+        "rule_results": [
+            _rule_result(
+                "rule_7_font_size", "Physical character height", "NEEDS_REVIEW", "Rule 7",
+                field_id="netQuantity",
+                message="Physical font height measured, but the applicable statutory threshold requires legal validation.",
+                evidence={
+                    "image_id": "img-2", "field_id": "netQuantity", "calibration_method": "manual_two_point",
+                    "known_dimension_mm": 10.0, "pixel_length": 100.0, "pixels_per_mm": 10.0,
+                    "measured_character_height_px": 42.0, "measured_height_mm": 4.2, "confidence": 0.8,
+                },
+            )
+        ],
+    })
+    snapshot = _build(record)
+    assert len(snapshot.font_measurements) == 1
+    fm = snapshot.font_measurements[0]
+    assert fm.result == "NEEDS_REVIEW"
+    assert fm.insufficient_legal_validation_message == (
+        "Physical font height measured, but the applicable statutory threshold "
+        "requires legal validation."
+    )
+    # The strongest regression guard: the serialized snapshot must never
+    # print the unvalidated statutory figures as if they were authoritative.
+    serialized = snapshot.model_dump_json()
+    for forbidden in ("4mm", "4 mm", "6mm", "6 mm"):
+        assert forbidden not in serialized, f"found forbidden unvalidated threshold text: {forbidden!r}"
+
+
+def test_barcode_trusted():
+    record = _FakeRecord(evidence_bundle={
+        "structured_extraction": {},
+        "rule_results": [],
+        "barcode_analysis": {
+            "status": "trusted",
+            "trusted_identifier": {
+                "raw_value": "890123456781", "normalized_value": "00890123456781",
+                "symbology": "EAN_13", "checksum_valid": True, "source_image_id": "img-3",
+                "source_angle": "side_pdp", "bbox": [1, 2, 3, 4], "decoder": "zxing_full_image",
+                "detection_method": "full_image", "quality": 1.0,
+            },
+            "candidates": [],
+        },
+    })
+    snapshot = _build(record)
+    assert snapshot.barcode_evidence.status == "trusted"
+    assert snapshot.barcode_evidence.trusted_identifier.normalized_value == "00890123456781"
+
+
+def test_barcode_needs_review_shows_all_candidates_never_picks_one():
+    record = _FakeRecord(evidence_bundle={
+        "structured_extraction": {},
+        "rule_results": [],
+        "barcode_analysis": {
+            "status": "needs_review",
+            "trusted_identifier": None,
+            "candidates": [
+                {"raw_value": "890123456781", "normalized_value": "00890123456781", "symbology": "EAN_13", "checksum_valid": True, "source_image_id": "img-1", "source_angle": "front", "bbox": None, "decoder": "zxing_full_image", "detection_method": "full_image", "quality": 1.0},
+                {"raw_value": "890123456798", "normalized_value": "00890123456798", "symbology": "EAN_13", "checksum_valid": True, "source_image_id": "img-2", "source_angle": "back", "bbox": None, "decoder": "zxing_full_image", "detection_method": "full_image", "quality": 1.0},
+            ],
+        },
+    })
+    snapshot = _build(record)
+    assert snapshot.barcode_evidence.status == "needs_review"
+    assert snapshot.barcode_evidence.trusted_identifier is None
+    assert len(snapshot.barcode_evidence.candidates) == 2
+    values = {c.normalized_value for c in snapshot.barcode_evidence.candidates}
+    assert values == {"00890123456781", "00890123456798"}
+
+
+def test_officer_resolution_carried_through():
+    record = _FakeRecord(evidence_bundle={
+        "structured_extraction": {},
+        "rule_results": [
+            _rule_result(
+                "rule_9_language", "Readability", "NEEDS_REVIEW", "Rule 9",
+                message="OCR confidence low",
+                resolution={"resolved_status": "PASS", "resolved_by": "officer-1", "resolved_at": "2026-01-01T00:00:00Z", "note": "Verified legible in person"},
+            )
+        ],
+    })
+    snapshot = _build(record)
+    assert snapshot.compliance_checklist[0].result == "PASS"
+    assert snapshot.compliance_checklist[0].officer_resolution_note == "Verified legible in person"
+    assert snapshot.officer_verification.resolutions[0].resolved_status == "PASS"
+    assert snapshot.officer_verification.governance_statement.startswith(
+        "AI-assisted extraction and explanation were used only as"
+    )
 
 
 def test_two_calls_produce_different_reference_codes():
-    """Each generation gets its own reference code — never reused across
-    separate reports for the same record."""
     record = _FakeRecord()
-    doc1 = build_report_document(
-        record, _FakeProfile(), base_url="http://localhost:3000", db=_fake_db_no_cached_explanations()
-    )
-    doc2 = build_report_document(
-        record, _FakeProfile(), base_url="http://localhost:3000", db=_fake_db_no_cached_explanations()
-    )
-    assert doc1["referenceCode"] != doc2["referenceCode"]
+    s1 = build_report_snapshot(record, _FakeProfile(), db=_fake_db_no_cached_explanations(), settings=_FakeSettings(), report_id=uuid.uuid4(), reference_code="ref-1")
+    s2 = build_report_snapshot(record, _FakeProfile(), db=_fake_db_no_cached_explanations(), settings=_FakeSettings(), report_id=uuid.uuid4(), reference_code="ref-2")
+    assert s1.report_metadata.reference_code != s2.report_metadata.reference_code
