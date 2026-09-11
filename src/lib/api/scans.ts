@@ -250,9 +250,19 @@ export function reportMobileCapture(
 /* ------------------------------------------------------------------ *
  * Processing Pipeline Tracker (03-scan-upload.md §2, Step 5)
  * ------------------------------------------------------------------ *
- * Same reasoning as Mobile Handoff above: this is server-authoritative
- * state (must survive a closed tab), so these are always real HTTP calls
- * to scan-pipeline-store.ts's Route Handlers — never gated by isMockMode().
+ * This is server-authoritative state (must survive a closed tab) either
+ * way, but WHICH server depends on mode, same as createScan/fetchScan
+ * above: in mock mode it's scan-pipeline-store.ts's Route Handlers
+ * (src/app/api/scan-pipelines/), in real mode it's the actual FastAPI
+ * backend's GET/POST /scans/{id}/pipeline... (real scan_session.stages).
+ *
+ * Phase 8 fix: pollScanPipeline/retryPipelineStage previously called the
+ * mock route UNCONDITIONALLY — a real (non-mock) scan is created via
+ * apiUpload(API.scans.create, ...) above, which never populates the mock
+ * store, so the tracker page polled a run that was never there. Branching
+ * on isMockMode() here, exactly like createScan/fetchScan already do, is
+ * what makes "use actual backend state" (rather than fake/absent state)
+ * true for a real scan.
  */
 
 export interface CreateScanPipelineRequest {
@@ -275,12 +285,18 @@ export function createScanPipeline(
 }
 
 export function pollScanPipeline(scanId: string): Promise<ApiResult<PipelineRun>> {
-  return requestJson(`/api/scan-pipelines/${scanId}`);
+  if (isMockMode()) {
+    return requestJson(`/api/scan-pipelines/${scanId}`);
+  }
+  return apiGet(API.scans.pipeline(scanId));
 }
 
 export function retryPipelineStage(
   scanId: string,
   stageId: PipelineStageId
 ): Promise<ApiResult<PipelineRun>> {
-  return requestJson(`/api/scan-pipelines/${scanId}/retry/${stageId}`, { method: "POST" });
+  if (isMockMode()) {
+    return requestJson(`/api/scan-pipelines/${scanId}/retry/${stageId}`, { method: "POST" });
+  }
+  return apiPost(API.scans.pipelineRetry(scanId, stageId), {});
 }

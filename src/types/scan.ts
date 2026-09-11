@@ -131,15 +131,21 @@ export interface MobileHandoffSession {
  * ------------------------------------------------------------------ */
 
 /**
- * The 8 stages, in order, exactly as named in 03 §2. "Quality check" is
- * already resolved before this route is reached (the capture wizard's own
- * gate) — it is created already `completed` here, "for continuity" per spec.
+ * The 9 stages, in order, exactly as named in 03 §2 plus Phase 8's
+ * `barcodeDetection` (deterministic, independent of OCR in both
+ * directions — see backend/app/jobs/pipeline.py's own docstring on why
+ * it's ordered between fallbackExtraction and structuring). "Quality
+ * check" is already resolved before this route is reached (the capture
+ * wizard's own gate) — it is created already `completed` here, "for
+ * continuity" per spec. Must stay in lockstep with the backend's own
+ * `PIPELINE_STAGE_IDS` in jobs/pipeline.py.
  */
 export const PIPELINE_STAGE_IDS = [
   "uploading",
   "qualityCheck",
   "textExtraction",
   "fallbackExtraction",
+  "barcodeDetection",
   "structuring",
   "ruleEngine",
   "complianceScore",
@@ -376,6 +382,34 @@ export interface ExtractionResult {
   fontSizeChecks: FontSizeCheck[];
   /** Populated when processingStatus is Failed. */
   failureReason?: string;
+  /** Phase 8 — deterministic barcode/GTIN detection, never Gemini-decided
+   * (see backend services/barcode/'s own docstrings). null only for a
+   * record created before Phase 8; a Phase-8-processed scan always gets a
+   * real BarcodeAnalysis, even when its own status is "none". */
+  barcodeAnalysis: BarcodeAnalysis | null;
+}
+
+/** One successful decode — either a full-image pass or a cropped candidate
+ * region. Mirrors the backend's BarcodeDecodeResult exactly (camelCase). */
+export interface BarcodeDecodeResult {
+  rawValue: string;
+  normalizedValue: string;
+  symbology: "EAN_13" | "EAN_8" | "UPC_A" | "UPC_E" | "ITF";
+  checksumValid: boolean;
+  sourceImageId: string;
+  sourceAngle: Extract<CaptureSlotAngle, "front" | "back" | "side_pdp">;
+  /** Natural-pixel [x0,y0,x1,y1] — same coordinate space ImageViewer's
+   * `highlightBbox` prop already expects. */
+  bbox: [number, number, number, number] | null;
+  decoder: "zxing_full_image" | "zxing_crop";
+  detectionMethod: "full_image" | "cropped_candidate";
+  quality: number;
+}
+
+export interface BarcodeAnalysis {
+  candidates: BarcodeDecodeResult[];
+  trustedIdentifier: BarcodeDecodeResult | null;
+  status: "trusted" | "needs_review" | "none";
 }
 
 /* ------------------------------------------------------------------ *

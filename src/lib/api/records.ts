@@ -111,6 +111,16 @@ function sortRecords(records: ComplianceRecord[], sort: RecordSort): ComplianceR
   }
 }
 
+/**
+ * Phase 8 — does a free-text search string look like a printed barcode
+ * (all digits, one of the real lengths this pipeline decodes: EAN-8,
+ * UPC-A/EAN-13-ish range, GTIN-14)? Exported as its own pure function so
+ * the routing decision is unit-testable without a network call.
+ */
+export function looksLikeBarcode(query: string): boolean {
+  return /^\d{8,14}$/.test(query.trim());
+}
+
 export async function fetchRecords(
   filters: RecordFilters,
   sort: RecordSort,
@@ -118,7 +128,21 @@ export async function fetchRecords(
   pageSize: number
 ): Promise<ApiResult<RecordsPage>> {
   const params = new URLSearchParams();
-  if (filters.query) params.set("query", filters.query);
+  if (filters.query) {
+    // Phase 8 — no new search UI control (matches Phase 7's own "zero new
+    // UI controls" constraint): the existing free-text box's value is
+    // routed to the barcode/GTIN search param instead of `query` when it
+    // looks like one (all digits, 8-14 characters — the real EAN-8/UPC-A/
+    // EAN-13/GTIN-14 lengths this pipeline decodes). The backend ANDs
+    // `query` and `barcode` rather than OR-ing them, so sending both would
+    // always return zero rows (an all-digit string never matches a
+    // product/manufacturer name) — `barcode` alone is the correct route.
+    if (looksLikeBarcode(filters.query)) {
+      params.set("barcode", filters.query.trim());
+    } else {
+      params.set("query", filters.query);
+    }
+  }
   if (filters.dateFrom) params.set("dateFrom", filters.dateFrom);
   if (filters.dateTo) params.set("dateTo", filters.dateTo);
   filters.categories.forEach((v) => params.append("categories", v));

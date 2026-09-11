@@ -197,23 +197,6 @@
   gap: var(--ux4g-gap-column-s);
 }
 
-/*
- * Below 480px, "Enforcement Officer" in the role badge alone is wide enough
- * that the notifications button, the name/role block and the logout button
- * no longer fit on one line — measured at 16px of real overflow, not
- * estimated. Wrapping preserves every required piece of content (the user's
- * name and the role badge in full — 00-README.md §C is explicit that role
- * names are never shortened) rather than hiding any of it; the header simply
- * grows by one row on narrow phones instead.
- */
-@media (max-width: 480px) {
-  .lmcs-header-right {
-    flex-wrap: wrap;
-    justify-content: flex-end;
-    row-gap: var(--ux4g-gap-row-2xs);
-  }
-}
-
 .lmcs-header-menu-btn {
   min-width: var(--lmcs-touch-target);
   min-height: var(--lmcs-touch-target);
@@ -236,15 +219,136 @@
   flex-direction: column;
 }
 
-.lmcs-header-user {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-}
-
 .lmcs-header-action {
   min-width: var(--lmcs-touch-target);
   min-height: var(--lmcs-touch-target);
+}
+
+/* ─── Officer profile control (header account menu) ─── */
+
+.lmcs-profile-control {
+  position: relative;
+}
+
+.lmcs-profile-trigger {
+  display: flex;
+  align-items: center;
+  gap: var(--ux4g-gap-column-xs);
+  padding: var(--ux4g-padding-2xs) var(--ux4g-padding-s);
+  min-height: var(--lmcs-touch-target);
+  border-radius: var(--ux4g-radius-md);
+  border: var(--ux4g-border-thin) solid transparent;
+  background-color: transparent;
+  color: var(--ux4g-text-neutral-primary);
+  cursor: pointer;
+  transition: background-color var(--ux4g-transition-duration-fast)
+    var(--ux4g-transition-timing-ease);
+}
+
+.lmcs-profile-trigger:hover {
+  background-color: var(--ux4g-bg-neutral-subtle);
+}
+
+/* Name/role text collapses below desktop so the trigger stays a compact
+   avatar+chevron on narrow viewports, matching every other icon-only header
+   control's footprint rather than wrapping the header onto a second row. */
+.lmcs-profile-trigger-text {
+  display: none;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+@media (min-width: 1024px) {
+  .lmcs-profile-trigger-text {
+    display: flex;
+  }
+}
+
+.lmcs-profile-trigger-chevron {
+  font-size: var(--ux4g-fs-18);
+  transition: transform var(--ux4g-transition-duration-fast)
+    var(--ux4g-transition-timing-ease);
+}
+
+.lmcs-profile-trigger-chevron-open {
+  transform: rotate(180deg);
+}
+
+/*
+ * UX4G ships no menu/dropdown component wired for an action menu (only a
+ * native-select-backed form dropdown, see components/ui/Select.tsx) — this
+ * reuses the same elevated-surface recipe as the Hero's `.lmcs-demo` panel
+ * and the existing `lmcs-dialog` overlay's z-index tier, sized for a small
+ * anchored menu rather than a full-screen dialog.
+ */
+.lmcs-profile-menu {
+  position: absolute;
+  top: calc(100% + var(--ux4g-gap-row-2xs));
+  right: 0;
+  min-width: 12rem;
+  border-radius: var(--ux4g-radius-md);
+  border: var(--ux4g-border-thin) solid var(--ux4g-border-color-neutral-subtle);
+  background-color: var(--ux4g-bg-neutral-elevated);
+  box-shadow: var(--ux4g-shadow-l3);
+  z-index: var(--ux4g-z-index-30);
+  overflow: hidden;
+}
+
+.lmcs-profile-menu-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  text-align: left;
+  padding: var(--ux4g-padding-s) var(--ux4g-padding-m);
+  min-height: var(--lmcs-touch-target);
+  background-color: transparent;
+  border: none;
+  color: var(--ux4g-text-neutral-primary);
+  cursor: pointer;
+  transition: background-color var(--ux4g-transition-duration-fast)
+    var(--ux4g-transition-timing-ease);
+}
+
+.lmcs-profile-menu-item:hover {
+  background-color: var(--ux4g-bg-neutral-subtle);
+}
+
+/* ─── Button polish ─── */
+
+/*
+ * UX4G's filled-primary button changes background color on hover/active but
+ * has no elevation response — a small lift makes the primary action read as
+ * clearly interactive without adding another color. Uses the same two-layer
+ * shadow token any elevated surface in this app uses (--ux4g-shadow-l1),
+ * never a hand-written box-shadow.
+ */
+.ux4g-btn-primary {
+  transition:
+    transform var(--ux4g-transition-duration-fast) var(--ux4g-transition-timing-ease),
+    box-shadow var(--ux4g-transition-duration-fast) var(--ux4g-transition-timing-ease);
+}
+
+.ux4g-btn-primary:hover:not(:disabled):not([aria-disabled="true"]) {
+  transform: translateY(-1px);
+  box-shadow: var(--ux4g-shadow-l1);
+}
+
+.ux4g-btn-primary:active:not(:disabled):not([aria-disabled="true"]) {
+  transform: translateY(0);
+}
+
+/*
+ * SANCTIONED ACCESSIBILITY/UX OVERRIDE: every UX4G button/icon-button variant
+ * sets `pointer-events:none` on its disabled state but never sets a disabled
+ * cursor, so a disabled button still shows the pointer cursor. Matches the
+ * documented "sanctioned accessibility overrides" style already used in
+ * globals.css.
+ */
+.ux4g-btn:disabled,
+.ux4g-btn[aria-disabled="true"],
+.ux4g-icon-btn:disabled,
+.ux4g-icon-btn[aria-disabled="true"] {
+  cursor: not-allowed;
 }
 
 /* ─── Footer ─── */
@@ -821,6 +925,29 @@
 
 .lmcs-wizard-progress {
   margin-bottom: var(--ux4g-gap-row-m);
+}
+
+/* ─── Barcode evidence (Phase 8), shared by Extraction and Record Detail ─── */
+
+.lmcs-barcode-candidate-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-2xs);
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.lmcs-barcode-candidate-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ux4g-gap-column-s);
+  padding-block: var(--ux4g-padding-2xs);
+}
+
+.lmcs-barcode-candidate-row + .lmcs-barcode-candidate-row {
+  border-top: var(--ux4g-border-thin) solid var(--ux4g-border-color-neutral-subtle);
 }
 
 /* ─── Mobile Handoff (src/components/scan/MobileHandoffPanel.tsx, QrCode.tsx) ─── */
