@@ -73,7 +73,16 @@ describe("ecommerce API isMockMode branch", () => {
       listingUrl: "https://example.com/product/1",
       title: "Widget",
       descriptionExcerpt: "",
-      images: [{ id: "img-1", fileName: "a.jpg", url: "https://example.com/a.jpg", sizeBytes: 100, angle: "front" as const }],
+      images: [
+        {
+          id: "img-1",
+          fileName: "a.jpg",
+          url: "https://example.com/a.jpg",
+          sizeBytes: 100,
+          angle: "front" as const,
+          altText: "Widget, front view",
+        },
+      ],
       status: "queued" as const,
     };
     const result = await scanListing(
