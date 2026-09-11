@@ -13,9 +13,10 @@ import type { KpiMetric } from "@/types";
  * habit: the spec names exactly four KPIs.
  *
  * Each card links to Compliance Records, pre-filtered by that KPI's status
- * via a query string — Records is still a stub, so the link is correct now
- * and becomes live once Records reads its query string. "Products Scanned"
- * has no single status to filter by, so it links to the unfiltered list.
+ * via a query string that `useRecordsList`'s `filtersFromParams` already
+ * reads on load (see that hook's own docstring on the URL being the single
+ * source of truth for filter state). "Products Scanned" has no single
+ * status to filter by, so it links to the unfiltered list.
  *
  * "Pending" carries a caption stating explicitly that it means "awaiting
  * verification," per the spec's requirement that this KPI never read as a
