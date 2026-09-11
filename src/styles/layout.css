@@ -25,7 +25,6 @@
   --lmcs-sidebar-width: 260px;
   --lmcs-header-height: 56px;
   --lmcs-touch-target: 44px; /* A-09 / WCAG 2.5.5 floor */
-  --lmcs-login-logo: 64px;
   --lmcs-login-card-width: 420px;
   --lmcs-state-min-height: 40vh;
   --lmcs-state-icon-lg: 3rem;
@@ -123,19 +122,31 @@
   gap: var(--ux4g-gap-row-2xs);
 }
 
-/* Product mark treatment shared by every navigation and sign-in surface. */
+/*
+ * Product mark treatment shared by every navigation and sign-in surface.
+ *
+ * FIXED: previously filled with `--ux4g-bg-primary-subtle`, a purple/violet
+ * tint (UX4G's primary brand hue), behind the logo on every placement —
+ * the PNG itself has always been fully transparent (RGBA, alpha 0-255,
+ * verified at both centre and corners), so the purple tile was entirely
+ * this container's own background, not baked into the asset. Uses the
+ * same neutral-elevated surface the page itself sits on (white in light
+ * mode), so the mark reads as sitting cleanly on the page rather than in
+ * a coloured tile.
+ */
 .lmcs-brand-mark {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  background-color: var(--ux4g-bg-primary-subtle);
+  background-color: var(--ux4g-bg-neutral-elevated);
   border: var(--ux4g-border-thin) solid var(--ux4g-border-color-neutral-subtle);
   border-radius: var(--ux4g-radius-md);
 }
 
 .lmcs-brand-mark img {
   display: block;
+  object-fit: contain;
 }
 
 .lmcs-brand-mark-compact {
@@ -143,7 +154,7 @@
 }
 
 .lmcs-brand-mark-login {
-  padding: var(--ux4g-padding-s);
+  padding: var(--ux4g-padding-m);
   border-radius: var(--ux4g-radius-lg);
 }
 
@@ -524,11 +535,6 @@
   align-items: center;
   text-align: center;
   gap: var(--ux4g-gap-row-s);
-}
-
-.lmcs-login-logo {
-  height: var(--lmcs-login-logo);
-  width: auto;
 }
 
 /*

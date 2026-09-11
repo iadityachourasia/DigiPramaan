@@ -2,6 +2,11 @@
  * Shared components barrel.
  */
 
+export {
+  DigiPramaanLogo,
+  type DigiPramaanLogoProps,
+  type DigiPramaanLogoSize,
+} from "./DigiPramaanLogo";
 export { StatusBadge, type StatusBadgeProps } from "./StatusBadge";
 export { EmptyState, type EmptyStateProps } from "./EmptyState";
 export { ErrorState, type ErrorStateProps } from "./ErrorState";

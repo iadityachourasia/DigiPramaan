@@ -46,37 +46,67 @@
   max-width: 60ch;
 }
 
-/* ─── Public masthead ─── */
+/* ─── Public masthead ───
+ * Two rows, modelled on real GoI digital-service mastheads (DigiLocker in
+ * particular): a slim, permanently dark utility strip (government context +
+ * accessibility/language links) above a white identity row carrying the
+ * product's own logo. `--ux4g-bg-neutral-stronger` / `--ux4g-text-neutral-
+ * inverse` are a matched contrast pair in UX4G's own token set — they invert
+ * together if the app ever grows a dark-mode toggle, rather than being a
+ * fixed literal colour.
+ */
 
 .lmcs-masthead {
-  background-color: var(--ux4g-bg-neutral-subtle);
   border-bottom: var(--ux4g-border-thin) solid var(--ux4g-border-color-neutral-subtle);
 }
 
-.lmcs-masthead-inner {
+.lmcs-masthead-utility-inner {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--ux4g-gap-column-m);
   flex-wrap: wrap;
-  padding-block: var(--ux4g-padding-2xs);
+  padding-block: var(--ux4g-padding-3xs);
+  background-color: var(--ux4g-bg-neutral-stronger);
+  color: var(--ux4g-text-neutral-inverse);
 }
 
-.lmcs-masthead-identity {
-  display: flex;
-  align-items: center;
-  gap: var(--ux4g-gap-column-xs);
-  color: var(--ux4g-text-neutral-secondary);
+.lmcs-masthead-link {
+  color: var(--ux4g-text-link-default-inverse);
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
-.lmcs-brand-mark-masthead {
-  padding: var(--ux4g-padding-3xs);
+.lmcs-masthead-link:hover {
+  color: var(--ux4g-text-neutral-inverse);
 }
 
 .lmcs-masthead-actions {
   display: flex;
   align-items: center;
   gap: var(--ux4g-gap-column-s);
+}
+
+.lmcs-masthead-identity-inner {
+  display: flex;
+  align-items: center;
+  gap: var(--ux4g-gap-column-s);
+  padding-block: var(--ux4g-padding-xs);
+  background-color: var(--ux4g-bg-neutral-elevated);
+}
+
+.lmcs-masthead-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--ux4g-gap-column-s);
+  text-decoration: none;
+  color: var(--ux4g-text-neutral-primary);
+}
+
+.lmcs-masthead-titles {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-2xs);
 }
 
 /* ─── Public navbar ─── */
@@ -95,20 +125,6 @@
   justify-content: space-between;
   gap: var(--ux4g-gap-column-m);
   padding-block: var(--ux4g-padding-xs);
-}
-
-.lmcs-navbar-brand {
-  display: flex;
-  align-items: center;
-  gap: var(--ux4g-gap-column-s);
-  text-decoration: none;
-  color: var(--ux4g-text-neutral-primary);
-}
-
-.lmcs-navbar-wordmark {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.15;
 }
 
 .lmcs-navbar-links {

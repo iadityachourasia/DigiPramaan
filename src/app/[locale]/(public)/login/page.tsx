@@ -1,11 +1,10 @@
-import Image from "next/image";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Suspense } from "react";
 import type { Metadata } from "next";
 
 import { LoginForm } from "@/components/auth/LoginForm";
 import { Alert } from "@/components/ui/Alert";
-import { LoadingSpinner } from "@/components/shared";
+import { DigiPramaanLogo, LoadingSpinner } from "@/components/shared";
 
 /**
  * Login — page 1 in the build order.
@@ -49,23 +48,20 @@ export default async function LoginPage({
       <div className="lmcs-login-card">
         <div className="lmcs-login-header">
           {/*
-            BRD §9.4 names Login as one of exactly two surfaces requiring the
-            Government of India emblem as a trust signal (the Citizen
-            Grievance Portal is the other, covered by `PublicMasthead` above
-            this page). The product's own identity is already carried by the
-            heading below — this image's job is specifically the government
-            attribution, not the product mark.
+            BRD §9.4's Government-of-India-emblem trust signal for this page
+            is already carried by `PublicMasthead`, rendered above this page
+            in `(public)/layout.tsx` — it appears on every public page,
+            Login included, so the requirement is satisfied without a second
+            emblem here. This position is exclusively the product's own
+            identity: the largest DigiPramaan logo usage on the product,
+            since sign-in is the first real brand impression for most
+            officers.
           */}
-          <span className="lmcs-brand-mark lmcs-brand-mark-login">
-            <Image
-              src="/images/emblem.svg"
-              alt={t("app.emblemAlt")}
-              className="lmcs-login-logo"
-              width={64}
-              height={64}
-              unoptimized
-            />
-          </span>
+          <DigiPramaanLogo
+            size="lg"
+            className="lmcs-brand-mark-login"
+            decorative={false}
+          />
 
           <h1 className="ux4g-heading-l-strong">{t("app.name")}</h1>
           <p className="ux4g-title-s-default ux4g-text-neutral-secondary">
