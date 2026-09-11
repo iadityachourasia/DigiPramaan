@@ -21,7 +21,7 @@ export async function HomeTaxonomy() {
   return (
     <section
       id="what-we-check"
-      className="lmcs-section-xl lmcs-section-elevated"
+      className="lmcs-section-xl lmcs-section-default"
     >
       <div className="ux4g-container lmcs-split">
         <div className="lmcs-split-main">

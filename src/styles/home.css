@@ -257,6 +257,32 @@
   background-color: var(--ux4g-bg-neutral-subtle);
 }
 
+/*
+ * Miniature "scan -> OCR -> rules -> verified" flow inside the demo panel.
+ * UX4G ships no stepper/breadcrumb-of-chips component, so this is a small
+ * flex row of existing tag chips joined by an icon glyph rather than a new
+ * component.
+ */
+.lmcs-demo-flow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ux4g-gap-column-2xs);
+  padding: var(--ux4g-padding-s) var(--ux4g-padding-m);
+  border-bottom: var(--ux4g-border-thin) solid var(--ux4g-border-color-neutral-subtle);
+}
+
+.lmcs-demo-flow-step {
+  display: flex;
+  align-items: center;
+  gap: var(--ux4g-gap-column-2xs);
+}
+
+.lmcs-demo-flow-arrow {
+  font-size: var(--ux4g-fs-16);
+  color: var(--ux4g-text-neutral-tertiary);
+}
+
 .lmcs-demo-body {
   display: flex;
   flex-direction: column;
@@ -296,6 +322,32 @@
   padding: var(--ux4g-padding-m);
   border-top: var(--ux4g-border-thin) solid var(--ux4g-border-color-neutral-subtle);
   background-color: var(--ux4g-bg-neutral);
+}
+
+/* ─── Value strip: four short claims directly under the Hero ───
+ * No section background of its own (see HomeValueStrip.tsx's own comment) —
+ * only spacing is declared here.
+ */
+
+.lmcs-value-strip-section {
+  padding-block: var(--ux4g-padding-l);
+}
+
+.lmcs-value-strip {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--ux4g-gap-row-s) var(--ux4g-gap-column-l);
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.lmcs-value-strip-item {
+  display: flex;
+  align-items: center;
+  gap: var(--ux4g-gap-column-xs);
+  color: var(--ux4g-text-neutral-secondary);
 }
 
 /* ─── Pipeline ─── */
@@ -490,6 +542,41 @@
   color: var(--ux4g-text-brand-primary-default);
 }
 
+/* Wider variant of .lmcs-cards-3, for the 8-item capabilities grid. */
+.lmcs-cards-4 {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--ux4g-gap-row-m) var(--ux4g-gap-column-m);
+}
+
+@media (min-width: 640px) {
+  .lmcs-cards-4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .lmcs-cards-4 {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/*
+ * UX4G's .ux4g-card:hover already lifts shadow (--ux4g-shadow-l2, from the
+ * package itself) but never changes border color, so a bordered card doesn't
+ * visibly react at its own edge. Applied directly to the card's outer
+ * element (not a `:has()` selector from an inner child) so it works in every
+ * supported browser without relying on relatively-new selector support.
+ */
+.lmcs-feature-card-shell {
+  transition: border-color var(--ux4g-transition-duration-fast)
+    var(--ux4g-transition-timing-ease);
+}
+
+.lmcs-feature-card-shell:hover {
+  border-color: var(--ux4g-border-color-primary-default);
+}
+
 /* ─── Split sections: taxonomy and citizens ─── */
 
 .lmcs-split {
@@ -555,4 +642,16 @@
   display: flex;
   flex-direction: column;
   gap: var(--ux4g-gap-row-2xs);
+}
+
+/* ─── Closing CTA ─── */
+
+.lmcs-final-cta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--ux4g-gap-row-s);
+  max-width: 56ch;
+  margin-inline: auto;
 }

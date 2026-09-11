@@ -23,7 +23,7 @@ export async function HomeStats() {
   const t = await getTranslations("home.stats");
 
   return (
-    <section className="lmcs-section lmcs-section-default">
+    <section className="lmcs-section lmcs-section-elevated">
       <div className="ux4g-container">
         <h2 className="ux4g-sr-only">{t("heading")}</h2>
 

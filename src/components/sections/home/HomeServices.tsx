@@ -32,7 +32,10 @@ export async function HomeServices() {
 
         <div className="lmcs-cards-3">
           {SERVICES.map((service) => (
-            <article key={service.key} className="ux4g-card ux4g-card-outline">
+            <article
+              key={service.key}
+              className="ux4g-card ux4g-card-outline lmcs-feature-card-shell"
+            >
               <div className="ux4g-card-body lmcs-feature-card">
                 <span className="lmcs-feature-icon">
                   <span className="ux4g-icon-outlined" aria-hidden="true">
