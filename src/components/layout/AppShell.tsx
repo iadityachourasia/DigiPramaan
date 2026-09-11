@@ -2,6 +2,8 @@
 
 import { useState, type ReactNode } from "react";
 
+import { SessionExpiryWarning } from "@/components/shared";
+
 import { Footer } from "./Footer";
 import { Header } from "./Header";
 import { Sidebar } from "./Sidebar";
@@ -39,6 +41,8 @@ export function AppShell({ children }: AppShellProps) {
             setSidebarOpen((prev) => !prev);
           }}
         />
+
+        <SessionExpiryWarning />
 
         <div className="lmcs-app-content">{children}</div>
 

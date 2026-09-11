@@ -5,11 +5,13 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useState,
   useSyncExternalStore,
   type ReactNode,
 } from "react";
 
 import { useRouter } from "@/i18n/navigation";
+import { refreshSession } from "@/lib/api/auth";
 import { clearToken, setToken } from "@/lib/api/client";
 import { ROUTES } from "@/lib/constants";
 import type { Session, User } from "@/types";
@@ -21,10 +23,35 @@ export interface AuthContextValue {
   session: Session | null;
   /** True until the client has read the stored session. */
   loading: boolean;
+  /** True in the window before `session.expiresAt`, per WCAG 2.2.1 / BRD A-11. */
+  sessionWarning: boolean;
   /** Store a session after successful login. */
   signIn: (session: Session) => void;
   /** Clear all session state and navigate to login. */
   signOut: () => void;
+  /**
+   * The pre-expiry warning's "Stay signed in" action: exchanges the
+   * refresh token for a new session. Resolves `true` on success (the
+   * warning is dismissed automatically once `session` changes), `false`
+   * if the refresh token itself was rejected — the caller should fall
+   * back to `signOut()` in that case, since there is nothing left to
+   * extend.
+   */
+  extendSession: () => Promise<boolean>;
+}
+
+/** Fallback if the env var is unset/unparsable — a real warning window rather than none. */
+const DEFAULT_SESSION_WARN_MINUTES = 5;
+
+/** Exported so `SessionExpiryWarning` can show the real configured window
+ * in its message, rather than a duplicated read of the same env var. */
+export function sessionWarnMinutes(): number {
+  const parsed = Number(process.env.NEXT_PUBLIC_SESSION_WARN_MINUTES);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_SESSION_WARN_MINUTES;
+}
+
+function sessionWarnMs(): number {
+  return sessionWarnMinutes() * 60 * 1000;
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null);
@@ -138,10 +165,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
    * navigating keeps routing out of the provider: a visitor reading the public
    * landing page should not be thrown to the login screen because a background
    * session lapsed. `RequireAuth` handles the redirect for pages that need one.
-   *
-   * TODO (BRD A-11 / WCAG 2.2.1): a session must warn before it expires and
-   * offer an extension. The `session.warning*` message keys already exist for
-   * that; the warning UI itself is outstanding.
    */
   useEffect(() => {
     if (!session) return;
@@ -156,6 +179,40 @@ export function AuthProvider({ children }: AuthProviderProps) {
     };
   }, [session, clearSession]);
 
+  /*
+   * BRD A-11 / WCAG 2.2.1: warn before the cutoff above fires, and offer an
+   * extension. A second, independent timer rather than folding into the one
+   * above — the hard cutoff must still fire exactly at `expiresAt`
+   * regardless of whether the warning was ever shown or dismissed.
+   *
+   * `sessionWarning` is DERIVED from comparing `warnedForToken` to the
+   * current session's token, the same "derive instead of store+reset"
+   * shape `useRecordsList` uses for its own loading state — a fresh
+   * `session` (a new token, e.g. right after `extendSession` succeeds)
+   * automatically stops matching `warnedForToken` with no explicit reset
+   * needed, so the effect below only ever needs to SET the flag, never
+   * clear it directly.
+   */
+  const [warnedForToken, setWarnedForToken] = useState<string | null>(null);
+  const sessionWarning = session !== null && warnedForToken === session.token;
+
+  useEffect(() => {
+    if (!session) return;
+    const msUntilWarning =
+      new Date(session.expiresAt).getTime() - Date.now() - sessionWarnMs();
+    // Always scheduled, even at 0ms — a setState call must happen inside a
+    // timer/subscription callback, never synchronously in the effect body.
+    const timer = setTimeout(
+      () => {
+        setWarnedForToken(session.token);
+      },
+      Math.max(0, msUntilWarning)
+    );
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [session]);
+
   const signIn = useCallback((newSession: Session) => {
     setToken(newSession.token);
     sessionStorage.setItem(SESSION_KEY, JSON.stringify(newSession));
@@ -167,15 +224,32 @@ export function AuthProvider({ children }: AuthProviderProps) {
     router.replace(ROUTES.login);
   }, [clearSession, router]);
 
+  /*
+   * `session` is read from the ref-stable `raw` string via `useMemo` above,
+   * so capturing it in this callback's closure is safe: a stale `session`
+   * here would only matter if `extendSession` could fire between two
+   * `session` values without a re-render in between, which React does not
+   * do for a value driven by `useSyncExternalStore`.
+   */
+  const extendSession = useCallback(async (): Promise<boolean> => {
+    if (!session) return false;
+    const result = await refreshSession(session.refreshToken);
+    if (result.outcome !== "success") return false;
+    signIn(result.session);
+    return true;
+  }, [session, signIn]);
+
   const value = useMemo<AuthContextValue>(
     () => ({
       user: session?.user ?? null,
       session,
       loading,
+      sessionWarning,
       signIn,
       signOut,
+      extendSession,
     }),
-    [session, loading, signIn, signOut]
+    [session, loading, sessionWarning, signIn, signOut, extendSession]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
