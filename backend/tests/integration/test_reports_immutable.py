@@ -78,6 +78,7 @@ def _make_verified_record(db) -> ComplianceRecord:
         compliance_band="Excellent",
         checklist=[],
         violations=[],
+        assigned_officer_id=_INSPECTOR_ID,
         verified_by=_INSPECTOR_ID,
         verified_at=datetime.datetime.now(datetime.timezone.utc),
         scanned_at=datetime.datetime.now(datetime.timezone.utc),
@@ -89,12 +90,14 @@ def _make_verified_record(db) -> ComplianceRecord:
 
 
 class _FakeProfile:
-    """Only the attributes generate_report()/build_report_document() read."""
+    """Only the attributes generate_report()/build_report_document()/
+    apply_officer_scope() read."""
 
     id = _INSPECTOR_ID
     full_name = "Field Inspector"
     role = "Enforcement Officer"
     region = "Maharashtra"
+    jurisdiction_level = "State"
 
 
 def test_report_generation_and_immutable_redownload(db):

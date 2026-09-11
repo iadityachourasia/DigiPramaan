@@ -138,8 +138,15 @@ def to_checklist_and_violations(results: list[RuleResult]) -> tuple[list[dict], 
         if eff == RuleStatus.NOT_APPLICABLE or r.field_id in _EXCLUDED_FIELD_IDS:
             continue
 
+        # Phase 7, additive on every branch: the rule's own structured
+        # evidence (Rule 8's expectedPanel/observedPanel/imageId/bbox, Rule
+        # 9's per-field ocrConfidence/quality signals), when the rule
+        # populated one — not part of the frontend's exported types, but
+        # what ChecklistRow's "View Evidence" action acts on.
+        evidence_kv = {"evidence": r.evidence} if r.evidence is not None else {}
+
         if eff == RuleStatus.PASS:
-            row = {"fieldId": r.field_id, "passed": True, "value": _value_for(r), "ruleId": r.rule_id}
+            row = {"fieldId": r.field_id, "passed": True, "value": _value_for(r), "ruleId": r.rule_id, **evidence_kv}
             if r.resolution is not None:
                 row["detail"] = _detail_for(r)
             checklist.append(row)
@@ -148,7 +155,7 @@ def to_checklist_and_violations(results: list[RuleResult]) -> tuple[list[dict], 
             detail = _detail_for(r)
             checklist.append({
                 "fieldId": r.field_id, "passed": False, "value": _value_for(r),
-                "violationCategoryId": category_id, "detail": detail, "ruleId": r.rule_id,
+                "violationCategoryId": category_id, "detail": detail, "ruleId": r.rule_id, **evidence_kv,
             })
             violations.append({
                 "categoryId": category_id,
@@ -161,11 +168,12 @@ def to_checklist_and_violations(results: list[RuleResult]) -> tuple[list[dict], 
                 # RuleExplanation for this specific violation without a
                 # fragile message/category match.
                 "ruleId": r.rule_id,
+                **evidence_kv,
             })
         else:  # NEEDS_REVIEW or INSUFFICIENT_EVIDENCE, still unresolved
             checklist.append({
                 "fieldId": r.field_id, "passed": False, "value": _value_for(r),
-                "detail": r.message, "ruleId": r.rule_id,
+                "detail": r.message, "ruleId": r.rule_id, **evidence_kv,
             })
 
     return checklist, violations

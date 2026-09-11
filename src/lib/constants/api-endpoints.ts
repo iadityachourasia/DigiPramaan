@@ -101,6 +101,10 @@ export const API = {
       `/reports/${reportId}/download/${format}` as const,
   },
 
+  evidenceImages: {
+    stream: (imageId: string) => `/evidence-images/${imageId}` as const,
+  },
+
   grievances: {
     submit: "/grievances",
     lookup: (reference: string) => `/grievances/${reference}` as const,
