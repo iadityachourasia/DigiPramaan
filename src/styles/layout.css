@@ -537,6 +537,24 @@
   gap: var(--ux4g-gap-row-s);
 }
 
+/*
+ * MVP-only quick sign-in: fills the two fields above with a seeded demo
+ * account so an officer doesn't have to type or remember credentials
+ * during a live demo. Never auto-submits — the officer still reviews and
+ * clicks Sign in, same as typing the values themselves would require.
+ */
+.lmcs-login-quick-accounts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-2xs);
+}
+
+.lmcs-login-quick-accounts-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ux4g-gap-column-xs);
+}
+
 .lmcs-login-footer {
   text-align: center;
 }

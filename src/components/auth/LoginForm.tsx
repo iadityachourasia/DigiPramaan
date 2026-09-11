@@ -46,6 +46,24 @@ type Banner =
   | { kind: "serverUnavailable" }
   | { kind: "success" };
 
+/**
+ * MVP-only: the three seeded demo accounts (`backend/app/seed/demo_profiles.json`),
+ * one per role, so an officer running a live demo doesn't have to type or
+ * remember credentials. Fills the fields only — the officer still reviews
+ * and clicks Sign in, same as the "01-login.md" flow the rest of this form
+ * follows. Remove alongside the `demoBody` alert once real authentication
+ * lands (BRD §15 Q-06).
+ */
+const DEMO_ACCOUNTS: {
+  labelKey: "inspector" | "seniorInspector" | "admin";
+  username: string;
+  password: string;
+}[] = [
+  { labelKey: "inspector", username: "inspector@dp.com", password: "123456" },
+  { labelKey: "seniorInspector", username: "seniorinspector@dp.com", password: "654321" },
+  { labelKey: "admin", username: "oldofficer@dp.com", password: "456789" },
+];
+
 export function LoginForm() {
   const t = useTranslations("login");
   const tCommon = useTranslations("common");
@@ -66,6 +84,7 @@ export function LoginForm() {
     control,
     resetField,
     setFocus,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<LoginFormValues>({
     resolver: zodResolver(
@@ -103,6 +122,14 @@ export function LoginForm() {
     if (!next.startsWith("/") || next.startsWith("//")) return ROUTES.dashboard;
     if (next === ROUTES.login) return ROUTES.dashboard;
     return next;
+  }
+
+  /** Fills the fields with one demo account; never submits on its own. */
+  function fillDemoAccount(account: (typeof DEMO_ACCOUNTS)[number]): void {
+    setBanner({ kind: "none" });
+    setValue("username", account.username, { shouldValidate: true, shouldDirty: true });
+    setValue("password", account.password, { shouldValidate: true, shouldDirty: true });
+    setFocus("password");
   }
 
   async function onSubmit(values: LoginFormValues): Promise<void> {
@@ -186,6 +213,28 @@ export function LoginForm() {
           {t("successBody")}
         </Alert>
       ) : null}
+
+      {/* MVP-only quick sign-in — see DEMO_ACCOUNTS' own docstring above. */}
+      <div className="lmcs-login-quick-accounts">
+        <p className="ux4g-label-s-default ux4g-text-neutral-secondary">
+          {t("quickSignIn.label")}
+        </p>
+        <div className="lmcs-login-quick-accounts-buttons">
+          {DEMO_ACCOUNTS.map((account) => (
+            <button
+              key={account.username}
+              type="button"
+              className="ux4g-btn ux4g-btn-outline-neutral ux4g-btn-sm"
+              onClick={() => {
+                fillDemoAccount(account);
+              }}
+              disabled={isSubmitting}
+            >
+              {t(`quickSignIn.${account.labelKey}`)}
+            </button>
+          ))}
+        </div>
+      </div>
 
       {/* States 1 and 2 surface through TextField's own error slot. */}
       <TextField
