@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { EmptyState, StatusBadge } from "@/components/shared";
 import { Alert } from "@/components/ui/Alert";
@@ -9,8 +9,9 @@ import { Link } from "@/i18n/navigation";
 import { ImageViewer } from "@/components/scan/ImageViewer";
 import { ROUTES } from "@/lib/constants";
 import { useAuth, usePermission, useRecordDetail } from "@/lib/hooks";
+import { fetchReportsForRecord, reportDownloadHref } from "@/lib/api/reports";
 import { formatShortDate } from "@/lib/utils/format";
-import { violationCategory, type CaptureSlotAngle } from "@/types";
+import { violationCategory, type CaptureSlotAngle, type GeneratedReport } from "@/types";
 
 import { ChecklistRow } from "./ChecklistRow";
 import { EvidenceGallery } from "./EvidenceGallery";
@@ -43,6 +44,24 @@ export function RecordDetailView({ recordId, locale }: RecordDetailViewProps) {
     useRecordDetail(recordId);
 
   const [activeAngle, setActiveAngle] = useState<Angle>("front");
+  const [highlightBbox, setHighlightBbox] = useState<[number, number, number, number] | undefined>(undefined);
+  const imageSectionRef = useRef<HTMLElement>(null);
+
+  const [reportHistory, setReportHistory] = useState<GeneratedReport[] | null>(null);
+  const [reportHistoryError, setReportHistoryError] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    fetchReportsForRecord(recordId, user.id, user.fullName).then((result) => {
+      if (cancelled) return;
+      if (result.ok) setReportHistory(result.data);
+      else setReportHistoryError(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [recordId, user]);
 
   if (notFound) {
     return (
@@ -73,6 +92,21 @@ export function RecordDetailView({ recordId, locale }: RecordDetailViewProps) {
   function handleFlagForEnforcement() {
     if (!user) return;
     flagForEnforcement();
+  }
+
+  function handleViewEvidence(imageId: string, bbox: [number, number, number, number]) {
+    const match = record!.capturedImages.find((img) => img.id === imageId);
+    if (match && (match.angle === "front" || match.angle === "back" || match.angle === "side_pdp")) {
+      setActiveAngle(match.angle);
+    }
+    // The backend's degenerate-bbox sentinel (0,0,1,1) means "this evidence
+    // has no real geometry" (a Gemini whole-image OCR fallback), not a real
+    // one-natural-pixel region — drawing it literally would highlight a
+    // near-invisible speck in the image's top-left corner. Still opens the
+    // correct image (there IS a real citation), just without a misleading box.
+    const isDegenerateBbox = bbox[0] === 0 && bbox[1] === 0 && bbox[2] === 1 && bbox[3] === 1;
+    setHighlightBbox(isDegenerateBbox ? undefined : bbox);
+    imageSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   return (
@@ -216,6 +250,7 @@ export function RecordDetailView({ recordId, locale }: RecordDetailViewProps) {
                 notDetectedLabel={t("notDetected")}
                 passedLabel={t("passed")}
                 recordId={record.id}
+                onViewEvidence={handleViewEvidence}
                 {...(() => {
                   const check = record.extraction.fontSizeChecks?.find((f) => f.fieldId === line.fieldId);
                   return check ? { fontSizeCheck: check } : {};
@@ -236,6 +271,7 @@ export function RecordDetailView({ recordId, locale }: RecordDetailViewProps) {
                   calibrationMethodLabel: t("fontMeasurement.calibrationMethod"),
                   confidenceLabel: t("fontMeasurement.confidence"),
                   resultLabel: t("fontMeasurement.result"),
+                  viewEvidence: t("viewEvidence"),
                 }}
                 {...(!line.passed && line.violationCategoryId
                   ? { violationLabel: violationCategory(line.violationCategoryId).category }
@@ -246,7 +282,7 @@ export function RecordDetailView({ recordId, locale }: RecordDetailViewProps) {
         </div>
       </section>
 
-      <section aria-labelledby="source-heading" className="ux4g-card ux4g-card-outline">
+      <section ref={imageSectionRef} aria-labelledby="source-heading" className="ux4g-card ux4g-card-outline">
         <div className="ux4g-card-body lmcs-page-section-block">
           <h2 id="source-heading" className="ux4g-title-m-strong">
             {t("sourceHeading")}
@@ -254,8 +290,12 @@ export function RecordDetailView({ recordId, locale }: RecordDetailViewProps) {
           <ImageViewer
             images={record.capturedImages}
             activeAngle={activeAngle}
-            onActiveAngleChange={setActiveAngle}
+            onActiveAngleChange={(angle) => {
+              setActiveAngle(angle);
+              setHighlightBbox(undefined);
+            }}
             labels={{ angle: angleLabel, zoomIn: t("sourceImage.zoomIn"), zoomOut: t("sourceImage.zoomOut") }}
+            {...(highlightBbox ? { highlightBbox } : {})}
           />
           <Link
             href={ROUTES.extraction(record.id)}
@@ -304,6 +344,40 @@ export function RecordDetailView({ recordId, locale }: RecordDetailViewProps) {
               </li>
             ))}
           </ol>
+        </div>
+      </section>
+
+      <section aria-labelledby="report-history-heading" className="ux4g-card ux4g-card-outline">
+        <div className="ux4g-card-body lmcs-page-section-block">
+          <h2 id="report-history-heading" className="ux4g-title-m-strong">
+            {t("reportHistory.heading")}
+          </h2>
+          {reportHistoryError ? (
+            <p className="ux4g-body-s-default ux4g-text-error">{t("reportHistory.error")}</p>
+          ) : reportHistory && reportHistory.length === 0 ? (
+            <p className="ux4g-body-s-default ux4g-text-neutral-secondary">{t("reportHistory.empty")}</p>
+          ) : reportHistory ? (
+            <ul className="lmcs-report-history-list">
+              {reportHistory.map((report) => (
+                <li key={report.id} className="lmcs-report-history-entry">
+                  <span className="ux4g-body-s-default ux4g-text-neutral-secondary">
+                    {t("reportHistory.generatedOn", { date: formatShortDate(report.generatedAt, locale) })}
+                  </span>
+                  <div className="lmcs-record-detail-actions">
+                    {report.formats.map((format) => (
+                      <a
+                        key={format}
+                        href={reportDownloadHref(report, format)}
+                        className="ux4g-btn ux4g-btn-text-primary ux4g-btn-sm"
+                      >
+                        {t("reportHistory.download", { format })}
+                      </a>
+                    ))}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </div>
       </section>
 

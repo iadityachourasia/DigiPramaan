@@ -38,8 +38,11 @@ import uuid
 from datetime import datetime, timezone
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
+from sqlalchemy import or_
+from sqlalchemy import cast as sa_cast
+from sqlalchemy.dialects.postgresql import JSONB as PG_JSONB
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session as DbSession
 
@@ -49,6 +52,8 @@ from app.db.models import (
     AuditEvent,
     CaseStatusHistory,
     ComplianceRecord,
+    LegalEntity,
+    Product,
     Profile,
     ProductInspectionLink,
     ViolationCase,
@@ -358,27 +363,87 @@ def resolve_review_item(
 
 @router.get("")
 def list_records(
-    status_filter: str | None = None,
-    region: str | None = None,
+    query: str | None = None,
+    categories: list[str] = Query(default=[]),
+    regions: list[str] = Query(default=[]),
+    statuses: list[str] = Query(default=[]),
+    sources: list[str] = Query(default=[]),
+    manufacturers: list[str] = Query(default=[]),
+    violation_category_ids: list[str] = Query(default=[], alias="violationCategoryIds"),
+    date_from: str | None = Query(default=None, alias="dateFrom"),
+    date_to: str | None = Query(default=None, alias="dateTo"),
+    brand: str | None = None,
+    legal_entity: str | None = Query(default=None, alias="legalEntity"),
     page: int = 1,
-    page_size: int = 20,
+    page_size: int = Query(default=20, alias="pageSize"),
     db: DbSession = Depends(get_db),
     current_user: Profile = Depends(get_current_user),
 ) -> dict:
-    """Phase 5: the real Records list (page 5) backend. Scoped via the same
-    apply_officer_scope() choke point Phase 4 established for Product DNA/
-    Company Profile reads, so an Enforcement Officer never sees another
-    officer's records here either."""
-    query = apply_officer_scope(db.query(ComplianceRecord), current_user)
-    if status_filter:
-        query = query.filter(ComplianceRecord.compliance_status == status_filter)
-    if region:
-        query = query.filter(ComplianceRecord.region == region)
-    total_count = query.count()
+    """Phase 5 added this as a real backend for the Records list, scoped
+    via apply_officer_scope() (Phase 4's own choke point) so an Enforcement
+    Officer never sees another officer's records here either — that scope
+    check always runs FIRST, before any of Phase 7's new filters below.
+
+    Phase 7: real server-side search, replacing the frontend's prior
+    fetch-200-then-filter-in-memory approach (which made `totalCount`
+    wrong and silently missed matches past row 200). `brand`/`legalEntity`
+    use an INNER join through ProductInspectionLink(ACTIVE)->Product-
+    >LegalEntity — a record with no product link yet (unverified, or
+    Phase 4 enrichment skipped/failed) has no brand/legal-entity to match
+    and is correctly excluded from that specific search, not a bug."""
+    db_query = apply_officer_scope(db.query(ComplianceRecord), current_user)
+
+    if query:
+        like = f"%{query}%"
+        db_query = db_query.filter(
+            or_(
+                ComplianceRecord.product_name_observed.ilike(like),
+                ComplianceRecord.manufacturer_name_observed.ilike(like),
+            )
+        )
+    if categories:
+        db_query = db_query.filter(ComplianceRecord.category.in_(categories))
+    if regions:
+        db_query = db_query.filter(ComplianceRecord.region.in_(regions))
+    if statuses:
+        db_query = db_query.filter(ComplianceRecord.compliance_status.in_(statuses))
+    if sources:
+        db_query = db_query.filter(ComplianceRecord.source.in_(sources))
+    if manufacturers:
+        db_query = db_query.filter(ComplianceRecord.manufacturer_name_observed.in_(manufacturers))
+    if violation_category_ids:
+        db_query = db_query.filter(
+            or_(*(
+                ComplianceRecord.violations.op("@>")(sa_cast([{"categoryId": vcid}], PG_JSONB))
+                for vcid in violation_category_ids
+            ))
+        )
+    if date_from:
+        parsed = _parse_date_boundary(date_from)
+        if parsed is not None:
+            db_query = db_query.filter(ComplianceRecord.scanned_at >= parsed)
+    if date_to:
+        parsed = _parse_date_boundary(date_to)
+        if parsed is not None:
+            db_query = db_query.filter(ComplianceRecord.scanned_at <= parsed)
+    if brand or legal_entity:
+        db_query = db_query.join(
+            ProductInspectionLink,
+            (ProductInspectionLink.compliance_record_id == ComplianceRecord.id)
+            & (ProductInspectionLink.status == "ACTIVE"),
+        ).join(Product, Product.id == ProductInspectionLink.product_id)
+        if brand:
+            db_query = db_query.filter(Product.brand.ilike(f"%{brand}%"))
+        if legal_entity:
+            db_query = db_query.join(LegalEntity, LegalEntity.id == Product.legal_entity_id).filter(
+                LegalEntity.name.ilike(f"%{legal_entity}%")
+            )
+
+    total_count = db_query.count()
     page = max(page, 1)
     page_size = max(min(page_size, 200), 1)
     rows = (
-        query.order_by(ComplianceRecord.scanned_at.desc())
+        db_query.order_by(ComplianceRecord.scanned_at.desc())
         .offset((page - 1) * page_size)
         .limit(page_size)
         .all()
@@ -389,6 +454,15 @@ def list_records(
         "page": page,
         "pageSize": page_size,
     }
+
+
+def _parse_date_boundary(value: str):
+    from datetime import datetime as _datetime
+
+    try:
+        return _datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
 
 
 @router.get("/{record_id}")

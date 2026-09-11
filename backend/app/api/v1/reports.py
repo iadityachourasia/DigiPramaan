@@ -31,6 +31,7 @@ from app.core.object_storage import get_s3_client
 from app.db.models import ComplianceRecord, Profile, Report
 from app.db.session import get_db
 from app.services.reports.snapshot import build_report_document
+from app.services.scope import apply_officer_scope
 
 router = APIRouter(tags=["reports"])
 
@@ -131,6 +132,19 @@ def list_reports_for_record(
     db: DbSession = Depends(get_db),
     current_user: Profile = Depends(get_current_user),
 ) -> list[dict]:
+    """Phase 7: closes a real gap — this previously applied no officer
+    scope at all, so any authenticated user could pull another
+    jurisdiction's report history by record id. Now 404s (not 403, to
+    avoid confirming the record exists) unless the underlying record is
+    within this officer's scope, same apply_officer_scope() choke point
+    every other record-scoped read uses."""
+    owning_record = (
+        apply_officer_scope(db.query(ComplianceRecord).filter(ComplianceRecord.id == record_id), current_user)
+        .first()
+    )
+    if owning_record is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Compliance record not found")
+
     reports = (
         db.query(Report)
         .filter(Report.compliance_record_id == record_id)
@@ -140,15 +154,33 @@ def list_reports_for_record(
     return [_report_summary(r) for r in reports]
 
 
+def _scoped_report_or_404(report_id: uuid.UUID, db: DbSession, current_user: Profile) -> Report:
+    """Phase 7: closes the same class of gap `list_reports_for_record` was
+    fixed for — a `Report` row's own id was previously enough to read or
+    download it, with no check that the underlying record is within this
+    officer's scope. Every `Report`-by-id read now goes through this."""
+    report = db.get(Report, report_id)
+    if report is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Report not found")
+    owning_record = (
+        apply_officer_scope(
+            db.query(ComplianceRecord).filter(ComplianceRecord.id == report.compliance_record_id),
+            current_user,
+        )
+        .first()
+    )
+    if owning_record is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Report not found")
+    return report
+
+
 @router.get("/reports/{report_id}")
 def get_report(
     report_id: uuid.UUID,
     db: DbSession = Depends(get_db),
     current_user: Profile = Depends(get_current_user),
 ) -> dict:
-    report = db.get(Report, report_id)
-    if report is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Report not found")
+    report = _scoped_report_or_404(report_id, db, current_user)
     return {**_report_summary(report), "document": report.frozen_snapshot}
 
 
@@ -169,9 +201,7 @@ def download_report(
     if report_format not in _FORMAT_FILES:
         raise HTTPException(status_code=422, detail=f"Unknown report format: {report_format}")
 
-    report = db.get(Report, report_id)
-    if report is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Report not found")
+    report = _scoped_report_or_404(report_id, db, current_user)
 
     meta = _FORMAT_FILES[report_format]
     storage_key = getattr(report, meta["key_attr"])

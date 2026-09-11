@@ -11,6 +11,15 @@ from real Profile rows instead.
 
 MVP scope, matching the Report DB model's own docstring: single-record
 reports only. `records`/`totalRecords`/`truncated` are always a 1-item list.
+
+Phase 7 adds `declarations` (the full checklist), `inspectionMetadata`, and
+`evidenceImages` to the record section — the last being REFERENCES only
+(`{angle, imageId}`), not embedded photo bytes. See
+`_evidence_image_references()`'s own docstring for why: embedding real
+photos would need the Node subprocess renderer to receive and lay out
+image bytes, which it has no capability for today — a materially larger
+change than this phase's scope. The immutable generate-once/never-
+regenerate architecture itself is completely unchanged.
 """
 
 from __future__ import annotations
@@ -20,7 +29,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session as DbSession
 
-from app.db.models import ComplianceRecord, Profile, RuleExplanation
+from app.db.models import ComplianceRecord, EvidenceImage, Profile, RuleExplanation
 
 
 def _explanation_for(v: dict, db: DbSession, record_id: uuid.UUID) -> str:
@@ -79,9 +88,27 @@ def build_report_document(record: ComplianceRecord, current_user: Profile, base_
                 # else the deterministic rule-engine reason — see
                 # _explanation_for()'s own docstring.
                 "explanation": _explanation_for(v, db, record.id),
+                # Phase 7: the originating rule's own structured evidence
+                # (Rule 7 measurement, Rule 8 placement, Rule 9 readability),
+                # when the rule populated one.
+                **({"evidence": v["evidence"]} if v.get("evidence") else {}),
             }
             for v in (record.violations or [])
         ],
+        # Phase 7: the full declaration checklist (not just violations) —
+        # "declaration results" per every mandatory field, each row already
+        # carrying its own evidence dict where the rule engine produced one.
+        "declarations": record.checklist or [],
+        "inspectionMetadata": {
+            "verificationStatus": record.verification_status,
+            "source": record.source,
+            "scannedAt": record.scanned_at.isoformat() if record.scanned_at else None,
+            "verifiedAt": record.verified_at.isoformat() if record.verified_at else None,
+        },
+        # Phase 7: evidence photograph REFERENCES only — see this module's
+        # own docstring update below on why actual photos aren't embedded
+        # this phase.
+        "evidenceImages": _evidence_image_references(record, db),
     }
 
     return {
@@ -95,3 +122,23 @@ def build_report_document(record: ComplianceRecord, current_user: Profile, base_
         "totalRecords": 1,
         "truncated": False,
     }
+
+
+def _evidence_image_references(record: ComplianceRecord, db: DbSession) -> list[dict]:
+    """References only (angle + imageId) — NOT the actual photo bytes.
+    report-render.ts has zero existing image-embedding capability (the
+    Node subprocess bridge only ever receives this JSON snapshot, never
+    image bytes), and adding real PDF/DOCX photo layout is a materially
+    larger, riskier change than embedding a reference. A future phase can
+    add real embedding without re-architecting anything here — the
+    reference already carries everything needed (imageId resolves via the
+    real GET /evidence-images/{id} endpoint)."""
+    if record.scan_session_id is None:
+        return []
+    images = (
+        db.query(EvidenceImage)
+        .filter(EvidenceImage.scan_session_id == record.scan_session_id)
+        .order_by(EvidenceImage.uploaded_at)
+        .all()
+    )
+    return [{"angle": image.angle, "imageId": str(image.id)} for image in images]

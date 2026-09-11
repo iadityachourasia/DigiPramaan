@@ -57,6 +57,11 @@ class RuleResult(BaseModel):
     legal_basis: str
     value: str | None = None  # the underlying declaration's value, for the checklist row
     resolution: RuleResolution | None = None
+    # Phase 7 — structured, inspectable evidence backing this verdict (e.g.
+    # Rule 8's expectedPanel/observedPanel/imageId/bbox/confidence, Rule 9's
+    # per-field ocrConfidence/quality signals). Additive and optional: every
+    # rule before Phase 7 leaves this None, with zero behavior change.
+    evidence: dict | None = None
 
     @property
     def effective_status(self) -> RuleStatus:

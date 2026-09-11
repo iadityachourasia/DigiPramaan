@@ -21,7 +21,13 @@ from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session as DbSession
 
-from app.db.models import ComplianceRecord, ProductInspectionLink, ViolationCase
+from app.db.models import ComplianceRecord, EvidenceImage, ProductInspectionLink, ViolationCase
+
+_ANGLE_ALT_TEXT = {
+    "front": "Front label photograph",
+    "back": "Back label photograph",
+    "side_pdp": "Side — Principal Display Panel photograph",
+}
 
 # No real per-record evidence photo pipeline is joined back to a record yet
 # (scans.py's evidence upload isn't indexed by compliance_record_id) — every
@@ -49,6 +55,33 @@ def _placeholder_image(record_id: str, category: str | None, product_name: str) 
         "angle": "front",
         "altText": f"No photo on file for {product_name} — placeholder image.",
     }
+
+
+def _real_captured_images(record: ComplianceRecord, db: DbSession, product_name: str) -> list[dict]:
+    """Phase 7 — real evidence photographs, replacing the placeholder. Bare
+    API-relative path (`/evidence-images/{id}`), NOT a full authenticated
+    URL — the frontend appends NEXT_PUBLIC_API_BASE_URL + the session's own
+    ?access_token=, exactly like Phase 5's report download href, so no
+    token is ever embedded here server-side."""
+    if record.scan_session_id is None:
+        return []
+    images = (
+        db.query(EvidenceImage)
+        .filter(EvidenceImage.scan_session_id == record.scan_session_id)
+        .order_by(EvidenceImage.uploaded_at)
+        .all()
+    )
+    return [
+        {
+            "id": str(image.id),
+            "fileName": image.storage_key.rsplit("/", 1)[-1],
+            "url": f"/evidence-images/{image.id}",
+            "sizeBytes": 0,
+            "angle": image.angle,
+            "altText": f"{_ANGLE_ALT_TEXT.get(image.angle, 'Evidence photograph')} — {product_name}.",
+        }
+        for image in images
+    ]
 
 
 def _needs_review_flagged(checklist: list | None) -> bool:
@@ -93,6 +126,14 @@ def to_frontend_record(record: ComplianceRecord, db: DbSession) -> dict:
     record_id = str(record.id)
     product_name = record.product_name_observed or "Unknown product"
 
+    captured_images = _real_captured_images(record, db, product_name)
+    if not captured_images:
+        # Defensive fallback only — a record with a scan_session_id should
+        # always have its evidence images; this covers the rare edge case
+        # of a record created without one (e.g. old test fixtures).
+        captured_images = [_placeholder_image(record_id, record.category, product_name)]
+    thumbnail = next((img for img in captured_images if img["angle"] == "front"), captured_images[0])
+
     return {
         "id": record_id,
         "scanId": str(record.scan_session_id) if record.scan_session_id else record_id,
@@ -114,8 +155,8 @@ def to_frontend_record(record: ComplianceRecord, db: DbSession) -> dict:
         "extraction": record.extraction,
         "evidence": [],
         "auditTrail": _audit_trail(record),
-        "thumbnail": _placeholder_image(record_id, record.category, product_name),
-        "capturedImages": [_placeholder_image(record_id, record.category, product_name)],
+        "thumbnail": thumbnail,
+        "capturedImages": captured_images,
         "ecommerceListingUrl": None,
         "batchId": None,
         "citizenReport": None,

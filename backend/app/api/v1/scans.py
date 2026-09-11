@@ -18,12 +18,12 @@ import uuid
 from datetime import datetime, timezone
 
 from botocore.exceptions import BotoCoreError, ClientError
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Response, UploadFile, status
 from sqlalchemy.orm import Session as DbSession
 
 from pydantic import BaseModel
 
-from app.api.deps.auth import get_current_user
+from app.api.deps.auth import get_current_user, get_current_user_from_bearer_or_query
 from app.api.deps.permissions import require_permission
 from app.core.config import Settings, get_settings
 from app.core.ids import derive_record_id
@@ -40,6 +40,7 @@ from app.services.image_quality import (
 from app.services.measurement.font_height import measure_font_height
 from app.services.rules.apply import reapply_rules
 from app.services.records.serialize import to_frontend_record
+from app.services.scope import apply_officer_scope
 
 # fieldId (frontend/checklist convention) -> the StructuredExtraction
 # attribute Rule 7 measurement applies to. Only MRP and net quantity carry a
@@ -338,3 +339,52 @@ def submit_calibration(
     db.refresh(record)
 
     return to_frontend_record(record, db)
+
+
+_CONTENT_TYPE_BY_EXTENSION = {
+    "jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png", "webp": "image/webp",
+}
+
+
+@router.get("/evidence-images/{image_id}")
+def get_evidence_image(
+    image_id: uuid.UUID,
+    db: DbSession = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+    current_user: Profile = Depends(get_current_user_from_bearer_or_query),
+) -> Response:
+    """Phase 7 — streams a real evidence photograph's bytes. Never a
+    permanent public B2 object: auth is the same Bearer-or-query-token
+    dependency Phase 5's report download uses (an `<img src>` can't set an
+    Authorization header either), AND every request is scope-checked
+    against the record that owns this image — closing a real gap, since no
+    image-serving endpoint existed before this phase to even consider.
+    404 (not 403) when the image doesn't belong to a record this officer
+    can see, so a probe can't distinguish "wrong scope" from "no such
+    image." No bytes are re-uploaded or duplicated — reads the same
+    storage_key POST /scans already wrote."""
+    image = db.get(EvidenceImage, image_id)
+    if image is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Evidence image not found")
+
+    owning_record = (
+        apply_officer_scope(
+            db.query(ComplianceRecord).filter(ComplianceRecord.scan_session_id == image.scan_session_id),
+            current_user,
+        )
+        .first()
+    )
+    if owning_record is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Evidence image not found")
+
+    s3_client = get_s3_client(settings)
+    obj = s3_client.get_object(Bucket=settings.s3_bucket, Key=image.storage_key)
+    body = obj["Body"].read()
+
+    extension = image.storage_key.rsplit(".", 1)[-1].lower() if "." in image.storage_key else ""
+    content_type = _CONTENT_TYPE_BY_EXTENSION.get(extension, "application/octet-stream")
+
+    return Response(
+        content=body, media_type=content_type,
+        headers={"Cache-Control": "private, max-age=60"},
+    )
