@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useTranslations } from "next-intl";
 
 import { Link } from "@/i18n/navigation";
@@ -11,6 +10,12 @@ import { ROUTES } from "@/lib/constants";
  *
  * Rendered by the landing page rather than the `(public)` layout, so it does not
  * leak onto Login, which `01-login.md` requires be free of shell navigation.
+ *
+ * Carries no logo/wordmark of its own: `PublicMasthead`, rendered immediately
+ * above this on every public page, now carries the DigiPramaan product mark —
+ * repeating it here, a few dozen pixels below, would just be duplicated
+ * branding. This navbar's job is purely the in-page section links and the
+ * sign-in CTA.
  *
  * The three destinations are in-page fragments, so they use raw anchors. That is
  * correct and is not the locale-dropping bug the project lints against: a
@@ -35,23 +40,6 @@ export function PublicNavbar() {
   return (
     <header className="lmcs-navbar">
       <div className="ux4g-container lmcs-navbar-inner">
-        <Link href="/" className="lmcs-navbar-brand">
-          <span className="lmcs-brand-mark lmcs-brand-mark-compact">
-            <Image
-              src="/images/digi-pramaan-logo.png"
-              alt=""
-              width={28}
-              height={28}
-            />
-          </span>
-          <span className="lmcs-navbar-wordmark">
-            <span className="ux4g-title-m-strong">{t("app.name")}</span>
-            <span className="ux4g-body-xs-default ux4g-text-neutral-secondary">
-              {t("app.descriptor")}
-            </span>
-          </span>
-        </Link>
-
         <nav className="lmcs-navbar-links" aria-label={t("home.nav.label")}>
           {SECTION_LINKS.map((link) => (
             <a

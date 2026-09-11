@@ -1,12 +1,12 @@
 "use client";
 
-import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { useEffect, useMemo } from "react";
 
 import { Link, usePathname } from "@/i18n/navigation";
 import { SIDEBAR_NAV } from "@/lib/constants";
 import { useAuth } from "@/lib/hooks";
+import { DigiPramaanLogo } from "@/components/shared";
 import { can } from "@/types";
 
 /**
@@ -88,14 +88,7 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
       >
         <div className="lmcs-sidebar-brand ux4g-py-m ux4g-px-m">
           <div className="lmcs-sidebar-brand-row">
-            <span className="lmcs-brand-mark lmcs-brand-mark-compact">
-              <Image
-                src="/images/digi-pramaan-logo.png"
-                alt=""
-                width={28}
-                height={28}
-              />
-            </span>
+            <DigiPramaanLogo size="sm" className="lmcs-brand-mark-compact" />
             <div className="lmcs-sidebar-brand-titles">
               <span className="ux4g-title-s-strong">{t("app.name")}</span>
               <span className="ux4g-label-s-default ux4g-text-neutral-secondary">
