@@ -28,6 +28,7 @@ from app.api.v1.ecommerce import router as ecommerce_router
 from app.api.v1.explanations import router as explanations_router
 from app.api.v1.health import router as health_router
 from app.api.v1.internal import router as internal_router
+from app.api.v1.mobile_handoff import router as mobile_handoff_router
 from app.api.v1.products import router as products_router
 from app.api.v1.reports import router as reports_router
 from app.api.v1.records import router as records_router
@@ -68,6 +69,7 @@ def create_app() -> FastAPI:
     app.include_router(internal_router, prefix="/api/v1")
     app.include_router(scans_router, prefix="/api/v1")
     app.include_router(ecommerce_router, prefix="/api/v1")
+    app.include_router(mobile_handoff_router, prefix="/api/v1")
     app.include_router(records_router, prefix="/api/v1")
     app.include_router(products_router, prefix="/api/v1")
     app.include_router(companies_router, prefix="/api/v1")
