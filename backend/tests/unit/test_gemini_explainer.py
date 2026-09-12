@@ -68,7 +68,7 @@ def test_prompt_includes_officer_resolution_when_present():
 
 
 def test_explain_violation_raises_when_api_key_missing():
-    settings = MagicMock(gemini_api_key=None)
+    settings = MagicMock(gemini_api_keys=[])
     request = ExplanationRequest(
         rule_id="rule_7_font_size", rule_name="x", rule_status="FAIL",
         legal_basis="Rule 7", message="x", evidence={},
@@ -81,7 +81,7 @@ def test_explain_violation_raises_when_api_key_missing():
 
 
 def test_explain_violation_returns_parsed_output():
-    settings = MagicMock(gemini_api_key="fake-key", gemini_model="gemini-test")
+    settings = MagicMock(gemini_api_keys=["fake-key"], gemini_model="gemini-test")
     fake_output = ExplanationOutput(
         summary="s", whatWasFound="f", whatIsMissingOrWrong="m", legalContext="l",
         evidenceExplanation="e", officerGuidance="g", insufficientContext=False,
