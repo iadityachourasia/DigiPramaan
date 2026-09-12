@@ -500,7 +500,7 @@
       "title": "Scan / Upload Product"
     },
     "heading": "Scan / Upload Product",
-    "description": "Photograph the front, back and principal display panel of the product. Each image is checked for quality before it counts as captured.",
+    "description": "Photograph the front and back of the product; add the side panel only if it carries its own declarations. Each image is checked for quality before it counts as captured.",
     "noAccessTitle": "You do not have access to create scans",
     "noAccessBody": "Your role has full read access to compliance records, but cannot start a new scan.",
     "progress": {
@@ -526,8 +526,8 @@
       }
     },
     "slots": {
-      "heading": "Capture the required angles",
-      "incomplete": "Front, Back and Side (Principal Display Panel) are all required before you can continue.",
+      "heading": "Capture the product photos",
+      "incomplete": "Front and Back are required before you can continue. Side (Principal Display Panel) is optional.",
       "formatHint": "JPG, JPEG, PNG or PDF, up to {maxMb} MB",
       "empty": "No photo yet",
       "browse": "Browse files",
@@ -536,6 +536,7 @@
       "remove": "Remove",
       "checking": "Checking image quality…",
       "passed": "Passed",
+      "skipSidePdp": "No side panel information — skip",
       "cameraDenied": "Camera access was not granted. Check your browser permissions and reload.",
       "front": {
         "label": "Front",
@@ -546,8 +547,8 @@
         "hint": "Ingredients or composition panel — manufacturer details, consumer care."
       },
       "side_pdp": {
-        "label": "Side — Principal Display Panel",
-        "hint": "Wherever the mandatory declarations actually sit, when it differs from Front."
+        "label": "Side — Principal Display Panel (optional)",
+        "hint": "Only if declarations appear here and differ from Front. Skip if this panel carries no printed information."
       },
       "additional": {
         "label": "Additional angle",
@@ -570,7 +571,7 @@
       "cancelled": "Session cancelled. Generate a new code to continue on mobile.",
       "generateNewCode": "Generate new code",
       "cancel": "Cancel",
-      "allCaptured": "All three captured on your phone."
+      "allCaptured": "Front and Back captured on your phone."
     },
     "mobileCompanion": {
       "codeEntryHeading": "Continue on mobile",
@@ -578,7 +579,7 @@
       "codeEntryLabel": "Code",
       "codeEntrySubmit": "Continue",
       "connectedTo": "Capturing for scan {scanDraftId} — connected",
-      "allDoneTitle": "All three captured",
+      "allDoneTitle": "Photos captured",
       "allDoneBody": "You can close this page — the desktop has everything it needs.",
       "sessionEnded": "This session was ended from the desktop.",
       "sessionExpired": "This code is no longer valid. Ask for a new code on the desktop screen."
