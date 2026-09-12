@@ -31,6 +31,8 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
+from app.services.gemini_client import call_with_key_fallback
+
 
 class ImageMetadata(BaseModel):
     image_id: str | None = None
@@ -117,13 +119,8 @@ def _get_client(api_key: str):
     return genai.Client(api_key=api_key)
 
 
-def explain_violation(request: ExplanationRequest, settings) -> ExplanationOutput:
-    if not settings.gemini_api_key:
-        raise GeminiExplanationError("GEMINI_API_KEY is not set")
-
-    client = _get_client(settings.gemini_api_key)
-    prompt = _build_prompt(request)
-
+def _call_explain(api_key: str, prompt: str, settings) -> ExplanationOutput:
+    client = _get_client(api_key)
     try:
         response = client.models.generate_content(
             model=settings.gemini_model,
@@ -140,3 +137,15 @@ def explain_violation(request: ExplanationRequest, settings) -> ExplanationOutpu
     if parsed is None:
         raise GeminiExplanationError("Gemini did not return schema-valid structured output")
     return parsed
+
+
+def explain_violation(request: ExplanationRequest, settings) -> ExplanationOutput:
+    if not settings.gemini_api_keys:
+        raise GeminiExplanationError("GEMINI_API_KEY is not set")
+
+    prompt = _build_prompt(request)
+    # _call_explain always raises GeminiExplanationError on failure, so
+    # call_with_key_fallback's re-raised "last failure" is already that type.
+    return call_with_key_fallback(
+        settings.gemini_api_keys, lambda key: _call_explain(key, prompt, settings)
+    )
