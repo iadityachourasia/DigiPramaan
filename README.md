@@ -251,7 +251,7 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). `NEXT_PUBLIC_USE_MOCK_DATA` defaults to `true`, serving realistic fixtures from `src/lib/mock/` — no backend required to explore the UI. Set it to `false` (see `.env.example`) and point `NEXT_PUBLIC_API_BASE_URL` at a running backend for real end-to-end data.
+Open `http://localhost:3000`. `NEXT_PUBLIC_USE_MOCK_DATA` defaults to `true`, serving realistic fixtures from `src/lib/mock/` — no backend required to explore the UI. Set it to `false` (see `.env.example`) and point `NEXT_PUBLIC_API_BASE_URL` at a running backend for real end-to-end data.
 
 ### Backend
 
