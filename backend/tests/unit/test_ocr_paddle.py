@@ -1,15 +1,21 @@
 """
-Unit tests for ocr/paddle.py's PaddleOcrProvider — specifically the
-resize-before-inference speedup and the bbox-rescale-back-to-original-
-pixel-space invariant it must preserve (Rule 7 font-height measurement,
-evidence crops, and report rendering all assume OcrBlock.bbox is in the
-ORIGINAL image's pixel space, regardless of what PaddleOCR itself saw).
+Unit tests for ocr/paddle.py's PaddleOcrProvider — the resize-before-
+inference speedup, the bbox-rescale-back-to-original-pixel-space invariant
+(Rule 7 font-height measurement, evidence crops, and report rendering all
+assume OcrBlock.bbox is in the ORIGINAL image's pixel space, regardless of
+what PaddleOCR itself saw), and the subprocess boundary around predict().
+
+`_predict_in_subprocess` (not `_get_ocr_instance`) is the seam these tests
+mock: predict() runs in a genuine spawned subprocess (see the module
+docstring for why — a real, reproduced hang when run inline on a
+BackgroundTasks worker thread), so a patch on `_get_ocr_instance` in this
+process would never reach the child process's fresh import of the module.
 """
 
 from __future__ import annotations
 
 import io
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 from PIL import Image
@@ -32,16 +38,13 @@ def test_oversized_image_is_downscaled_before_ocr():
 
     seen_sizes: list[tuple[int, int]] = []
 
-    def fake_predict(path):
-        with Image.open(path) as img:
+    def fake_predict(tmp_path):
+        with Image.open(tmp_path) as img:
             seen_sizes.append(img.size)
         return [{"rec_texts": [], "rec_scores": [], "rec_boxes": []}]
 
-    fake_ocr = MagicMock()
-    fake_ocr.predict.side_effect = fake_predict
-
     provider = PaddleOcrProvider()
-    with patch("app.services.ocr.paddle._get_ocr_instance", return_value=fake_ocr):
+    with patch("app.services.ocr.paddle._predict_in_subprocess", side_effect=fake_predict):
         provider.extract(image_bytes, image_id="img-1")
 
     assert len(seen_sizes) == 1
@@ -70,16 +73,13 @@ def test_bbox_is_rescaled_back_to_original_pixel_space():
 
     seen_sizes: list[tuple[int, int]] = []
 
-    def fake_predict(path):
-        with Image.open(path) as img:
+    def fake_predict(tmp_path):
+        with Image.open(tmp_path) as img:
             seen_sizes.append(img.size)
         return [fake_page]
 
-    fake_ocr = MagicMock()
-    fake_ocr.predict.side_effect = fake_predict
-
     provider = PaddleOcrProvider()
-    with patch("app.services.ocr.paddle._get_ocr_instance", return_value=fake_ocr):
+    with patch("app.services.ocr.paddle._predict_in_subprocess", side_effect=fake_predict):
         result = provider.extract(image_bytes, image_id="img-1")
 
     assert len(result.blocks) == 1
@@ -109,17 +109,58 @@ def test_small_image_is_not_upscaled_or_rescaled():
 
     seen_sizes: list[tuple[int, int]] = []
 
-    def fake_predict(path):
-        with Image.open(path) as img:
+    def fake_predict(tmp_path):
+        with Image.open(tmp_path) as img:
             seen_sizes.append(img.size)
         return [fake_page]
 
-    fake_ocr = MagicMock()
-    fake_ocr.predict.side_effect = fake_predict
-
     provider = PaddleOcrProvider()
-    with patch("app.services.ocr.paddle._get_ocr_instance", return_value=fake_ocr):
+    with patch("app.services.ocr.paddle._predict_in_subprocess", side_effect=fake_predict):
         result = provider.extract(image_bytes, image_id="img-1")
 
     assert seen_sizes[0] == (original_width, original_height)
     assert result.blocks[0].bbox == bbox
+
+
+def test_predict_timeout_terminates_process_and_raises():
+    """A genuinely hung predict() call (the real failure mode that
+    motivated running it in a subprocess) must fail loudly within
+    PREDICT_TIMEOUT_SECONDS, not hang the whole pipeline forever."""
+    from app.services.ocr import paddle as paddle_module
+
+    class _NeverExits:
+        def __init__(self, target, args):
+            pass
+
+        def start(self):
+            pass
+
+        def join(self, timeout=None):
+            pass  # simulates: still running after the timeout
+
+        def is_alive(self):
+            return True
+
+        def terminate(self):
+            pass
+
+        exitcode = None
+
+    class _FakeQueue:
+        def empty(self):
+            return True
+
+        def get(self):
+            raise AssertionError("should never be read — process never produced a result")
+
+    class _FakeCtx:
+        def Queue(self):
+            return _FakeQueue()
+
+        def Process(self, target, args):
+            return _NeverExits(target, args)
+
+    with patch.object(paddle_module.multiprocessing, "get_context", return_value=_FakeCtx()), \
+         patch.object(paddle_module, "PREDICT_TIMEOUT_SECONDS", 0):
+        with pytest.raises(TimeoutError):
+            paddle_module._predict_in_subprocess("irrelevant.png")

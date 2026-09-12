@@ -34,15 +34,39 @@ and report rendering all assume OcrBlock.bbox is original-image pixels
 every box by the inverse of whatever scale factor it applied, immediately,
 before returning — no downstream code has any way to know a resize
 happened.
+
+CRITICAL: the actual `ocr.predict()` call runs in a genuine subprocess
+(`_predict_in_subprocess`), never inline in the caller's thread. Found
+during real end-to-end testing: `run_pipeline` is invoked via FastAPI's
+`BackgroundTasks`, which runs a sync callable on a worker THREAD (not a
+new process) inside the same interpreter as the async event loop. In
+that specific context, `PaddleOCR.predict()` reliably stalled for 10-20+
+minutes at near-zero CPU usage (confirmed via direct process CPU
+sampling — this is a hang, not slow computation, and raising the OS
+thread's scheduling priority made no difference). The identical call
+against the identical image, run as a plain script's main thread (or in
+its own freshly spawned process), completed in ~70-90 seconds every
+time. Root cause not fully isolated (suspected: something in paddle's
+own C++ side assumes it owns the process's main thread), but running
+predict() in a fresh process sidesteps it entirely and is what every
+manual reproduction confirmed as reliably fast.
 """
 
 from __future__ import annotations
 
+import multiprocessing
 import time
 
 from app.services.ocr.provider import OcrBlock, OcrResult
 
 OCR_MAX_DIMENSION_PX = 1600
+
+# Generous relative to the ~70-90s observed for a real, dense product-label
+# photo at OCR_MAX_DIMENSION_PX — this exists so a genuine hang fails loudly
+# (textExtraction -> failed, surfaced to the officer) instead of blocking a
+# scan forever, the exact failure mode that motivated moving predict() into
+# a subprocess in the first place.
+PREDICT_TIMEOUT_SECONDS = 240
 
 _ocr_instance = None
 
@@ -62,6 +86,44 @@ def _get_ocr_instance():
     return _ocr_instance
 
 
+def _predict_worker(tmp_path: str, result_queue) -> None:
+    """Entry point for the subprocess spawned by `_predict_in_subprocess`
+    — see module docstring for why this must not run inline. Must only
+    put plain, picklable data (str/float/list) on the queue."""
+    try:
+        ocr = _get_ocr_instance()
+        results = ocr.predict(tmp_path)
+        pages = [
+            {
+                "rec_texts": list(page.get("rec_texts", [])),
+                "rec_scores": [float(s) for s in page.get("rec_scores", [])],
+                "rec_boxes": [[float(v) for v in box] for box in page.get("rec_boxes", [])],
+            }
+            for page in results
+        ]
+        result_queue.put(("ok", pages))
+    except Exception as exc:  # noqa: BLE001 - forward any failure to the parent, never crash silently
+        result_queue.put(("error", str(exc)))
+
+
+def _predict_in_subprocess(tmp_path: str) -> list[dict]:
+    ctx = multiprocessing.get_context("spawn")
+    result_queue = ctx.Queue()
+    process = ctx.Process(target=_predict_worker, args=(tmp_path, result_queue))
+    process.start()
+    process.join(PREDICT_TIMEOUT_SECONDS)
+    if process.is_alive():
+        process.terminate()
+        process.join()
+        raise TimeoutError(f"PaddleOCR predict() exceeded {PREDICT_TIMEOUT_SECONDS}s and was terminated.")
+    if result_queue.empty():
+        raise RuntimeError(f"PaddleOCR subprocess exited with no result (exit code {process.exitcode}).")
+    status, payload = result_queue.get()
+    if status == "error":
+        raise RuntimeError(f"PaddleOCR subprocess failed: {payload}")
+    return payload
+
+
 class PaddleOcrProvider:
     name = "paddleocr"
 
@@ -72,7 +134,6 @@ class PaddleOcrProvider:
 
         from PIL import Image
 
-        ocr = _get_ocr_instance()
         started = time.perf_counter()
 
         # Downscale before handing to PaddleOCR — see module docstring for
@@ -99,7 +160,7 @@ class PaddleOcrProvider:
                 tmp_path = tmp.name
 
         try:
-            results = ocr.predict(tmp_path)
+            results = _predict_in_subprocess(tmp_path)
         finally:
             Path(tmp_path).unlink(missing_ok=True)
 
