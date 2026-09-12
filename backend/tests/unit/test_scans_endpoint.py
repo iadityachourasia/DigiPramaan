@@ -124,7 +124,7 @@ def test_scan_with_one_bad_quality_image_is_rejected_with_no_db_write(client_as)
 
     assert response.status_code == 400
     body = response.json()
-    assert "front" in body["error"]["message"]
+    assert "front" in body["error"]["details"]["rejected"]
     mock_run_pipeline.assert_not_called()
 
 
@@ -143,8 +143,8 @@ def test_scan_with_duplicate_images_is_rejected(client_as) -> None:
         )
 
     assert response.status_code == 400
-    message = response.json()["error"]["message"]
-    assert "front" in message and "back" in message
+    duplicate_angles = response.json()["error"]["details"]["duplicateAngles"]
+    assert "front" in duplicate_angles and "back" in duplicate_angles
     mock_run_pipeline.assert_not_called()
 
 
