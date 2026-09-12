@@ -38,6 +38,12 @@ _STATUS_TO_CODE: dict[int, ErrorCode] = {
     # record is Verified) — a real, expected outcome of normal use, not an
     # edge case worth leaving as a generic INTERNAL_ERROR.
     status.HTTP_409_CONFLICT: "CONFLICT",
+    # 400/413 are real, expected client-input outcomes (bad-quality/
+    # duplicate scan images, an oversized upload) — found mislabeled as
+    # INTERNAL_ERROR during real end-to-end testing, which is misleading
+    # for something the client caused and can fix by retrying differently.
+    status.HTTP_400_BAD_REQUEST: "VALIDATION_ERROR",
+    status.HTTP_413_REQUEST_ENTITY_TOO_LARGE: "VALIDATION_ERROR",
 }
 
 
@@ -48,17 +54,36 @@ def _request_id(request: Request) -> str:
     return getattr(request.state, "request_id", "unknown")
 
 
-def _error_body(code: ErrorCode, message: str, request_id: str) -> dict:
-    return {"error": {"code": code, "message": message, "requestId": request_id}}
+def _error_body(code: ErrorCode, message: str, request_id: str, extra: dict | None = None) -> dict:
+    body = {"code": code, "message": message, "requestId": request_id}
+    if extra:
+        body["details"] = extra
+    return {"error": body}
+
+
+def _split_detail(detail: object) -> tuple[str, dict | None]:
+    # Several endpoints (scans.py's quality/duplicate rejection,
+    # mobile_handoff.py's incomplete-angles check) raise HTTPException with
+    # a dict detail shaped {"error": "<human message>", ...extra fields
+    # like rejected/duplicateAngles/missingAngles}. Falling through to
+    # str(detail) on those produces Python's dict-repr ("{'error': '...',
+    # ...}") instead of the clean message they intended, and dropping the
+    # extra fields entirely would silently discard real per-angle
+    # diagnostic data the caller put there on purpose.
+    if isinstance(detail, dict) and isinstance(detail.get("error"), str):
+        extra = {k: v for k, v in detail.items() if k != "error"}
+        return detail["error"], (extra or None)
+    return str(detail), None
 
 
 def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(StarletteHTTPException)
     async def http_exception_handler(request: Request, exc: StarletteHTTPException):
         code = _STATUS_TO_CODE.get(exc.status_code, "INTERNAL_ERROR")
+        message, extra = _split_detail(exc.detail)
         return JSONResponse(
             status_code=exc.status_code,
-            content=_error_body(code, str(exc.detail), _request_id(request)),
+            content=_error_body(code, message, _request_id(request), extra),
             # Forward e.g. WWW-Authenticate from a 401 — dropping headers
             # here would silently discard exactly the header a real client
             # needs to tell "not logged in" apart from "logged in wrong".
