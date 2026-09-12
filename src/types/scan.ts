@@ -49,9 +49,18 @@ export interface UploadedImage {
  * Capture wizard (03-scan-upload.md)
  * ------------------------------------------------------------------ */
 
-/** The three required capture slots, plus the optional 4th. */
+/** Front, back, side_pdp (Principal Display Panel), plus the optional 4th slot. */
 export const CAPTURE_SLOT_ANGLES = ["front", "back", "side_pdp", "additional"] as const;
 export type CaptureSlotAngle = (typeof CAPTURE_SLOT_ANGLES)[number];
+
+/**
+ * The only two angles that gate wizard completion. `side_pdp` is
+ * deliberately excluded — many products carry no printed declarations on
+ * a side panel at all, so an officer may skip it entirely. Single source
+ * of truth for every "has the officer captured everything required?"
+ * check across the wizard, mobile handoff panel, and phone capture view.
+ */
+export const MANDATORY_CAPTURE_ANGLES: readonly CaptureSlotAngle[] = ["front", "back"];
 
 /** How the officer chose to get photos into the wizard (03 §2, Step 0). */
 export const CAPTURE_MODES = ["device", "camera", "mobile"] as const;

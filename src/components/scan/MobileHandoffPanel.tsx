@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 
 import { ROUTES } from "@/lib/constants";
 import type { CaptureSlotAngle, MobileHandoffSession } from "@/types";
-import { CAPTURE_SLOT_ANGLES } from "@/types";
+import { CAPTURE_SLOT_ANGLES, MANDATORY_CAPTURE_ANGLES } from "@/types";
 
 import { QrCode } from "./QrCode";
 
@@ -23,7 +23,10 @@ import { QrCode } from "./QrCode";
  * this shape: an elapsed/total window with a status that shifts near expiry.
  */
 
-const REQUIRED_ANGLES: readonly CaptureSlotAngle[] = ["front", "back", "side_pdp"];
+/** The 3 angles the phone-capture flow mirrors here — side_pdp is shown
+ * but is not required (see MANDATORY_CAPTURE_ANGLES for what gates
+ * completion); "additional" has no phone-capture equivalent. */
+const MOBILE_MIRROR_ANGLES: readonly CaptureSlotAngle[] = ["front", "back", "side_pdp"];
 const WARNING_THRESHOLD_MS = 60_000;
 
 export interface MobileHandoffPanelProps {
@@ -80,7 +83,7 @@ export function MobileHandoffPanel({
   const remainingMs = Math.max(0, expiresAtMs - now);
   const progressPercent = Math.min(100, Math.round(((totalMs - remainingMs) / totalMs) * 100));
   const nearExpiry = remainingMs < WARNING_THRESHOLD_MS;
-  const allCaptured = REQUIRED_ANGLES.every((angle) => session.capturedAngles.includes(angle));
+  const allCaptured = MANDATORY_CAPTURE_ANGLES.every((angle) => session.capturedAngles.includes(angle));
 
   if (session.status === "expired") {
     return (
@@ -169,7 +172,7 @@ export function MobileHandoffPanel({
       {session.status === "connected" ? (
         <ul className="lmcs-mobile-handoff-mirror">
           {CAPTURE_SLOT_ANGLES.filter((angle): angle is CaptureSlotAngle =>
-            REQUIRED_ANGLES.includes(angle as CaptureSlotAngle)
+            MOBILE_MIRROR_ANGLES.includes(angle as CaptureSlotAngle)
           ).map((angle) => {
             const captured = session.capturedAngles.includes(angle);
             return (

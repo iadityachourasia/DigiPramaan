@@ -4,10 +4,11 @@ import { useCallback, useReducer } from "react";
 
 import { checkImageQuality } from "@/lib/api/scans";
 import type { CaptureSlotAngle, CaptureSlotState, QualityFailureReason } from "@/types";
-import { CAPTURE_SLOT_ANGLES } from "@/types";
+import { CAPTURE_SLOT_ANGLES, MANDATORY_CAPTURE_ANGLES } from "@/types";
 
 /**
- * useCaptureSlots — client-side state for the three (+1) named capture slots.
+ * useCaptureSlots — client-side state for the four named capture slots
+ * (front/back mandatory, side_pdp/additional optional).
  *
  * 03-scan-upload.md §2 is explicit that a slot's state is independent: rejecting
  * the Back image never discards an already-accepted Front image, and "a prior
@@ -112,7 +113,7 @@ export function useCaptureSlots(options: UseCaptureSlotsOptions = {}) {
     dispatch({ type: "RESET", angle });
   }, []);
 
-  const requiredAnglesFilled = (["front", "back", "side_pdp"] as const).every(
+  const requiredAnglesFilled = MANDATORY_CAPTURE_ANGLES.every(
     (angle) => slots[angle].status === "passed"
   );
 

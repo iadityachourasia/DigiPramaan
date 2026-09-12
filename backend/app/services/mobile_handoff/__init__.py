@@ -6,7 +6,8 @@ phone-facing endpoints.
 """
 
 from app.services.mobile_handoff.service import (
-    REQUIRED_ANGLES,
+    ALL_ANGLES,
+    MANDATORY_ANGLES,
     build_angle_status,
     create_pending_scan_session,
     is_scan_session_record_verified,
@@ -14,7 +15,8 @@ from app.services.mobile_handoff.service import (
 from app.services.mobile_handoff.tokens import generate_token, hash_token
 
 __all__ = [
-    "REQUIRED_ANGLES",
+    "ALL_ANGLES",
+    "MANDATORY_ANGLES",
     "build_angle_status",
     "create_pending_scan_session",
     "generate_token",

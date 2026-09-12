@@ -51,7 +51,14 @@ _CALIBRATION_FIELD_TO_ATTR = {"retailSalePrice": "mrp", "netQuantity": "net_quan
 
 router = APIRouter(tags=["scans"])
 
-REQUIRED_ANGLES = ("front", "back", "side_pdp")
+# All three are valid capture angles, but only front/back are mandatory —
+# many products carry no printed declarations on a side panel at all, so
+# an officer may skip side_pdp entirely. VALID_ANGLES is used to validate
+# "is this a real angle" (e.g. the quality-check endpoint); MANDATORY_ANGLES
+# gates "has the officer captured everything required" (e.g. finalize/
+# create_scan's completeness checks).
+VALID_ANGLES = ("front", "back", "side_pdp")
+MANDATORY_ANGLES = ("front", "back")
 
 
 def _extension_for(upload: UploadFile) -> str:
@@ -81,10 +88,11 @@ def create_scan_session_from_images(
     `resolve_product()` established for identity resolution (Phase 8).
 
     `images` is `(angle, filename, bytes)` — keyed by POSITION internally,
-    never by `angle` as a dict key: a physically captured scan has exactly
-    3 distinct angles (front/back/side_pdp), but an e-commerce listing's
-    images share "front"/"additional" labels (see the frontend's own
-    `toPipelineImages`), so `angle` is NOT a safe dict key here.
+    never by `angle` as a dict key: a physically captured scan has 2 or 3
+    distinct angles (front/back always, side_pdp only when the officer
+    captured one), but an e-commerce listing's images share "front"/
+    "additional" labels (see the frontend's own `toPipelineImages`), so
+    `angle` is NOT a safe dict key here.
     """
     image_bytes_list = [b for _angle, _filename, b in images]
     qualities = [evaluate_image_quality(b) for b in image_bytes_list]
@@ -214,8 +222,8 @@ async def check_scan_image_quality(
     same "a failed attempt leaves no trace" rule mobile-handoff's own
     per-image endpoint already follows.
     """
-    if angle not in REQUIRED_ANGLES:
-        raise HTTPException(status_code=422, detail=f"angle must be one of {REQUIRED_ANGLES}")
+    if angle not in VALID_ANGLES:
+        raise HTTPException(status_code=422, detail=f"angle must be one of {VALID_ANGLES}")
 
     image_bytes = await file.read()
     quality = evaluate_image_quality(image_bytes)
@@ -232,7 +240,10 @@ async def create_scan(
     metadata: str = Form(...),
     front: UploadFile = File(...),
     back: UploadFile = File(...),
-    side_pdp: UploadFile = File(...),
+    # Optional: many products carry no printed declarations on a side panel
+    # at all, so an officer may skip it entirely — front/back are the only
+    # mandatory angles (MANDATORY_ANGLES above).
+    side_pdp: UploadFile | None = File(None),
     current_user: Profile = Depends(require_permission("scan.create")),
     db: DbSession = Depends(get_db),
     settings: Settings = Depends(get_settings),
@@ -245,6 +256,8 @@ async def create_scan(
     uploads = [("front", front), ("back", back), ("side_pdp", side_pdp)]
     images: list[tuple[str, str, bytes]] = []
     for angle, upload in uploads:
+        if upload is None:
+            continue
         image_bytes = await upload.read()
         filename = upload.filename or f"{angle}.{_extension_for(upload)}"
         images.append((angle, filename, image_bytes))
