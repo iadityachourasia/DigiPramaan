@@ -17,8 +17,8 @@ import type {
  * signed-in user behind it (page 11).
  *
  * NOT `useCaptureSlots`. That hook builds initial state for all four named
- * angles and hardcodes `["front", "back", "side_pdp"]` as its completeness
- * rule, with no option to narrow either. Page 11 takes exactly one photo. More
+ * angles and gates completeness on `MANDATORY_CAPTURE_ANGLES` (front/back),
+ * with no option to narrow either. Page 11 takes exactly one photo. More
  * importantly, `useCaptureSlots` routes every image through
  * `checkImageQuality`, whose failure means the photo is rejected — the precise
  * behaviour page 11 §4 forbids.

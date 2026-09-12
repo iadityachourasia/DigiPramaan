@@ -8,15 +8,15 @@ import {
   pollMobileSession,
 } from "@/lib/api/scans";
 import type { MobileHandoffSession } from "@/types";
+import { MANDATORY_CAPTURE_ANGLES } from "@/types";
 
 const POLL_INTERVAL_MS = 2500;
-const REQUIRED_ANGLES = ["front", "back", "side_pdp"] as const;
 
 function isSettled(session: MobileHandoffSession): boolean {
   return (
     session.status === "expired" ||
     session.status === "cancelled" ||
-    REQUIRED_ANGLES.every((angle) => session.capturedAngles.includes(angle))
+    MANDATORY_CAPTURE_ANGLES.every((angle) => session.capturedAngles.includes(angle))
   );
 }
 
