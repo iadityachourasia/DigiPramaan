@@ -15,6 +15,9 @@ coverage/
 playwright-error.txt
 playwright-result.json
 .vercel/
+.claude/
+.codex/
+.vscode/
 
 # Backend (Python/FastAPI)
 backend/.venv/
