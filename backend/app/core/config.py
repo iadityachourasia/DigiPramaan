@@ -91,6 +91,12 @@ class Settings(BaseSettings):
     # is unset, the structuring stage fails cleanly and is retryable once a
     # key is added — the same graceful-degradation discipline as every other
     # external dependency in this codebase, not a startup-time hard failure.
+    #
+    # May hold multiple comma-separated keys (same convention as
+    # cors_origins/cors_origin_list below) — Gemini's free-tier quota is
+    # enforced per Google Cloud project, so a demo-day backup against
+    # quota exhaustion is simply more keys from separate projects, tried
+    # in order by gemini_client.call_with_key_fallback().
     gemini_api_key: str | None = None
     # gemini-2.5-flash 404'd as deprecated during real Phase 2 testing
     # (2026-09-10) — the live API's own error named gemini-3.6-flash as its
@@ -122,6 +128,12 @@ class Settings(BaseSettings):
     @property
     def cors_origin_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+
+    @property
+    def gemini_api_keys(self) -> list[str]:
+        if not self.gemini_api_key:
+            return []
+        return [key.strip() for key in self.gemini_api_key.split(",") if key.strip()]
 
     @property
     def resolved_supabase_url(self) -> str:

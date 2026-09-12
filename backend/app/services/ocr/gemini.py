@@ -23,6 +23,7 @@ import time
 from pydantic import BaseModel
 
 from app.services.extraction.schema import EvidenceRef, ExtractedField, StructuredExtraction
+from app.services.gemini_client import call_with_key_fallback
 from app.services.ocr.provider import OcrBlock, OcrResult
 
 
@@ -121,15 +122,8 @@ def _get_client(api_key: str):
     return genai.Client(api_key=api_key)
 
 
-def structure(
-    blocks: list[OcrBlock], angle_by_image_id: dict[str, str], settings
-) -> StructuredExtraction:
-    if not settings.gemini_api_key:
-        raise GeminiUnavailableError("GEMINI_API_KEY is not set")
-
-    client = _get_client(settings.gemini_api_key)
-    prompt = _build_prompt(blocks)
-
+def _call_structure(api_key: str, prompt: str, settings) -> GeminiStructuredOutput:
+    client = _get_client(api_key)
     try:
         response = client.models.generate_content(
             model=settings.gemini_model,
@@ -145,6 +139,21 @@ def structure(
     parsed: GeminiStructuredOutput = response.parsed
     if parsed is None:
         raise GeminiUnavailableError("Gemini did not return schema-valid structured output")
+    return parsed
+
+
+def structure(
+    blocks: list[OcrBlock], angle_by_image_id: dict[str, str], settings
+) -> StructuredExtraction:
+    if not settings.gemini_api_keys:
+        raise GeminiUnavailableError("GEMINI_API_KEY is not set")
+
+    prompt = _build_prompt(blocks)
+    # _call_structure always raises GeminiUnavailableError on failure, so
+    # call_with_key_fallback's re-raised "last failure" is already that type.
+    parsed = call_with_key_fallback(
+        settings.gemini_api_keys, lambda key: _call_structure(key, prompt, settings)
+    )
 
     return StructuredExtraction(
         manufacturer=_to_extracted_field(parsed.manufacturer, blocks, angle_by_image_id),
@@ -178,15 +187,10 @@ class GeminiOcrProvider:
     def __init__(self, settings) -> None:
         self._settings = settings
 
-    def extract(self, image_bytes: bytes, image_id: str) -> OcrResult:
-        if not self._settings.gemini_api_key:
-            raise GeminiUnavailableError("GEMINI_API_KEY is not set")
-
+    def _call_transcribe(self, api_key: str, image_bytes: bytes) -> str:
         from google.genai import types
 
-        client = _get_client(self._settings.gemini_api_key)
-        started = time.perf_counter()
-
+        client = _get_client(api_key)
         try:
             response = client.models.generate_content(
                 model=self._settings.gemini_model,
@@ -199,8 +203,16 @@ class GeminiOcrProvider:
             )
         except Exception as exc:  # noqa: BLE001
             raise GeminiUnavailableError(f"Gemini OCR fallback call failed: {exc}") from exc
+        return (response.text or "").strip()
 
-        text = (response.text or "").strip()
+    def extract(self, image_bytes: bytes, image_id: str) -> OcrResult:
+        if not self._settings.gemini_api_keys:
+            raise GeminiUnavailableError("GEMINI_API_KEY is not set")
+
+        started = time.perf_counter()
+        text = call_with_key_fallback(
+            self._settings.gemini_api_keys, lambda key: self._call_transcribe(key, image_bytes)
+        )
         duration_ms = (time.perf_counter() - started) * 1000
 
         if not text:
