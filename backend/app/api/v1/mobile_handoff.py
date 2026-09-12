@@ -10,8 +10,8 @@ Two very different trust levels share this file:
     officer can only manage a handoff for a scan session THEY created.
   - Phone-side routes (`/mobile-handoff/{token}*`) require only the raw
     handoff token (`get_active_handoff`, api/deps/mobile_handoff.py) —
-    no `Profile`, no role, no access to anything beyond the 3 required
-    image slots of the one scan session the token was minted for.
+    no `Profile`, no role, no access to anything beyond the image slots
+    of the one scan session the token was minted for.
 
 `create_pending_scan_session`/`build_angle_status`/
 `is_scan_session_record_verified` (services/mobile_handoff/) hold the
@@ -40,7 +40,8 @@ from app.db.session import get_db
 from app.jobs.pipeline import mark_capture_stages_completed, run_pipeline
 from app.services.image_quality import QualityVerdict, evaluate_image_quality
 from app.services.mobile_handoff import (
-    REQUIRED_ANGLES,
+    ALL_ANGLES,
+    MANDATORY_ANGLES,
     build_angle_status,
     create_pending_scan_session,
     generate_token,
@@ -231,8 +232,9 @@ def finalize_mobile_handoff(
     is filled in — the mobile-handoff counterpart to
     `create_scan_session_from_images()`'s tail: mark uploading/
     qualityCheck completed, schedule run_pipeline. Never auto-triggered
-    the instant the 3rd photo lands (matches device/camera mode, which
-    also always waits for an explicit officer submit)."""
+    the instant front+back land (matches device/camera mode, which also
+    always waits for an explicit officer submit). Only front/back are
+    mandatory; side_pdp is optional and included if present."""
     scan_session = _get_owned_scan_session(scan_id, current_user, db)
 
     if is_scan_session_record_verified(db, scan_session.id):
@@ -244,11 +246,15 @@ def finalize_mobile_handoff(
     images = (
         db.query(EvidenceImage)
         .filter(EvidenceImage.scan_session_id == scan_session.id)
-        .filter(EvidenceImage.angle.in_(REQUIRED_ANGLES))
+        .filter(EvidenceImage.angle.in_(ALL_ANGLES))
         .all()
     )
     present_angles = {image.angle for image in images}
-    missing = [angle for angle in REQUIRED_ANGLES if angle not in present_angles]
+    # Only front/back gate completion — side_pdp is optional (many products
+    # carry no printed declarations on a side panel at all), but any
+    # side_pdp image the officer DID capture still gets included above so
+    # it flows into quality_summary and the pipeline like any other angle.
+    missing = [angle for angle in MANDATORY_ANGLES if angle not in present_angles]
     if missing:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -315,7 +321,7 @@ async def upload_mobile_image(
     db: DbSession = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ) -> dict:
-    if angle not in REQUIRED_ANGLES:
+    if angle not in ALL_ANGLES:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Unsupported angle")
 
     if is_scan_session_record_verified(db, handoff.scan_session_id):
@@ -413,7 +419,7 @@ def complete_mobile_handoff(
     completion screen. Never starts the pipeline itself; that's the
     officer's own explicit "Continue" click (`finalize`, above)."""
     angles = build_angle_status(db, handoff.scan_session_id)
-    missing = [angle for angle, state in angles.items() if state != "received"]
+    missing = [angle for angle in MANDATORY_ANGLES if angles.get(angle) != "received"]
     if missing:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,

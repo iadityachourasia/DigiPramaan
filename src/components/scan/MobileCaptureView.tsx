@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   checkImageQuality,
@@ -12,6 +12,7 @@ import {
 } from "@/lib/api/scans";
 import { isMockMode } from "@/lib/api/client";
 import type { CaptureSlotAngle, MobileHandoffSession, QualityFailureReason } from "@/types";
+import { MANDATORY_CAPTURE_ANGLES } from "@/types";
 
 import { CameraPreview } from "./CameraPreview";
 
@@ -32,7 +33,10 @@ import { CameraPreview } from "./CameraPreview";
  * naturally functions of runtime data (the angle, the failure reason).
  */
 
-const REQUIRED_ORDER: readonly CaptureSlotAngle[] = ["front", "back", "side_pdp"];
+/** Capture order on the phone. Front/back are mandatory; side_pdp is
+ * offered but skippable — many products carry no printed declarations on
+ * a side panel at all (see MANDATORY_CAPTURE_ANGLES, src/types/scan.ts). */
+const CAPTURE_ORDER: readonly CaptureSlotAngle[] = ["front", "back", "side_pdp"];
 
 export interface MobileCaptureViewProps {
   token: string;
@@ -57,6 +61,12 @@ export function MobileCaptureView({ token }: MobileCaptureViewProps) {
   const [connectFailed, setConnectFailed] = useState(false);
   const [localStatus, setLocalStatus] = useState<LocalStatus>("idle");
   const [failureReason, setFailureReason] = useState<QualityFailureReason | null>(null);
+  const [skippedAngles, setSkippedAngles] = useState<ReadonlySet<CaptureSlotAngle>>(new Set());
+  /* Guards against signaling "complete" twice — mandatory angles can be
+   * satisfied before the officer decides whether to also add the
+   * optional side_pdp photo, so this can otherwise fire once when
+   * front/back land and again if side_pdp follows or gets skipped. */
+  const completeSignaledRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -100,7 +110,23 @@ export function MobileCaptureView({ token }: MobileCaptureViewProps) {
     );
   }
 
-  const nextAngle = REQUIRED_ORDER.find((angle) => !session.capturedAngles.includes(angle));
+  const nextAngle = CAPTURE_ORDER.find(
+    (angle) => !session.capturedAngles.includes(angle) && !skippedAngles.has(angle)
+  );
+
+  async function handleSkip(angle: CaptureSlotAngle) {
+    const updated = new Set(skippedAngles);
+    updated.add(angle);
+    setSkippedAngles(updated);
+
+    const mandatoryDone = MANDATORY_CAPTURE_ANGLES.every((mandatory) =>
+      session!.capturedAngles.includes(mandatory)
+    );
+    if (mandatoryDone && !isMockMode() && !completeSignaledRef.current) {
+      completeSignaledRef.current = true;
+      await completeMobileHandoff(token);
+    }
+  }
 
   if (!nextAngle) {
     return (
@@ -144,9 +170,7 @@ export function MobileCaptureView({ token }: MobileCaptureViewProps) {
      * Real mode: one call does what mock mode needed two for — the
      * backend's own evaluate_image_quality() runs server-side and the
      * image is persisted as real EvidenceImage in the same request, so
-     * there's no separate pre-check round trip here (also sidesteps a
-     * known, separate, pre-existing gap: checkImageQuality's own real
-     * branch calls a backend endpoint that doesn't exist yet).
+     * there's no separate pre-check round trip here.
      */
     const uploadResult = await uploadMobileCaptureImage(token, nextAngle!, file);
     if (!uploadResult.ok) {
@@ -164,10 +188,11 @@ export function MobileCaptureView({ token }: MobileCaptureViewProps) {
     const nextStatus = await connectMobileSession(token);
     if (nextStatus.ok) {
       setSession(nextStatus.data);
-      const allCaptured = REQUIRED_ORDER.every((angle) =>
+      const mandatoryDone = MANDATORY_CAPTURE_ANGLES.every((angle) =>
         nextStatus.data.capturedAngles.includes(angle)
       );
-      if (allCaptured) {
+      if (mandatoryDone && !completeSignaledRef.current) {
+        completeSignaledRef.current = true;
         await completeMobileHandoff(token);
       }
     }
@@ -180,8 +205,9 @@ export function MobileCaptureView({ token }: MobileCaptureViewProps) {
       </p>
 
       <ul className="lmcs-mobile-handoff-mirror">
-        {REQUIRED_ORDER.map((angle) => {
+        {CAPTURE_ORDER.map((angle) => {
           const done = session.capturedAngles.includes(angle);
+          const skipped = skippedAngles.has(angle);
           const active = angle === nextAngle;
           return (
             <li
@@ -189,13 +215,21 @@ export function MobileCaptureView({ token }: MobileCaptureViewProps) {
               className={`ux4g-tag ux4g-tag-s ${
                 done
                   ? "ux4g-tag-tonal-success"
-                  : active
-                    ? "ux4g-tag-tonal-info"
-                    : "ux4g-tag-outline-neutral"
+                  : skipped
+                    ? "ux4g-tag-tonal-neutral"
+                    : active
+                      ? "ux4g-tag-tonal-info"
+                      : "ux4g-tag-outline-neutral"
               }`}
             >
               <span className="ux4g-icon-outlined" aria-hidden="true">
-                {done ? "check_circle" : active ? "radio_button_checked" : "radio_button_unchecked"}
+                {done
+                  ? "check_circle"
+                  : skipped
+                    ? "remove_circle_outline"
+                    : active
+                      ? "radio_button_checked"
+                      : "radio_button_unchecked"}
               </span>
               {t(`slots.${angle}.label`)}
             </li>
@@ -233,6 +267,15 @@ export function MobileCaptureView({ token }: MobileCaptureViewProps) {
                 cameraDeniedMessage={t("slots.cameraDenied")}
                 onCapture={handleCapture}
               />
+              {nextAngle === "side_pdp" ? (
+                <button
+                  type="button"
+                  className="ux4g-btn ux4g-btn-text-neutral ux4g-btn-sm"
+                  onClick={() => handleSkip(nextAngle)}
+                >
+                  {t("slots.skipSidePdp")}
+                </button>
+              ) : null}
             </div>
           )}
         </div>
