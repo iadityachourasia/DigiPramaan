@@ -54,6 +54,26 @@ def test_cors_origin_list_splits_and_trims(monkeypatch: pytest.MonkeyPatch) -> N
     assert settings.cors_origin_list == ["http://a.test", "http://b.test"]
 
 
+def test_gemini_api_keys_splits_and_trims(monkeypatch: pytest.MonkeyPatch) -> None:
+    for key, value in REQUIRED_ENV.items():
+        monkeypatch.setenv(key, value)
+    monkeypatch.setenv("GEMINI_API_KEY", "key1, key2 ,key3")
+
+    settings = Settings(_env_file=None)  # type: ignore[call-arg]
+
+    assert settings.gemini_api_keys == ["key1", "key2", "key3"]
+
+
+def test_gemini_api_keys_empty_when_unset(monkeypatch: pytest.MonkeyPatch) -> None:
+    for key, value in REQUIRED_ENV.items():
+        monkeypatch.setenv(key, value)
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+
+    settings = Settings(_env_file=None)  # type: ignore[call-arg]
+
+    assert settings.gemini_api_keys == []
+
+
 def test_resolved_supabase_url_derives_from_database_url_project_ref(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
