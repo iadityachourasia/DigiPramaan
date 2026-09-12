@@ -190,6 +190,7 @@ def run_pipeline(scan_session_id: uuid.UUID) -> None:
                 for image in images:
                     image_bytes = _fetch_image_bytes(image.storage_key, settings)
                     result = provider.extract(image_bytes, image_id=str(image.id))
+                    print(f"[OCR-TIMING] angle={image.angle} duration_ms={result.duration_ms:.0f} blocks={len(result.blocks)}", flush=True)
                     all_blocks.extend(result.blocks)
                     angle_by_image_id[str(image.id)] = image.angle
             except Exception as exc:  # noqa: BLE001 - any OCR/storage failure
@@ -280,11 +281,12 @@ def run_pipeline(scan_session_id: uuid.UUID) -> None:
                 ]
                 barcode_analysis = resolve_barcode_analysis(per_image_barcode_results)
                 if barcode_was_pending:
-                    summary = {
-                        "trusted": f"Barcode {barcode_analysis.trusted_identifier.normalized_value} detected.",
-                        "needs_review": "Multiple product identifiers detected — needs review.",
-                        "none": "No barcode detected.",
-                    }[barcode_analysis.status]
+                    if barcode_analysis.status == "trusted":
+                        summary = f"Barcode {barcode_analysis.trusted_identifier.normalized_value} detected."
+                    elif barcode_analysis.status == "needs_review":
+                        summary = "Multiple product identifiers detected — needs review."
+                    else:
+                        summary = "No barcode detected."
                     stages = _with_stage_update(stages, "barcodeDetection", state="completed", summary=summary)
                     _persist(db, session, stages)
             except Exception as exc:  # noqa: BLE001 - never blocks the rest of the pipeline
