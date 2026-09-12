@@ -16,7 +16,11 @@ from sqlalchemy.orm import Session as DbSession
 from app.db.models import ComplianceRecord, EvidenceImage, ScanSession
 from app.jobs.pipeline import initial_stages_pending_capture
 
-REQUIRED_ANGLES = ("front", "back", "side_pdp")
+# All three are angles the phone can capture; only front/back are
+# mandatory for a scan to be finalized — many products carry no printed
+# declarations on a side panel at all, so an officer may skip it.
+ALL_ANGLES = ("front", "back", "side_pdp")
+MANDATORY_ANGLES = ("front", "back")
 
 
 def create_pending_scan_session(db: DbSession, created_by: uuid.UUID) -> ScanSession:
@@ -50,10 +54,10 @@ def build_angle_status(db: DbSession, scan_session_id: uuid.UUID) -> dict[str, s
         row.angle
         for row in db.query(EvidenceImage.angle)
         .filter(EvidenceImage.scan_session_id == scan_session_id)
-        .filter(EvidenceImage.angle.in_(REQUIRED_ANGLES))
+        .filter(EvidenceImage.angle.in_(ALL_ANGLES))
         .all()
     }
-    return {angle: ("received" if angle in present_angles else "waiting") for angle in REQUIRED_ANGLES}
+    return {angle: ("received" if angle in present_angles else "waiting") for angle in ALL_ANGLES}
 
 
 def is_scan_session_record_verified(db: DbSession, scan_session_id: uuid.UUID) -> bool:

@@ -178,6 +178,31 @@ def test_partial_b2_failure_rolls_back_db_and_cleans_up_uploaded_objects(client_
     mock_run_pipeline.assert_not_called()
 
 
+def test_scan_without_side_pdp_is_accepted(client_as) -> None:
+    """Many products carry no printed declarations on a side panel at all
+    — side_pdp is the only optional angle; front/back stay mandatory. A
+    scan submitted with just the two must still succeed and persist
+    exactly 2 EvidenceImage rows, not 3."""
+    client = client_as("Enforcement Officer")
+    mock_s3 = MagicMock()
+
+    with patch("app.api.v1.scans.get_s3_client", return_value=mock_s3), \
+         patch("app.api.v1.scans.run_pipeline") as mock_run_pipeline:
+        response = client.post(
+            "/api/v1/scans",
+            data={"metadata": '{"category": "Packaged Food", "region": "Maharashtra"}'},
+            files={
+                "front": ("front.png", _sharp_label_bytes(1), "image/png"),
+                "back": ("back.png", _sharp_label_bytes(2), "image/png"),
+            },
+            headers={"Authorization": "Bearer fake"},
+        )
+
+    assert response.status_code == 201
+    assert mock_s3.put_object.call_count == 2
+    mock_run_pipeline.assert_called_once()
+
+
 def test_retry_schedules_background_task_and_returns_immediately(client_as) -> None:
     """Phase 3 reliability fix: the retry endpoint must persist the reset
     and schedule run_pipeline via BackgroundTasks rather than running it

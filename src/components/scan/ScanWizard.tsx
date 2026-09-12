@@ -14,6 +14,7 @@ import { PRODUCT_NAME_MAX_LENGTH } from "@/lib/validations/scan";
 import {
   CAPTURE_SLOT_ANGLES,
   DEFAULT_MAX_UPLOAD_MB,
+  MANDATORY_CAPTURE_ANGLES,
   PIPELINE_STAGE_IDS,
   PRODUCT_CATEGORIES,
   QUALITY_FAILURE_REASONS,
@@ -31,7 +32,6 @@ import { ScanMetadataForm } from "./ScanMetadataForm";
 import { WizardProgress } from "./WizardProgress";
 
 const METADATA_FORM_ID = "scan-metadata-form";
-const REQUIRED_ANGLES: readonly CaptureSlotAngle[] = ["front", "back", "side_pdp"];
 
 /**
  * ScanWizard — the client-side orchestrator for the Scan Capture Wizard.
@@ -137,7 +137,7 @@ export function ScanWizard() {
   const mobileCaptureComplete =
     mode === "mobile" &&
     Boolean(mobileSession) &&
-    REQUIRED_ANGLES.every((angle) => mobileSession!.capturedAngles.includes(angle));
+    MANDATORY_CAPTURE_ANGLES.every((angle) => mobileSession!.capturedAngles.includes(angle));
 
   const captureComplete = manualEntryActive
     ? manualEntryComplete
@@ -170,7 +170,7 @@ export function ScanWizard() {
 
     const images =
       mode === "mobile" && mobileSession
-        ? REQUIRED_ANGLES.filter((angle) => mobileSession.capturedImages[angle]).map((angle) => {
+        ? CAPTURE_SLOT_ANGLES.filter((angle) => mobileSession.capturedImages[angle]).map((angle) => {
             const image = mobileSession.capturedImages[angle]!;
             return { angle, fileName: image.fileName, url: image.url, sizeBytes: image.sizeBytes };
           })
