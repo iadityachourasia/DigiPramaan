@@ -1,0 +1,15 @@
+{
+  "id": "opj_running_example01",
+  "operation": "parse",
+  "status": "running",
+  "output_format": "openparser@1",
+  "created_at": "2026-09-18T10:00:00Z",
+  "updated_at": "2026-09-18T10:00:05Z",
+  "completed_at": null,
+  "pipeline_id": null,
+  "pipeline_version": null,
+  "progress": {
+    "completed": 0,
+    "total": 1
+  }
+}

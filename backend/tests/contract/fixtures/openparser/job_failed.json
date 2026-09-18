@@ -1,0 +1,16 @@
+{
+  "id": "opj_failed_example01",
+  "operation": "parse",
+  "status": "failed",
+  "output_format": "openparser@1",
+  "created_at": "2026-09-18T10:00:00Z",
+  "updated_at": "2026-09-18T10:00:45Z",
+  "completed_at": "2026-09-18T10:00:45Z",
+  "pipeline_id": null,
+  "pipeline_version": null,
+  "error": {
+    "code": "unsupported_media_type",
+    "message": "Source file could not be decoded as PDF, PNG, or JPEG.",
+    "retryable": false
+  }
+}

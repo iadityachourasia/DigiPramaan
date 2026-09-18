@@ -1,0 +1,60 @@
+{
+  "data": [
+    {
+      "id": "paddleocr-vl-1.6",
+      "label": "PaddleOCR-VL 1.6",
+      "is_default": true,
+      "provider": {
+        "key": "paddleocr",
+        "label": "PaddleOCR-VL"
+      },
+      "guidance": {
+        "summary": "Vision-language document parsing model, strong on dense multilingual layouts.",
+        "best_for": "Packaged-goods labels with small print and mixed scripts.",
+        "trade_off": "Per-text recognition confidence is not reliably available.",
+        "output": "Semantic document graph with optional layout-detection scores."
+      },
+      "benchmark": null,
+      "output_summary": "openparser@1 document graph plus optional raw provider envelope.",
+      "capabilities": {
+        "parse": true,
+        "extract_source": true,
+        "markdown": true,
+        "regions": true,
+        "options": {
+          "image_block_ocr": true,
+          "chart_recognition": true,
+          "format_block_content": true,
+          "return_markdown_images": true,
+          "visualize": true
+        }
+      },
+      "option_defaults": {
+        "image_block_ocr": false,
+        "chart_recognition": false,
+        "format_block_content": true,
+        "return_markdown_images": false,
+        "visualize": false
+      },
+      "option_controls": [
+        {
+          "key": "image_block_ocr",
+          "label": "OCR text inside image blocks",
+          "summary": "Also runs OCR on text embedded within detected figure/image regions.",
+          "kind": "boolean"
+        },
+        {
+          "key": "chart_recognition",
+          "label": "Chart recognition",
+          "summary": "Attempts structured extraction of chart/graph content.",
+          "kind": "boolean"
+        }
+      ],
+      "pricing": {
+        "usd_per_page": 0.001,
+        "basis": "customer_retail"
+      },
+      "availability": "available"
+    }
+  ]
+}
