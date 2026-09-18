@@ -1,0 +1,108 @@
+{
+  "id": "opj_batch_mixed_example01",
+  "operation": "parse_batch",
+  "status": "succeeded",
+  "output_format": "openparser@1",
+  "created_at": "2026-09-18T10:00:00Z",
+  "updated_at": "2026-09-18T10:03:00Z",
+  "completed_at": "2026-09-18T10:03:00Z",
+  "pipeline_id": null,
+  "pipeline_version": null,
+  "summary": {
+    "total": 3,
+    "queued": 0,
+    "running": 0,
+    "succeeded": 2,
+    "failed": 1,
+    "indeterminate": 0
+  },
+  "children": {
+    "items": [
+      {
+        "client_item_id": "front-evidence-image-1",
+        "job_id": "opj_batch_child_01",
+        "file_index": 0,
+        "status": "succeeded",
+        "output_format": "openparser@1",
+        "result": {
+          "output_format": "openparser@1",
+          "document_id": "opdoc_child_01",
+          "provenance": {
+            "provider": "openparser",
+            "model": "paddleocr-vl-1.6",
+            "operation": "parse_batch"
+          },
+          "text": "Manufactured by Acme Foods Pvt Ltd",
+          "markdown": "Manufactured by Acme Foods Pvt Ltd",
+          "pages": [
+            {
+              "number": 1,
+              "width": 1600,
+              "height": 1200,
+              "unit": "pixel",
+              "rotation_degrees": 0,
+              "languages": [{"code": "en"}],
+              "element_ids": ["el_manufacturer"],
+              "reading_order": ["el_manufacturer"]
+            }
+          ],
+          "elements": [
+            {
+              "id": "el_manufacturer",
+              "locations": [{"page_number": 1, "bbox": {"left": 40, "top": 60, "right": 700, "bottom": 100}}],
+              "confidence": {"score": 0.91, "scope": "recognition", "calibrated": false},
+              "kind": "text",
+              "role": "line",
+              "text": "Manufactured by Acme Foods Pvt Ltd",
+              "spans": [],
+              "languages": []
+            }
+          ],
+          "text_annotations": [],
+          "relations": [],
+          "assets": []
+        }
+      },
+      {
+        "client_item_id": "back-evidence-image-1",
+        "job_id": "opj_batch_child_02",
+        "file_index": 1,
+        "status": "succeeded",
+        "output_format": "raw",
+        "result": {
+          "output_format": "raw",
+          "provider": "paddleocr",
+          "model": "paddleocr-vl-1.6",
+          "profile": {
+            "name": "openparser-quality-max-v1",
+            "options": {"format_block_content": true}
+          },
+          "result": {
+            "layoutParsingResults": [
+              {
+                "prunedResult": {
+                  "parsing_res_list": [
+                    {"block_label": "text", "block_content": "Net Qty: 500 g"}
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      },
+      {
+        "client_item_id": "side-pdp-evidence-image-1",
+        "job_id": "opj_batch_child_03",
+        "file_index": 2,
+        "status": "failed",
+        "output_format": "openparser@1",
+        "error": {
+          "code": "decode_failed",
+          "message": "Image could not be decoded — file may be corrupt or truncated.",
+          "retryable": true
+        }
+      }
+    ],
+    "next_cursor": null
+  }
+}

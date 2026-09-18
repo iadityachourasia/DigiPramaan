@@ -1,0 +1,16 @@
+{
+  "id": "el_confidence_present",
+  "locations": [
+    {"page_number": 1, "bbox": {"left": 10, "top": 10, "right": 200, "bottom": 40}}
+  ],
+  "confidence": {
+    "score": 0.83,
+    "scope": "recognition",
+    "calibrated": false
+  },
+  "kind": "text",
+  "role": "line",
+  "text": "Best before: 06/2027",
+  "spans": [],
+  "languages": []
+}
