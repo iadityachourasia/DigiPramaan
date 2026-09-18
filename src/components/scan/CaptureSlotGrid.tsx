@@ -21,6 +21,10 @@ export interface CaptureSlotGridProps {
   slots: Record<CaptureSlotAngle, CaptureSlotState>;
   onFileSelected: (angle: CaptureSlotAngle, file: File) => void;
   onRetake: (angle: CaptureSlotAngle) => void;
+  /** OP-Phase 1, real mode only — undefined (mock mode) means no override
+   * affordance is ever offered, regardless of canOverride. */
+  onOverride?: ((angle: CaptureSlotAngle, reason: string) => void) | undefined;
+  canOverride?: (angle: CaptureSlotAngle) => boolean;
   requiredAnglesFilled: boolean;
   showIncompletePrompt: boolean;
   labels: {
@@ -33,6 +37,13 @@ export interface CaptureSlotGridProps {
     remove: string;
     checking: string;
     passed: string;
+    reviewWarning?: string;
+    override?: string;
+    overrideReasonLabel?: string;
+    overrideReasonPlaceholder?: string;
+    overrideSubmit?: string;
+    overrideCancel?: string;
+    overrideReasonRequired?: string;
     formatHint: string;
     cameraDenied: string;
     slot: Record<CaptureSlotAngle, { label: string; hint: string }>;
@@ -49,6 +60,8 @@ export function CaptureSlotGrid({
   slots,
   onFileSelected,
   onRetake,
+  onOverride,
+  canOverride,
   requiredAnglesFilled,
   showIncompletePrompt,
   labels,
@@ -75,6 +88,8 @@ export function CaptureSlotGrid({
             accept={ACCEPT}
             onFileSelected={(file) => onFileSelected(angle, file)}
             onRetake={() => onRetake(angle)}
+            canOverride={Boolean(onOverride && canOverride?.(angle))}
+            onOverride={onOverride ? (reason) => onOverride(angle, reason) : undefined}
             labels={{
               label: labels.slot[angle].label,
               hint: labels.slot[angle].hint,
@@ -85,6 +100,13 @@ export function CaptureSlotGrid({
               remove: labels.remove,
               checking: labels.checking,
               passed: labels.passed,
+              reviewWarning: labels.reviewWarning,
+              override: labels.override,
+              overrideReasonLabel: labels.overrideReasonLabel,
+              overrideReasonPlaceholder: labels.overrideReasonPlaceholder,
+              overrideSubmit: labels.overrideSubmit,
+              overrideCancel: labels.overrideCancel,
+              overrideReasonRequired: labels.overrideReasonRequired,
               formatHint: labels.formatHint,
               cameraDenied: labels.cameraDenied,
               failureReason: (reason) => labels.qualityFailure[reason],
