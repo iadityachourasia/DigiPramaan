@@ -90,6 +90,18 @@ class EvidenceImage(Base):
     uploaded_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+    # OP-Phase 1 (migration 0009) — the officer-override audit trail, layered
+    # on top of the immutable `quality_result.overall_verdict` above, never
+    # replacing it. An image is OVERRIDDEN exactly when override_reason is
+    # set; derived at read time (services/scans/intake.py), never stored as
+    # a redundant status column.
+    override_reason: Mapped[str | None] = mapped_column(String, nullable=True)
+    overridden_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("profiles.id"), nullable=True
+    )
+    overridden_at: Mapped[datetime.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
 
 class EcommerceBatch(Base):
