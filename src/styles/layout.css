@@ -916,6 +916,13 @@
   width: 100%;
 }
 
+.lmcs-capture-slot-override {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-xs);
+  width: 100%;
+}
+
 .lmcs-capture-slot-thumb img {
   border-radius: var(--ux4g-radius-sm);
   object-fit: cover;

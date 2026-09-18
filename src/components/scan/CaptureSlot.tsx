@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import type { ChangeEvent } from "react";
 import { useId, useState } from "react";
 
+import { TextField } from "@/components/ui/TextField";
 import { usePrefersReducedMotion } from "@/lib/hooks";
 import type { CaptureMode, CaptureSlotState, QualityFailureReason } from "@/types";
 
@@ -43,6 +44,16 @@ export interface CaptureSlotProps {
     remove: string;
     checking: string;
     passed: string;
+    /** Only reachable via the real upload-once intake flow (OP-Phase 1) —
+     * optional so callers with no override capability (e.g. the Citizen
+     * Grievance Portal's own CaptureSlot usage) need not supply them. */
+    reviewWarning?: string | undefined;
+    override?: string | undefined;
+    overrideReasonLabel?: string | undefined;
+    overrideReasonPlaceholder?: string | undefined;
+    overrideSubmit?: string | undefined;
+    overrideCancel?: string | undefined;
+    overrideReasonRequired?: string | undefined;
     formatHint: string;
     cameraDenied: string;
     failureReason: (reason: QualityFailureReason) => string;
@@ -50,6 +61,11 @@ export interface CaptureSlotProps {
   accept: string;
   onFileSelected: (file: File) => void;
   onRetake: () => void;
+  /** OP-Phase 1, real mode only — true when this failed slot's rejected
+   * file was retained server-adjacently and can be resubmitted with a
+   * reason instead of re-picked. */
+  canOverride?: boolean;
+  onOverride?: ((reason: string) => void) | undefined;
 }
 
 const STATE_CLASS: Record<CaptureSlotState["status"], string> = {
@@ -57,6 +73,7 @@ const STATE_CLASS: Record<CaptureSlotState["status"], string> = {
   capturing: "ux4g-upload-state-selecting",
   checking: "ux4g-upload-state-scanning",
   passed: "ux4g-upload-state-uploaded",
+  review: "ux4g-upload-state-uploaded",
   failed: "ux4g-upload-state-error",
 };
 
@@ -67,9 +84,14 @@ export function CaptureSlot({
   accept,
   onFileSelected,
   onRetake,
+  canOverride = false,
+  onOverride,
 }: CaptureSlotProps) {
   const inputId = useId();
   const [capturing, setCapturing] = useState(false);
+  const [overriding, setOverriding] = useState(false);
+  const [overrideReason, setOverrideReason] = useState("");
+  const [overrideReasonError, setOverrideReasonError] = useState(false);
   const reduceMotion = usePrefersReducedMotion();
 
   /*
@@ -134,6 +156,63 @@ export function CaptureSlot({
                 </p>
               ) : null}
 
+              {state.status === "failed" && canOverride && !overriding ? (
+                <div className="ux4g-upload-actions">
+                  <button
+                    type="button"
+                    className="ux4g-btn ux4g-btn-text-primary ux4g-btn-sm"
+                    onClick={() => setOverriding(true)}
+                  >
+                    {labels.override}
+                  </button>
+                </div>
+              ) : null}
+
+              {state.status === "failed" && canOverride && overriding ? (
+                <div className="lmcs-capture-slot-override">
+                  <TextField
+                    id={`${inputId}-override-reason`}
+                    label={labels.overrideReasonLabel ?? ""}
+                    placeholder={labels.overrideReasonPlaceholder ?? ""}
+                    value={overrideReason}
+                    onChange={(event) => {
+                      setOverrideReason(event.target.value);
+                      setOverrideReasonError(false);
+                    }}
+                    {...(overrideReasonError ? { error: labels.overrideReasonRequired ?? "" } : {})}
+                  />
+                  <div className="ux4g-upload-actions">
+                    <button
+                      type="button"
+                      className="ux4g-btn ux4g-btn-primary ux4g-btn-sm"
+                      onClick={() => {
+                        const trimmed = overrideReason.trim();
+                        if (!trimmed) {
+                          setOverrideReasonError(true);
+                          return;
+                        }
+                        onOverride?.(trimmed);
+                        setOverriding(false);
+                        setOverrideReason("");
+                      }}
+                    >
+                      {labels.overrideSubmit}
+                    </button>
+                    <button
+                      type="button"
+                      className="ux4g-btn ux4g-btn-text-primary ux4g-btn-sm"
+                      onClick={() => {
+                        setOverriding(false);
+                        setOverrideReason("");
+                        setOverrideReasonError(false);
+                      }}
+                    >
+                      {labels.overrideCancel}
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+
               <div className="ux4g-upload-actions">
                 {mode === "camera" ? (
                   <button
@@ -179,10 +258,14 @@ export function CaptureSlot({
             </span>
             <span className="ux4g-upload-file-copy">
               <span className="ux4g-upload-file-name">{state.image?.fileName}</span>
-              <span className="ux4g-upload-file-description">{labels.passed}</span>
+              <span className="ux4g-upload-file-description">
+                {state.status === "review" ? labels.reviewWarning : labels.passed}
+              </span>
             </span>
             <span className="ux4g-upload-file-statusbox ux4g-upload-file-status" aria-hidden="true">
-              <span className="ux4g-icon-outlined">check</span>
+              <span className="ux4g-icon-outlined">
+                {state.status === "review" ? "warning" : "check"}
+              </span>
             </span>
             <button
               type="button"

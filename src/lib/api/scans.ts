@@ -5,6 +5,7 @@
 import { API } from "@/lib/constants";
 import type {
   CaptureSlotAngle,
+  EvidenceAcceptanceResult,
   MobileHandoffSession,
   PipelineRun,
   PipelineStageId,
@@ -92,6 +93,44 @@ export async function createScan(
     formData.append(image.angle, blob, image.fileName);
   }
   return apiUpload(API.scans.create, formData);
+}
+
+/* ------------------------------------------------------------------ *
+ * OP-Phase 1 — upload-once intake (real mode only; device/camera capture).
+ *
+ * Replaces createScan's double-upload for this path: `checkImageQuality`
+ * used to upload the photo once for a preview verdict, then `createScan`
+ * re-fetched the same blob: URL and uploaded it again inside the final
+ * multipart submit. Here, `uploadCaptureImage` uploads each photo exactly
+ * once — the backend's `evaluate_image_quality()` verdict from THAT
+ * request is authoritative, nothing is re-checked at finalize.
+ *
+ * Mock mode does not use any of these three — it keeps
+ * checkImageQuality + createScan's existing simulated flow unchanged,
+ * since there's no real backend double-upload to fix there.
+ * ------------------------------------------------------------------ */
+
+export function createScanDraft(): Promise<ApiResult<{ scanId: string }>> {
+  return apiPost(API.scans.draft, {});
+}
+
+export function uploadCaptureImage(
+  scanId: string,
+  angle: CaptureSlotAngle,
+  file: File,
+  overrideReason?: string
+): Promise<ApiResult<EvidenceAcceptanceResult>> {
+  const formData = new FormData();
+  formData.append("file", file);
+  if (overrideReason) formData.append("override_reason", overrideReason);
+  return apiUpload(API.scans.uploadImage(scanId, angle), formData);
+}
+
+export function finalizeScan(scanId: string, metadata: ScanMetadata): Promise<ApiResult<ScanResponse>> {
+  return apiPost(API.scans.finalize(scanId), {
+    category: metadata.category,
+    region: metadata.region,
+  });
 }
 
 /* ------------------------------------------------------------------ *

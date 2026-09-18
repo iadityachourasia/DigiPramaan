@@ -31,6 +31,7 @@ from app.core.object_storage import get_s3_client
 from app.db.models import ComplianceRecord, Profile, Report
 from app.db.session import get_db
 from app.jobs.reports import generate_report_job, retry_report
+from app.services.authz.repositories import get_visible_record
 from app.services.scope import apply_officer_scope
 
 router = APIRouter(tags=["reports"])
@@ -71,9 +72,7 @@ def generate_report(
     db: DbSession = Depends(get_db),
     current_user: Profile = Depends(require_permission("report.generate")),
 ) -> dict:
-    record = db.get(ComplianceRecord, record_id)
-    if record is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Compliance record not found")
+    record = get_visible_record(db, record_id, current_user)
     if record.verification_status != "Verified":
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,

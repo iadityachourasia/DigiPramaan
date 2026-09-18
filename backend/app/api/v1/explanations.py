@@ -24,7 +24,7 @@ from sqlalchemy.orm import Session as DbSession
 
 from app.api.deps.auth import get_current_user
 from app.core.config import Settings, get_settings
-from app.db.models import ComplianceRecord, Profile, RuleExplanation
+from app.db.models import Profile, RuleExplanation
 from app.db.session import get_db
 from app.services.explanation.gemini_explainer import (
     ExplanationRequest,
@@ -33,6 +33,7 @@ from app.services.explanation.gemini_explainer import (
     OfficerResolution,
     explain_violation,
 )
+from app.services.authz.repositories import get_visible_record
 from app.services.extraction.schema import ComplianceEvidenceBundle
 from app.services.rules.types import RuleResult
 
@@ -71,9 +72,7 @@ def explain_rule_violation(
     settings: Settings = Depends(get_settings),
     current_user: Profile = Depends(get_current_user),
 ) -> dict:
-    record = db.get(ComplianceRecord, record_id)
-    if record is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Compliance record not found")
+    record = get_visible_record(db, record_id, current_user)
     if record.evidence_bundle is None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="No evidence bundle available yet")
 

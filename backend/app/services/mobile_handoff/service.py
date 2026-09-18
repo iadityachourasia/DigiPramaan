@@ -11,9 +11,10 @@ from __future__ import annotations
 
 import uuid
 
+from fastapi import HTTPException, status
 from sqlalchemy.orm import Session as DbSession
 
-from app.db.models import ComplianceRecord, EvidenceImage, ScanSession
+from app.db.models import ComplianceRecord, EvidenceImage, Profile, ScanSession
 from app.jobs.pipeline import initial_stages_pending_capture
 
 # All three are angles the phone can capture; only front/back are
@@ -58,6 +59,22 @@ def build_angle_status(db: DbSession, scan_session_id: uuid.UUID) -> dict[str, s
         .all()
     }
     return {angle: ("received" if angle in present_angles else "waiting") for angle in ALL_ANGLES}
+
+
+def get_owned_scan_session(
+    scan_id: uuid.UUID, current_user: Profile, db: DbSession
+) -> ScanSession:
+    """A draft scan (device/camera OR mobile — OP-Phase 1 generalizes this
+    from the mobile-only helper it used to be) belongs to an in-progress,
+    unverified draft — not yet a ComplianceRecord, so
+    `services/scope.py::apply_officer_scope` (record-shaped) does not
+    apply. Ownership-by-creator is the correct, stricter check for a
+    draft. 404 (not 403) on mismatch, matching this project's existing
+    "don't leak existence" convention."""
+    scan_session = db.get(ScanSession, scan_id)
+    if scan_session is None or scan_session.created_by != current_user.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Scan not found")
+    return scan_session
 
 
 def is_scan_session_record_verified(db: DbSession, scan_session_id: uuid.UUID) -> bool:

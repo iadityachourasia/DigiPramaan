@@ -90,13 +90,28 @@ def test_enrichment_status_none_when_not_verified():
 
 
 def test_audit_trail_includes_verified_entry():
+    """Phase 1.2 — the audit trail is a real projection of `audit_events`
+    (services/audit/vocabulary.py's ACTIVITY_TO_AUDIT_TYPE), not synthesized
+    from record.verified_at/verified_by directly."""
     verified_by = uuid.uuid4()
     record = _fake_record(verified_by=verified_by)
     db = _db_with_no_link_or_case()
+
+    class _FakeEvent:
+        id = 1
+        event_type = "confirm_and_verify"
+        created_at = datetime.datetime.now(datetime.timezone.utc)
+        actor_id = verified_by
+
+    db.query.return_value.outerjoin.return_value.filter.return_value.order_by.return_value.all.return_value = [
+        (_FakeEvent(), "Test Officer"),
+    ]
+
     result = to_frontend_record(record, db)
     verified_entries = [e for e in result["auditTrail"] if e["type"] == "Verified"]
     assert len(verified_entries) == 1
     assert verified_entries[0]["byUserId"] == str(verified_by)
+    assert verified_entries[0]["byUserName"] == "Test Officer"
 
 
 def test_placeholder_thumbnail_falls_back_to_other_for_unknown_category():
