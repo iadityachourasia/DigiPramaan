@@ -1,10 +1,11 @@
 """
 services/ocr/openparser/ — OP-Phase 2's typed config, error taxonomy, and
 HTTP client for OpenParser, the same-day key-pool addendum (`pool.py`),
-and OP-Phase 3's durable persistence/outbox/worker over `ocr_provider_
-jobs`. Not wired into the pipeline yet (Phase 5) and never called from
-anywhere in this codebase's own runtime path — see client.py's own
-module docstring.
+OP-Phase 3's durable persistence/outbox/worker over `ocr_provider_jobs`,
+and OP-Phase 4's normalization adapter (confidence, coordinate mapping,
+`OcrElement`). Not wired into the pipeline yet (Phase 5) and never
+called from anywhere in this codebase's own runtime path — see
+client.py's own module docstring.
 """
 
 from app.services.ocr.openparser.client import OpenParserClient
@@ -14,6 +15,22 @@ from app.services.ocr.openparser.pool import (
     OpenParserUnknownJob,
 )
 from app.services.ocr.openparser.idempotency import derive_idempotency_key
+from app.services.ocr.openparser.confidence import OcrConfidence, is_recognition_confidence, map_confidence
+from app.services.ocr.openparser.geometry import TransformManifest, map_bbox_to_original_pixels
+from app.services.ocr.openparser.normalized_schemas import (
+    BBox,
+    DocumentPage,
+    Element,
+    ElementLocation,
+    NormalizedConfidence,
+    ParsedDocumentStrict,
+)
+from app.services.ocr.openparser.normalize import (
+    NORMALIZATION_ADAPTER_VERSION,
+    OcrElement,
+    normalize_parsed_document,
+    to_legacy_ocr_block,
+)
 from app.services.ocr.openparser.artifacts import ArtifactRef, write_artifact
 from app.services.ocr.openparser.persistence import (
     StaleStateError,
@@ -61,6 +78,21 @@ __all__ = [
     "OpenParserAllKeysExhausted",
     "OpenParserUnknownJob",
     "derive_idempotency_key",
+    "OcrConfidence",
+    "is_recognition_confidence",
+    "map_confidence",
+    "TransformManifest",
+    "map_bbox_to_original_pixels",
+    "BBox",
+    "DocumentPage",
+    "Element",
+    "ElementLocation",
+    "NormalizedConfidence",
+    "ParsedDocumentStrict",
+    "NORMALIZATION_ADAPTER_VERSION",
+    "OcrElement",
+    "normalize_parsed_document",
+    "to_legacy_ocr_block",
     "ArtifactRef",
     "write_artifact",
     "StaleStateError",
