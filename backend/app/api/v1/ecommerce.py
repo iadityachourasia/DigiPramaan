@@ -26,6 +26,7 @@ from app.api.v1.scans import create_scan_session_from_images
 from app.core.config import Settings, get_settings
 from app.db.models import EcommerceBatch, Profile, ScanSession
 from app.db.session import get_db
+from app.services.authz.repositories import get_visible_batch
 from app.services.ecommerce import (
     FetchError,
     ParsedListing,
@@ -271,8 +272,9 @@ def create_ecommerce_batch(
 def get_ecommerce_batch(
     batch_id: uuid.UUID,
     db: DbSession = Depends(get_db),
-    _current_user: Profile = Depends(get_current_user),
+    current_user: Profile = Depends(get_current_user),
 ) -> dict:
+    get_visible_batch(db, batch_id, current_user)
     return _batch_response(batch_id, db)
 
 

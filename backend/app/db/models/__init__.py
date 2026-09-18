@@ -12,6 +12,7 @@ from app.db.models.legal_entity import LegalEntity
 from app.db.models.mobile_handoff import MobileUploadSession
 from app.db.models.product import Product, ProductInspectionLink
 from app.db.models.product_identifier import ProductIdentifier
+from app.db.models.record_review_flag import RecordReviewFlag
 from app.db.models.report import Report
 from app.db.models.risk_alert import RiskAlert
 from app.db.models.rule_explanation import RuleExplanation
@@ -28,6 +29,7 @@ __all__ = [
     "Product",
     "ProductInspectionLink",
     "ProductIdentifier",
+    "RecordReviewFlag",
     "Report",
     "RiskAlert",
     "RuleExplanation",

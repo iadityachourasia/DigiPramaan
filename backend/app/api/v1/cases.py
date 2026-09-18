@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session as DbSession
 from app.api.deps.permissions import require_permission
 from app.db.models import CaseStatusHistory, ComplianceRecord, Profile, ProductInspectionLink, ViolationCase
 from app.db.session import get_db
+from app.services.authz.repositories import get_visible_case
 from app.services.cases.workflow import CASE_STATUSES, validate_transition
 from app.services.intelligence_loop import recompute_risk_for_record_subjects
 from app.services.scope import apply_officer_scope
@@ -97,9 +98,7 @@ def get_case(
     db: DbSession = Depends(get_db),
     current_user: Profile = Depends(require_permission("record.flagForEnforcement")),
 ) -> dict:
-    case = db.get(ViolationCase, case_id)
-    if case is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Case not found")
+    case = get_visible_case(db, case_id, current_user)
     return _case_response(case, db, include_history=True)
 
 
@@ -110,9 +109,7 @@ def transition_case(
     db: DbSession = Depends(get_db),
     current_user: Profile = Depends(require_permission("record.flagForEnforcement")),
 ) -> dict:
-    case = db.get(ViolationCase, case_id)
-    if case is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Case not found")
+    case = get_visible_case(db, case_id, current_user, for_update=True)
     if body.to_status not in CASE_STATUSES:
         raise HTTPException(status_code=422, detail=f"Unknown case status: {body.to_status}")
     if not validate_transition(case.status, body.to_status):

@@ -38,6 +38,7 @@ from app.services.image_quality import (
     evaluate_image_quality,
     find_duplicate_angles,
 )
+from app.services.authz.repositories import get_visible_scan_session
 from app.services.measurement.font_height import measure_font_height
 from app.services.rules.apply import reapply_rules
 from app.services.records.serialize import to_frontend_record
@@ -278,15 +279,13 @@ async def create_scan(
 def get_pipeline(
     scan_id: uuid.UUID,
     db: DbSession = Depends(get_db),
-    _current_user: Profile = Depends(get_current_user),
+    current_user: Profile = Depends(get_current_user),
 ) -> dict:
     """A pure DB read — the persisted `stages` column, nothing else. Any
-    authenticated user may poll (matches the existing mock's own
-    "reachable by anyone signed in who knows a scan id" behavior); it does
-    not require scan.create specifically."""
-    scan_session = db.get(ScanSession, scan_id)
-    if scan_session is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pipeline run not found")
+    authenticated user whose scope covers this scan may poll (see
+    services/authz/repositories.py::get_visible_scan_session for exactly
+    who that is) — it does not require scan.create specifically."""
+    scan_session = get_visible_scan_session(db, scan_id, current_user)
 
     record_id = scan_session.record_id or derive_record_id(scan_session.id)
     return {
@@ -302,7 +301,7 @@ def retry_pipeline_stage(
     stage_id: str,
     background_tasks: BackgroundTasks,
     db: DbSession = Depends(get_db),
-    _current_user: Profile = Depends(require_permission("scan.create")),
+    current_user: Profile = Depends(require_permission("scan.create")),
 ) -> dict:
     """Resets the failed stage and returns immediately — the actual
     re-run happens in a BackgroundTask (see jobs/pipeline.py's
@@ -310,9 +309,7 @@ def retry_pipeline_stage(
     below reflects the just-persisted `pending` state, not eventual
     completion; GET /scans/{id}/pipeline is the source of truth for
     progress from here."""
-    scan_session = db.get(ScanSession, scan_id)
-    if scan_session is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pipeline run not found")
+    scan_session = get_visible_scan_session(db, scan_id, current_user)
 
     ok = retry_stage(scan_id, stage_id)
     if not ok:
@@ -367,9 +364,7 @@ def submit_calibration(
     Verified — same immutability convention as corrections/resolutions. A
     new calibration for `field_id` supersedes (never overwrites/deletes)
     any prior one, preserving full provenance in evidence_bundle."""
-    scan_session = db.get(ScanSession, scan_id)
-    if scan_session is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Scan not found")
+    scan_session = get_visible_scan_session(db, scan_id, current_user)
 
     record = db.query(ComplianceRecord).filter(ComplianceRecord.scan_session_id == scan_id).first()
     if record is None:

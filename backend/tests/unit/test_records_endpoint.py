@@ -13,6 +13,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.api.deps.auth import get_current_user
+from app.db.models import ComplianceRecord
 from app.db.session import get_db
 from app.main import create_app
 from app.services.extraction.schema import ComplianceEvidenceBundle, ExtractedField, StructuredExtraction
@@ -29,6 +30,12 @@ def _fake_profile(role: str = "Enforcement Officer"):
     p = _Profile()
     p.id = TEST_USER_ID
     p.role = role
+    # National so services/authz/repositories.py::get_visible_record's
+    # ViewerScope resolves without needing a region — this suite tests the
+    # correction/verify/resolution business logic, not jurisdiction scoping
+    # (see test_authz_matrix.py for that).
+    p.jurisdiction_level = "National"
+    p.region = None
     return p
 
 
@@ -114,6 +121,8 @@ def _fake_record(
     r.scanned_at = None
     r.verified_at = None
     r.verified_by = None
+    r.assigned_officer_id = None
+    r.archived = False
     return r
 
 
@@ -126,6 +135,28 @@ def client_with_record():
     def _make(role: str, record):
         mock_db = MagicMock()
         mock_db.get.return_value = record
+
+        # get_visible_record (Phase 1.1) queries ComplianceRecord directly;
+        # to_frontend_record's own lookups (ProductInspectionLink/
+        # ViolationCase/RecordReviewFlag/AuditEvent+Profile) query other
+        # models — dispatch on the model class so both share this one
+        # mock_db without one chain's stub clobbering the other's.
+        record_query = MagicMock()
+        record_query.filter.return_value = record_query
+        record_query.with_for_update.return_value = record_query
+        record_query.first.return_value = record
+
+        empty_query = MagicMock()
+        empty_query.filter.return_value = empty_query
+        empty_query.outerjoin.return_value = empty_query
+        empty_query.order_by.return_value = empty_query
+        empty_query.first.return_value = None
+        empty_query.all.return_value = []
+
+        def _query_side_effect(*entities):
+            return record_query if entities and entities[0] is ComplianceRecord else empty_query
+
+        mock_db.query.side_effect = _query_side_effect
 
         def _override_get_db():
             yield mock_db

@@ -59,6 +59,12 @@ def build_company_profile(legal_entity_id: uuid.UUID, db: Session, current_user:
         ).all()
     }
     records = [r for r in query_records if r.id in scoped_ids]
+    # Phase 1.1 (F-001 closure): visible only if the viewer's own scope
+    # covers at least one verified record linked to this entity — never
+    # metadata-only (name) access to an entity every linked record of
+    # which is out of jurisdiction. Same 404 as a nonexistent entity.
+    if not records:
+        return None
 
     total = len(records)
     distinct_products = len({product_id_by_record[r.id] for r in records})

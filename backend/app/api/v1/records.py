@@ -39,7 +39,7 @@ from datetime import datetime, timezone
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import or_
 from sqlalchemy import cast as sa_cast
 from sqlalchemy.dialects.postgresql import JSONB as PG_JSONB
@@ -57,9 +57,12 @@ from app.db.models import (
     ProductIdentifier,
     Profile,
     ProductInspectionLink,
+    RecordReviewFlag,
     ViolationCase,
 )
 from app.db.session import get_db
+from app.services.audit import emit
+from app.services.authz.repositories import get_visible_record
 from app.services.extraction.schema import ComplianceEvidenceBundle, ExtractedField
 from app.services.intelligence_loop import (
     EnrichmentSkipped,
@@ -105,59 +108,6 @@ class ResolutionRequest(BaseModel):
     note: str
 
 
-def _record_response(record: ComplianceRecord, db: DbSession) -> dict:
-    """The subset of the frontend's ComplianceRecord shape this backend
-    actually owns and computes. Deliberately NOT the full frontend
-    ComplianceRecord (evidence[], auditTrail[], thumbnail, capturedImages,
-    needsReviewFlag, etc.) — those depend on data this backend doesn't
-    touch (EvidenceImage aggregation, a generic activity feed). A dedicated
-    GET assembling that full shape is a reasonable later addition.
-
-    Phase 4 adds `productId`/`activeCaseId`/`enrichmentStatus`, looked up
-    fresh on every call (cheap single-row lookups) rather than denormalized
-    onto ComplianceRecord — consistent with "no Product FK on
-    compliance_records," the association lives only in
-    ProductInspectionLink/ViolationCase.
-    """
-    compliance_score = None
-    if record.compliance_score is not None:
-        compliance_score = {"value": record.compliance_score, "band": record.compliance_band}
-
-    link = (
-        db.query(ProductInspectionLink)
-        .filter(ProductInspectionLink.compliance_record_id == record.id)
-        .filter(ProductInspectionLink.status == "ACTIVE")
-        .first()
-    )
-    active_case = (
-        db.query(ViolationCase)
-        .filter(ViolationCase.originating_record_id == record.id)
-        .filter(ViolationCase.status != "CLOSED")
-        .first()
-    )
-
-    return {
-        "id": str(record.id),
-        "scanId": str(record.scan_session_id) if record.scan_session_id else None,
-        "productName": record.product_name_observed,
-        "manufacturerName": record.manufacturer_name_observed,
-        "category": record.category,
-        "region": record.region,
-        "source": record.source,
-        "verificationStatus": record.verification_status,
-        "complianceStatus": record.compliance_status,
-        "complianceScore": compliance_score,
-        "extraction": record.extraction,
-        "checklist": record.checklist,
-        "violations": record.violations,
-        "scannedAt": record.scanned_at.isoformat() if record.scanned_at else None,
-        "lastUpdatedAt": (record.verified_at or record.scanned_at or datetime.now(timezone.utc)).isoformat(),
-        "productId": str(link.product_id) if link else None,
-        "activeCaseId": str(active_case.id) if active_case else None,
-        "enrichmentStatus": "linked" if link else ("pending" if record.verification_status == "Verified" else None),
-    }
-
-
 @router.post("/{record_id}/corrections")
 def correct_declaration(
     record_id: uuid.UUID,
@@ -165,9 +115,7 @@ def correct_declaration(
     db: DbSession = Depends(get_db),
     current_user: Profile = Depends(require_permission("verification.confirm")),
 ) -> dict:
-    record = db.get(ComplianceRecord, record_id)
-    if record is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Compliance record not found")
+    record = get_visible_record(db, record_id, current_user, for_update=True)
     if record.verification_status == "Verified":
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -187,6 +135,7 @@ def correct_declaration(
     bundle = ComplianceEvidenceBundle.model_validate(record.evidence_bundle)
     internal_attr = _FRONTEND_TO_INTERNAL_FIELD[body.field_id]
     current_field: ExtractedField | None = getattr(bundle.structured_extraction, internal_attr)
+    old_value = current_field.value if current_field else None
     updated_field = ExtractedField(
         value=body.value,
         not_detected=False,
@@ -217,10 +166,14 @@ def correct_declaration(
     record.compliance_band = result["score_result"]["band"]
     record.product_name_observed = extraction_result["declarations"][1]["value"]
     record.manufacturer_name_observed = extraction_result["declarations"][0]["value"]
+    emit(
+        db, "field_corrected", viewer=current_user, record=record,
+        detail={"fieldId": body.field_id, "oldValue": old_value, "newValue": body.value},
+    )
     db.commit()
     db.refresh(record)
 
-    return _record_response(record, db)
+    return to_frontend_record(record, db)
 
 
 @router.post("/{record_id}/verify")
@@ -229,9 +182,7 @@ def verify_record(
     db: DbSession = Depends(get_db),
     current_user: Profile = Depends(require_permission("verification.confirm")),
 ) -> dict:
-    record = db.get(ComplianceRecord, record_id)
-    if record is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Compliance record not found")
+    record = get_visible_record(db, record_id, current_user, for_update=True)
     if record.verification_status == "Verified":
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Record is already Verified")
 
@@ -255,7 +206,7 @@ def verify_record(
         # verifiable yet — 200 with the blocking field list, no mutation.
         # Resolve it via POST /records/{id}/resolutions, or correct the
         # underlying field, then verify again.
-        return {"record": _record_response(record, db), "blockedFields": blocked_fields}
+        return {"record": to_frontend_record(record, db), "blockedFields": blocked_fields}
 
     record.verification_status = "Verified"
     record.verified_by = current_user.id
@@ -264,6 +215,7 @@ def verify_record(
     # compliance_band already reflect the current real state (computed by
     # the pipeline and kept current by every correction) — no
     # recomputation on verify, just the freeze.
+    emit(db, "confirm_and_verify", viewer=current_user, record=record)
     db.commit()
     db.refresh(record)
 
@@ -288,7 +240,7 @@ def verify_record(
         logger.warning("intelligence_enrichment_failed", record_id=str(record.id), error=str(exc))
 
     db.refresh(record)
-    return {"record": _record_response(record, db), "blockedFields": []}
+    return {"record": to_frontend_record(record, db), "blockedFields": []}
 
 
 @router.post("/{record_id}/resolutions")
@@ -305,9 +257,7 @@ def resolve_review_item(
     INSUFFICIENT_EVIDENCE (by their own unresolved `status`, not
     `effective_status` — re-resolving an already-resolved item is allowed,
     the officer may change their mind) can be targeted."""
-    record = db.get(ComplianceRecord, record_id)
-    if record is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Compliance record not found")
+    record = get_visible_record(db, record_id, current_user, for_update=True)
     if record.verification_status == "Verified":
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -356,10 +306,14 @@ def resolve_review_item(
     record.compliance_status = legal_status
     record.compliance_score = score_result["value"]
     record.compliance_band = score_result["band"]
+    emit(
+        db, "rule_resolved", viewer=current_user, record=record,
+        detail={"ruleId": body.rule_id, "resolvedStatus": body.resolved_status, "note": body.note},
+    )
     db.commit()
     db.refresh(record)
 
-    return _record_response(record, db)
+    return to_frontend_record(record, db)
 
 
 @router.get("")
@@ -376,6 +330,7 @@ def list_records(
     brand: str | None = None,
     legal_entity: str | None = Query(default=None, alias="legalEntity"),
     barcode: str | None = None,
+    include_archived: bool = Query(default=False, alias="includeArchived"),
     page: int = 1,
     page_size: int = Query(default=20, alias="pageSize"),
     db: DbSession = Depends(get_db),
@@ -400,6 +355,13 @@ def list_records(
     printed digits (e.g. "890...") matches regardless of the symbology's
     original length or the normalized form's leading zeros."""
     db_query = apply_officer_scope(db.query(ComplianceRecord), current_user)
+
+    # Archived records are excluded by default everywhere; `includeArchived`
+    # is only honored for an Admin (matches the mock's own Admin-only
+    # archive-view behavior) — any other role passing it is silently
+    # treated as false rather than 403ing on a harmless query param.
+    if not (include_archived and current_user.role == "Admin"):
+        db_query = db_query.filter(ComplianceRecord.archived.is_(False))
 
     if query:
         like = f"%{query}%"
@@ -490,13 +452,12 @@ def get_record(
     db: DbSession = Depends(get_db),
     current_user: Profile = Depends(get_current_user),
 ) -> dict:
-    """Plain read. Phase 4 added this returning _record_response()'s thin
-    subset for the Product DNA / Case Detail pages; Phase 5 upgrades it to
-    the full frontend ComplianceRecord shape (to_frontend_record(), a strict
-    superset) so the real Record Detail page (page 6) can use it too."""
-    record = db.get(ComplianceRecord, record_id)
-    if record is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Compliance record not found")
+    """Plain read, upgraded to the full frontend ComplianceRecord shape
+    (to_frontend_record()) so the real Record Detail page (page 6) can use
+    it too. Object-scoped via get_visible_record (Phase 1.1) — a probe for
+    an out-of-jurisdiction record id gets the same 404 as a nonexistent
+    one."""
+    record = get_visible_record(db, record_id, current_user)
     return to_frontend_record(record, db)
 
 
@@ -510,9 +471,7 @@ def flag_for_enforcement(
     returns the existing active one — never a second concurrent case for
     the same record. Requires the record to already be Verified; Follow-
     Through operates on confirmed findings, not provisional extractions."""
-    record = db.get(ComplianceRecord, record_id)
-    if record is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Compliance record not found")
+    record = get_visible_record(db, record_id, current_user, for_update=True)
     if record.verification_status != "Verified":
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -583,9 +542,7 @@ def retry_enrichment(
     _record_response's enrichmentStatus). Safe to call repeatedly:
     resolve_legal_entity/resolve_product/the ProductInspectionLink guard
     are all idempotent by construction."""
-    record = db.get(ComplianceRecord, record_id)
-    if record is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Compliance record not found")
+    record = get_visible_record(db, record_id, current_user, for_update=True)
     if record.verification_status != "Verified":
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -605,4 +562,130 @@ def retry_enrichment(
         logger.warning("intelligence_enrichment_retry_failed", record_id=str(record.id), error=str(exc))
 
     db.refresh(record)
-    return _record_response(record, db)
+    return to_frontend_record(record, db)
+
+
+class ReviewFlagRequest(BaseModel):
+    flag: bool
+    note: str | None = None
+
+
+class BulkReviewFlagRequest(BaseModel):
+    record_ids: list[uuid.UUID] = Field(alias="recordIds")
+    flag: bool
+
+    model_config = {"populate_by_name": True}
+
+
+@router.post("/{record_id}/archive")
+def archive_record(
+    record_id: uuid.UUID,
+    db: DbSession = Depends(get_db),
+    current_user: Profile = Depends(require_permission("record.archive")),
+) -> dict:
+    """Phase 1.3's real backend for the mock-only archive action — sets
+    the pre-existing `archived` fast-filter boolean plus who/when
+    (migration 0008), and excludes the record from GET /records' default
+    listing (see list_records' own includeArchived handling)."""
+    record = get_visible_record(db, record_id, current_user, for_update=True)
+    record.archived = True
+    record.archived_at = datetime.now(timezone.utc)
+    record.archived_by = current_user.id
+    emit(db, "record_archived", viewer=current_user, record=record)
+    db.commit()
+    db.refresh(record)
+    return to_frontend_record(record, db)
+
+
+def _set_review_flag(
+    db: DbSession, record: ComplianceRecord, current_user: Profile, *, flag: bool, note: str | None
+) -> None:
+    active = (
+        db.query(RecordReviewFlag)
+        .filter(RecordReviewFlag.record_id == record.id)
+        .filter(RecordReviewFlag.status == "ACTIVE")
+        .first()
+    )
+    if flag:
+        if active is not None:
+            # Idempotent — re-flagging an already-flagged record updates the
+            # note (if a new one was given) rather than creating a second
+            # ACTIVE row (migration 0008's own partial unique index would
+            # refuse that anyway).
+            if note is not None:
+                active.note = note
+        else:
+            db.add(RecordReviewFlag(
+                record_id=record.id, status="ACTIVE", note=note, flagged_by=current_user.id,
+            ))
+        emit(db, "flagged_needs_review", viewer=current_user, record=record, detail={"note": note})
+    else:
+        if active is not None:
+            active.status = "CLEARED"
+            active.cleared_by = current_user.id
+            active.cleared_at = datetime.now(timezone.utc)
+        emit(db, "needs_review_cleared", viewer=current_user, record=record)
+
+
+@router.post("/bulk/review-flag")
+def bulk_set_review_flag(
+    body: BulkReviewFlagRequest,
+    db: DbSession = Depends(get_db),
+    current_user: Profile = Depends(require_permission("record.bulkStatusChange")),
+) -> dict:
+    """Registered BEFORE the parameterized /{record_id}/review-flag below —
+    otherwise that route's `record_id: uuid.UUID` path param would greedily
+    match the literal segment "bulk" first (same template shape, and
+    FastAPI/Starlette try routes in registration order), and reject it with
+    a UUID-parsing 422 before this handler is ever reached.
+
+    ATOMIC CONTRACT (chosen deliberately for this government workflow over
+    a partial-success/multi-status one): every recordId is pre-authorized
+    and row-locked FIRST; only once every one of them is confirmed visible
+    are any writes applied, and every write plus every audit event lands in
+    ONE final commit. A single out-of-scope or nonexistent id fails the
+    WHOLE request (404) with no partial state change — an officer bulk-
+    flagging 50 records never has to reconcile which 41 of them silently
+    took effect. `skipped` in the response is therefore always `[]` on
+    success; it stays in the response shape only so a future, explicitly
+    approved partial-success contract could reuse it without a breaking
+    change — this endpoint never populates it today."""
+    if len(body.record_ids) > 100:
+        raise HTTPException(status_code=422, detail="At most 100 recordIds per bulk request")
+    if not body.record_ids:
+        return {"updated": [], "skipped": []}
+
+    # De-duplicate while preserving order — a caller sending the same id
+    # twice must not double-flag or double-emit for it.
+    seen: set[uuid.UUID] = set()
+    unique_ids = [rid for rid in body.record_ids if not (rid in seen or seen.add(rid))]
+
+    records = [get_visible_record(db, record_id, current_user, for_update=True) for record_id in unique_ids]
+
+    for record in records:
+        _set_review_flag(db, record, current_user, flag=body.flag, note=None)
+    db.commit()
+
+    updated = []
+    for record in records:
+        db.refresh(record)
+        updated.append(to_frontend_record(record, db))
+
+    return {"updated": updated, "skipped": []}
+
+
+@router.post("/{record_id}/review-flag")
+def set_review_flag(
+    record_id: uuid.UUID,
+    body: ReviewFlagRequest,
+    db: DbSession = Depends(get_db),
+    current_user: Profile = Depends(require_permission("record.flagNeedsReview")),
+) -> dict:
+    """Phase 1.3 — the manual Needs Review escalation's real backend
+    (record_review_flags, migration 0008), independent of the checklist-
+    computed signal (both are OR'd together in to_frontend_record)."""
+    record = get_visible_record(db, record_id, current_user, for_update=True)
+    _set_review_flag(db, record, current_user, flag=body.flag, note=body.note)
+    db.commit()
+    db.refresh(record)
+    return to_frontend_record(record, db)
