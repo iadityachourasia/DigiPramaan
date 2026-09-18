@@ -10,6 +10,7 @@ from app.services.mobile_handoff.service import (
     MANDATORY_ANGLES,
     build_angle_status,
     create_pending_scan_session,
+    get_owned_scan_session,
     is_scan_session_record_verified,
 )
 from app.services.mobile_handoff.tokens import generate_token, hash_token
@@ -20,6 +21,7 @@ __all__ = [
     "build_angle_status",
     "create_pending_scan_session",
     "generate_token",
+    "get_owned_scan_session",
     "hash_token",
     "is_scan_session_record_verified",
 ]

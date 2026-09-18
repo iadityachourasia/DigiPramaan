@@ -26,8 +26,10 @@ def test_every_non_null_mapping_is_a_real_coarse_type() -> None:
     assert mapped <= _COARSE_AUDIT_EVENT_TYPES
 
 
-def test_29_event_types_currently_defined() -> None:
+def test_32_event_types_currently_defined() -> None:
     """A change-detector on purpose — forces this test file to be touched
     (and test_every_activity_type_has_exactly_one_coarse_mapping_entry to
-    actually run against the new entry) whenever the vocabulary grows."""
-    assert len(ACTIVITY_EVENT_TYPES) == 29
+    actually run against the new entry) whenever the vocabulary grows.
+    29 -> 32: OP-Phase 1 adds evidence_image_uploaded/evidence_image_replaced/
+    evidence_override_submitted (services/scans/intake.py)."""
+    assert len(ACTIVITY_EVENT_TYPES) == 32
