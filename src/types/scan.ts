@@ -85,13 +85,45 @@ export interface QualityCheckResult {
 }
 
 /**
+ * OP-Phase 1 — the real backend's 4-value acceptance decision for one
+ * uploaded evidence photo, layered on top of (never replacing) the
+ * measured 3-state quality verdict (backend's `QualityVerdict`:
+ * PASS/REVIEW/RECAPTURE_REQUIRED). `PASS_WITH_WARNINGS` is a REVIEW-quality
+ * photo the officer may proceed with as-is; `RECAPTURE_REQUIRED` blocks
+ * the slot unless the officer explicitly overrides it with a reason,
+ * which persists it as `OVERRIDDEN`. Used only by the real (non-mock)
+ * upload-once intake endpoints (`createScanDraft`/`uploadCaptureImage`) —
+ * mock mode keeps using the simpler `QualityCheckResult` above.
+ */
+export const ACCEPTANCE_STATES = [
+  "PASS",
+  "PASS_WITH_WARNINGS",
+  "RECAPTURE_REQUIRED",
+  "OVERRIDDEN",
+] as const;
+export type AcceptanceState = (typeof ACCEPTANCE_STATES)[number];
+
+export interface EvidenceAcceptanceResult {
+  acceptanceState: AcceptanceState;
+  /** Present only when acceptanceState is RECAPTURE_REQUIRED. */
+  failureReason?: QualityFailureReason;
+}
+
+/**
  * One capture slot's client-side wizard state. Deliberately NOT part of `Scan`
  * — a slot only becomes part of the real `Scan.images` array once it passes
  * the quality gate. A failed attempt lives only here, transiently, and is
  * discarded on retry (03 §2: "a prior failed attempt leaves no trace... once a
  * later attempt passes").
+ *
+ * `"review"` (OP-Phase 1, real mode only) is a photo the backend accepted
+ * with a PASS_WITH_WARNINGS/RECAPTURE_REQUIRED acceptance state — distinct
+ * from `"passed"` (unconditionally accepted) and `"failed"` (a genuine
+ * request-level failure, not a quality verdict at all). A RECAPTURE_REQUIRED
+ * review can be resolved by Retake OR by Override (see `CaptureSlot`'s own
+ * `onOverride`); a PASS_WITH_WARNINGS one is already usable as-is.
  */
-export type CaptureSlotStatus = "empty" | "capturing" | "checking" | "passed" | "failed";
+export type CaptureSlotStatus = "empty" | "capturing" | "checking" | "passed" | "review" | "failed";
 
 export interface CaptureSlotState {
   angle: CaptureSlotAngle;
@@ -99,6 +131,8 @@ export interface CaptureSlotState {
   image?: UploadedImage;
   /** Present only when status is "failed". */
   failureReason?: QualityFailureReason;
+  /** Present only when status is "review". */
+  acceptanceState?: AcceptanceState;
 }
 
 /* ------------------------------------------------------------------ *
