@@ -33,6 +33,11 @@ def _fake_profile(role: str = "Enforcement Officer"):
     p = _Profile()
     p.id = TEST_USER_ID
     p.role = role
+    # National so services/authz/repositories.py's ViewerScope resolves
+    # without a region — this suite isn't exercising jurisdiction scoping
+    # (see test_authz_matrix.py for that).
+    p.jurisdiction_level = "National"
+    p.region = None
     return p
 
 
@@ -219,6 +224,8 @@ def test_retry_schedules_background_task_and_returns_immediately(client_as) -> N
     session.id = scan_id
     session.record_id = None
     session.stages = [{"id": "textExtraction", "state": "pending"}]
+    session.created_by = TEST_USER_ID
+    session.region = None
 
     def _override_get_db():
         db = MagicMock()

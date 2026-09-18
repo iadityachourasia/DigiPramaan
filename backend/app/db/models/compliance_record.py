@@ -90,3 +90,13 @@ class ComplianceRecord(Base):
         DateTime(timezone=True), nullable=True
     )
     archived: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # migration 0008 (Phase 1.3) — who archived this record and when, kept
+    # alongside the pre-existing `archived` fast-filter boolean so the
+    # action is attributable, the same "who and when, not just what"
+    # discipline audit_events already applies elsewhere.
+    archived_at: Mapped[datetime.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    archived_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("profiles.id"), nullable=True
+    )
