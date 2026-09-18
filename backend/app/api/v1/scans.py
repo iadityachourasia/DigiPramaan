@@ -28,9 +28,9 @@ from app.api.deps.permissions import require_permission
 from app.core.config import Settings, get_settings
 from app.core.ids import derive_record_id
 from app.core.object_storage import get_s3_client
-from app.db.models import ComplianceRecord, EvidenceImage, Profile, ScanSession
+from app.db.models import AuditEvent, ComplianceRecord, EvidenceImage, Profile, ScanSession
 from app.db.session import get_db
-from app.jobs.pipeline import initial_stages, retry_stage, run_pipeline
+from app.jobs.pipeline import initial_stages, mark_capture_stages_completed, retry_stage, run_pipeline
 from app.services.extraction.schema import CalibrationData, ComplianceEvidenceBundle, Point
 from app.services.image_quality import (
     QualityResult,
@@ -38,9 +38,16 @@ from app.services.image_quality import (
     evaluate_image_quality,
     find_duplicate_angles,
 )
+from app.services.authz.repositories import get_visible_scan_session
 from app.services.measurement.font_height import measure_font_height
+from app.services.mobile_handoff import (
+    create_pending_scan_session,
+    get_owned_scan_session,
+    is_scan_session_record_verified,
+)
 from app.services.rules.apply import reapply_rules
 from app.services.records.serialize import to_frontend_record
+from app.services.scans import AcceptanceState, accept_evidence_image
 from app.services.scope import apply_officer_scope
 
 # fieldId (frontend/checklist convention) -> the StructuredExtraction
@@ -274,19 +281,176 @@ async def create_scan(
     )
 
 
+# --------------------------------------------------------------------- #
+# OP-Phase 1 — upload-once intake for device/camera capture.
+#
+# Generalizes the exact scan-draft/per-image-upload/idempotent-finalize
+# pattern Mobile QR Handoff already established (services/mobile_handoff/,
+# services/scans/intake.py) to desktop, closing the prior "double upload"
+# gap: the wizard used to quality-check a photo (POST /scans/quality-check,
+# below — kept for now, feature-flagged out client-side once the frontend
+# switches over) and then re-upload the SAME bytes a second time inside
+# POST /scans's all-at-once multipart body. `POST /scans` itself is
+# UNCHANGED and kept working — e-commerce's `create_scan_session_from_images`
+# still calls it directly, out of this phase's scope.
+# --------------------------------------------------------------------- #
+
+
+@router.post("/scans/draft", status_code=status.HTTP_201_CREATED)
+def create_scan_draft(
+    current_user: Profile = Depends(require_permission("scan.create")),
+    db: DbSession = Depends(get_db),
+) -> dict:
+    """Desktop's counterpart to Mobile QR Handoff's implicit
+    draft-creation-on-QR-generation — a bare pending `ScanSession`
+    (no category/region yet; the wizard's Details step fills those in at
+    finalize, same step order mobile already follows)."""
+    scan_session = create_pending_scan_session(db, created_by=current_user.id)
+    db.commit()
+    return {"scanId": str(scan_session.id)}
+
+
+@router.post("/scans/{scan_id}/images/{angle}")
+async def upload_capture_image(
+    scan_id: uuid.UUID,
+    angle: str,
+    file: UploadFile,
+    override_reason: str | None = Form(default=None),
+    current_user: Profile = Depends(require_permission("scan.create")),
+    db: DbSession = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> dict:
+    """One network upload per accepted image — the authoritative quality
+    decision happens HERE, once, via the same `accept_evidence_image()`
+    Mobile QR Handoff's phone-side upload uses. `override_reason` lets an
+    officer accept a `RECAPTURE_REQUIRED` photo anyway (e.g. a genuinely
+    low-quality but otherwise unobtainable label), persisted and audited,
+    never silently — see services/scans/intake.py's own docstring."""
+    if angle not in VALID_ANGLES:
+        raise HTTPException(status_code=422, detail=f"angle must be one of {VALID_ANGLES}")
+
+    scan_session = get_owned_scan_session(scan_id, current_user, db)
+    if is_scan_session_record_verified(db, scan_session.id):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This record has already been verified and cannot accept new evidence.",
+        )
+
+    image_bytes = await file.read()
+    acceptance = accept_evidence_image(
+        db, settings,
+        scan_session_id=scan_session.id, angle=angle,
+        file_bytes=image_bytes, content_type=file.content_type or "",
+        actor_id=current_user.id, override_reason=override_reason,
+    )
+    db.commit()
+
+    if acceptance.acceptance_state == AcceptanceState.RECAPTURE_REQUIRED:
+        return {
+            "acceptanceState": acceptance.acceptance_state.value,
+            "failureReason": _frontend_failure_reason(acceptance.quality),
+            "checks": [c.model_dump() for c in acceptance.quality.checks],
+        }
+    return {
+        "acceptanceState": acceptance.acceptance_state.value,
+        "failureReason": None,
+        "checks": [c.model_dump() for c in acceptance.quality.checks],
+    }
+
+
+class FinalizeDraftRequest(BaseModel):
+    category: str
+    region: str
+
+
+@router.post("/scans/{scan_id}/finalize", status_code=status.HTTP_201_CREATED)
+def finalize_scan_draft(
+    scan_id: uuid.UUID,
+    payload: FinalizeDraftRequest,
+    background_tasks: BackgroundTasks,
+    current_user: Profile = Depends(require_permission("scan.create")),
+    db: DbSession = Depends(get_db),
+) -> dict:
+    """The officer's own explicit submit click, once Details are filled in
+    — mirrors `finalize_mobile_handoff` exactly (including its idempotency
+    fix: a second call returns the same result rather than scheduling a
+    second concurrent `run_pipeline`), generalized off the token-specific
+    handoff object onto a plain owned `ScanSession`."""
+    scan_session = get_owned_scan_session(scan_id, current_user, db)
+    if is_scan_session_record_verified(db, scan_session.id):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This record has already been verified and cannot accept new evidence.",
+        )
+
+    already_finalized = any(
+        s["id"] == "uploading" and s["state"] == "completed" for s in scan_session.stages
+    )
+    if already_finalized:
+        return {
+            "id": str(scan_session.id),
+            "recordId": str(scan_session.record_id) if scan_session.record_id else None,
+            "status": "Processing",
+            "createdAt": scan_session.created_at.isoformat()
+            if scan_session.created_at
+            else datetime.now(timezone.utc).isoformat(),
+        }
+
+    images = (
+        db.query(EvidenceImage)
+        .filter(EvidenceImage.scan_session_id == scan_session.id)
+        .filter(EvidenceImage.angle.in_(VALID_ANGLES))
+        .all()
+    )
+    present_angles = {image.angle for image in images}
+    missing = [angle for angle in MANDATORY_ANGLES if angle not in present_angles]
+    if missing:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"error": "Not all required images have been captured yet.", "missingAngles": missing},
+        )
+
+    scan_session.category = payload.category
+    scan_session.region = payload.region
+    quality_summary = "; ".join(
+        f"{image.angle}: {(image.quality_result or {}).get('overall_verdict', 'PASS')}"
+        for image in images
+    )
+    scan_session.stages = mark_capture_stages_completed(scan_session.stages, quality_summary)
+    db.add(
+        AuditEvent(
+            actor_id=current_user.id,
+            event_type="scan_created",
+            entity_type="ScanSession",
+            entity_id=scan_session.id,
+            detail={},
+        )
+    )
+    db.commit()
+
+    background_tasks.add_task(run_pipeline, scan_session.id)
+
+    return {
+        "id": str(scan_session.id),
+        "recordId": str(scan_session.record_id) if scan_session.record_id else None,
+        "status": "Processing",
+        "createdAt": scan_session.created_at.isoformat()
+        if scan_session.created_at
+        else datetime.now(timezone.utc).isoformat(),
+    }
+
+
 @router.get("/scans/{scan_id}/pipeline")
 def get_pipeline(
     scan_id: uuid.UUID,
     db: DbSession = Depends(get_db),
-    _current_user: Profile = Depends(get_current_user),
+    current_user: Profile = Depends(get_current_user),
 ) -> dict:
     """A pure DB read — the persisted `stages` column, nothing else. Any
-    authenticated user may poll (matches the existing mock's own
-    "reachable by anyone signed in who knows a scan id" behavior); it does
-    not require scan.create specifically."""
-    scan_session = db.get(ScanSession, scan_id)
-    if scan_session is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pipeline run not found")
+    authenticated user whose scope covers this scan may poll (see
+    services/authz/repositories.py::get_visible_scan_session for exactly
+    who that is) — it does not require scan.create specifically."""
+    scan_session = get_visible_scan_session(db, scan_id, current_user)
 
     record_id = scan_session.record_id or derive_record_id(scan_session.id)
     return {
@@ -302,7 +466,7 @@ def retry_pipeline_stage(
     stage_id: str,
     background_tasks: BackgroundTasks,
     db: DbSession = Depends(get_db),
-    _current_user: Profile = Depends(require_permission("scan.create")),
+    current_user: Profile = Depends(require_permission("scan.create")),
 ) -> dict:
     """Resets the failed stage and returns immediately — the actual
     re-run happens in a BackgroundTask (see jobs/pipeline.py's
@@ -310,9 +474,7 @@ def retry_pipeline_stage(
     below reflects the just-persisted `pending` state, not eventual
     completion; GET /scans/{id}/pipeline is the source of truth for
     progress from here."""
-    scan_session = db.get(ScanSession, scan_id)
-    if scan_session is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pipeline run not found")
+    scan_session = get_visible_scan_session(db, scan_id, current_user)
 
     ok = retry_stage(scan_id, stage_id)
     if not ok:
@@ -367,9 +529,7 @@ def submit_calibration(
     Verified — same immutability convention as corrections/resolutions. A
     new calibration for `field_id` supersedes (never overwrites/deletes)
     any prior one, preserving full provenance in evidence_bundle."""
-    scan_session = db.get(ScanSession, scan_id)
-    if scan_session is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Scan not found")
+    scan_session = get_visible_scan_session(db, scan_id, current_user)
 
     record = db.query(ComplianceRecord).filter(ComplianceRecord.scan_session_id == scan_id).first()
     if record is None:

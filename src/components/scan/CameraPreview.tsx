@@ -10,6 +10,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
  * actively using it.
  */
 
+/** The one method this file actually calls — not TypeScript DOM lib yet
+ * (Chrome/Edge/Android WebView only), so declared locally rather than
+ * widening the global `Window` type for a single feature-detected call. */
+interface ImageCaptureLike {
+  takePhoto(): Promise<Blob>;
+}
+
 export interface CameraPreviewProps {
   captureLabel: string;
   cameraDeniedMessage: string;
@@ -55,7 +62,7 @@ export function CameraPreview({
     };
   }, []);
 
-  const capture = useCallback(() => {
+  const captureFromVideoFrame = useCallback(() => {
     const video = videoRef.current;
     if (!video) return;
     const canvas = document.createElement("canvas");
@@ -73,6 +80,33 @@ export function CameraPreview({
       0.92
     );
   }, [onCapture]);
+
+  const capture = useCallback(() => {
+    /*
+     * OP-Phase 1 — prefer a real full-sensor-resolution still photo over a
+     * frame grabbed from the (often downscaled-for-bandwidth) live preview
+     * stream, wherever the browser exposes it. `ImageCapture` isn't in
+     * TypeScript's DOM lib yet (Safari/Firefox also don't implement it),
+     * so this both feature-detects at runtime and falls back to the
+     * existing canvas-from-video-frame path on any failure — never a
+     * silent no-op.
+     */
+    const track = streamRef.current?.getVideoTracks()[0];
+    const ImageCaptureCtor = (window as { ImageCapture?: new (t: MediaStreamTrack) => ImageCaptureLike })
+      .ImageCapture;
+    if (track && ImageCaptureCtor) {
+      new ImageCaptureCtor(track)
+        .takePhoto()
+        .then((blob) => {
+          onCapture(new File([blob], `capture-${Date.now()}.jpg`, { type: blob.type || "image/jpeg" }));
+        })
+        .catch(() => {
+          captureFromVideoFrame();
+        });
+      return;
+    }
+    captureFromVideoFrame();
+  }, [onCapture, captureFromVideoFrame]);
 
   if (error) {
     return (

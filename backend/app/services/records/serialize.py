@@ -21,7 +21,16 @@ from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session as DbSession
 
-from app.db.models import ComplianceRecord, EvidenceImage, ProductInspectionLink, ViolationCase
+from app.db.models import (
+    AuditEvent,
+    ComplianceRecord,
+    EvidenceImage,
+    Profile,
+    ProductInspectionLink,
+    RecordReviewFlag,
+    ViolationCase,
+)
+from app.services.audit import ACTIVITY_TO_AUDIT_TYPE
 
 _ANGLE_ALT_TEXT = {
     "front": "Front label photograph",
@@ -88,21 +97,44 @@ def _needs_review_flagged(checklist: list | None) -> bool:
     return any(not c["passed"] and "violationCategoryId" not in c for c in (checklist or []))
 
 
-def _audit_trail(record: ComplianceRecord) -> list[dict]:
+def _active_review_flag(record: ComplianceRecord, db: DbSession) -> RecordReviewFlag | None:
+    return (
+        db.query(RecordReviewFlag)
+        .filter(RecordReviewFlag.record_id == record.id)
+        .filter(RecordReviewFlag.status == "ACTIVE")
+        .first()
+    )
+
+
+def _audit_trail(record: ComplianceRecord, db: DbSession) -> list[dict]:
+    """Phase 1.2 — the real per-record trail, projected from `audit_events`
+    via `ACTIVITY_TO_AUDIT_TYPE` (services/audit/vocabulary.py), replacing
+    the two-timestamp synthesis this function used before emit() existed.
+    `byUserName` is a live join against `profiles` (not stamped onto the
+    event — see AuditEvent's own docstring on which fields ARE historical
+    snapshots and which are not)."""
+    rows = (
+        db.query(AuditEvent, Profile.full_name)
+        .outerjoin(Profile, Profile.id == AuditEvent.actor_id)
+        .filter(AuditEvent.record_id == record.id)
+        .order_by(AuditEvent.created_at)
+        .all()
+    )
     trail: list[dict] = []
-    if record.scanned_at:
-        trail.append({
-            "id": f"{record.id}-scanned",
-            "type": "Scanned",
-            "at": record.scanned_at.isoformat(),
-        })
-    if record.verified_at:
-        trail.append({
-            "id": f"{record.id}-verified",
-            "type": "Verified",
-            "at": record.verified_at.isoformat(),
-            **({"byUserId": str(record.verified_by)} if record.verified_by else {}),
-        })
+    for event, actor_name in rows:
+        audit_type = ACTIVITY_TO_AUDIT_TYPE.get(event.event_type)
+        if audit_type is None:
+            continue
+        entry: dict = {
+            "id": str(event.id),
+            "type": audit_type,
+            "at": event.created_at.isoformat(),
+        }
+        if event.actor_id is not None:
+            entry["byUserId"] = str(event.actor_id)
+        if actor_name:
+            entry["byUserName"] = actor_name
+        trail.append(entry)
     return trail
 
 
@@ -134,7 +166,10 @@ def to_frontend_record(record: ComplianceRecord, db: DbSession) -> dict:
         captured_images = [_placeholder_image(record_id, record.category, product_name)]
     thumbnail = next((img for img in captured_images if img["angle"] == "front"), captured_images[0])
 
-    return {
+    review_flag = _active_review_flag(record, db)
+    needs_review = _needs_review_flagged(record.checklist) or review_flag is not None
+
+    result = {
         "id": record_id,
         "scanId": str(record.scan_session_id) if record.scan_session_id else record_id,
         "productName": product_name,
@@ -144,7 +179,7 @@ def to_frontend_record(record: ComplianceRecord, db: DbSession) -> dict:
         "source": record.source,
         "verificationStatus": record.verification_status,
         "complianceStatus": record.compliance_status,
-        "needsReviewFlag": _needs_review_flagged(record.checklist),
+        "needsReviewFlag": needs_review,
         "flaggedForEnforcement": active_case is not None,
         "productId": str(link.product_id) if link else None,
         "activeCaseId": str(active_case.id) if active_case else None,
@@ -154,7 +189,7 @@ def to_frontend_record(record: ComplianceRecord, db: DbSession) -> dict:
         "complianceScore": compliance_score,
         "extraction": record.extraction,
         "evidence": [],
-        "auditTrail": _audit_trail(record),
+        "auditTrail": _audit_trail(record, db),
         "thumbnail": thumbnail,
         "capturedImages": captured_images,
         "ecommerceListingUrl": None,
@@ -165,3 +200,8 @@ def to_frontend_record(record: ComplianceRecord, db: DbSession) -> dict:
         "lastUpdatedAt": (record.verified_at or record.scanned_at or datetime.now(timezone.utc)).isoformat(),
         "archived": record.archived,
     }
+    if review_flag is not None:
+        result["needsReviewByUserId"] = str(review_flag.flagged_by)
+        if review_flag.note:
+            result["needsReviewNote"] = review_flag.note
+    return result
