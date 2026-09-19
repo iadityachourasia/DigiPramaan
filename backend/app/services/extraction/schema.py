@@ -31,6 +31,21 @@ class EvidenceRef(BaseModel):
     ocr_confidence: float | None = None  # None when the provider gave no per-block score
 
 
+class FieldReliability(BaseModel):
+    """OP-Phase 6 — a derived field-level assessment, kept explicitly
+    separate from any single confidence number (spec §6.4: "must not be
+    named 'OCR confidence'"). Computed purely from citation-grounding
+    outcomes and real measured OCR confidences — never from the LLM's own
+    self-reported `extraction_confidence`, and never fabricated when no
+    real signal exists (`min_ocr_confidence` stays `None`, not `0.0`)."""
+
+    algorithm_version: str = "grounding-v1"
+    citation_count: int  # raw, pre-grounding-check count Gemini claimed
+    verified_citation_count: int  # count that passed the grounding check
+    has_verified_citation: bool
+    min_ocr_confidence: float | None = None
+
+
 class ExtractedField(BaseModel):
     value: str | None
     not_detected: bool
@@ -41,6 +56,9 @@ class ExtractedField(BaseModel):
     # before Phase 3 simply default both to False/None on model_validate.
     corrected: bool = False
     corrected_by: str | None = None
+    # OP-Phase 6 — additive, defaults to None so every pre-Phase-6 persisted
+    # evidence_bundle/extraction JSON blob deserializes unchanged.
+    reliability: FieldReliability | None = None
 
 
 class StructuredExtraction(BaseModel):

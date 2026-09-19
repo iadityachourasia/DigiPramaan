@@ -18,11 +18,17 @@ extraction/schema.py's own docstring on this same point).
 
 from __future__ import annotations
 
+import re
 import time
 
 from pydantic import BaseModel
 
-from app.services.extraction.schema import EvidenceRef, ExtractedField, StructuredExtraction
+from app.services.extraction.schema import (
+    EvidenceRef,
+    ExtractedField,
+    FieldReliability,
+    StructuredExtraction,
+)
 from app.services.gemini_client import call_with_key_fallback
 from app.services.ocr.provider import OcrBlock, OcrResult
 
@@ -82,9 +88,61 @@ Return structured JSON matching the required schema exactly.
 """
 
 
-def _build_prompt(blocks: list[OcrBlock]) -> str:
+def _build_prompt(blocks: list[OcrBlock], *, missing_field_hint: list[str] | None = None) -> str:
     numbered = "\n".join(f"[{i}] {b.text}" for i, b in enumerate(blocks))
-    return _STRUCTURING_PROMPT.format(numbered_blocks=numbered)
+    prompt = _STRUCTURING_PROMPT.format(numbered_blocks=numbered)
+    if missing_field_hint:
+        prompt += (
+            "\n\nA prior pass did not find these fields — look again, especially at any "
+            f"text you may have skipped: {', '.join(missing_field_hint)}. Still use "
+            "not_detected=true honestly if the text truly isn't present."
+        )
+    return prompt
+
+
+_CITATION_TOKEN_RE = re.compile(r"\w+", re.UNICODE)
+
+
+def _normalize_for_citation(text: str) -> set[str]:
+    """Unicode-aware token set for the citation-grounding check —
+    deliberately NOT `normalization.normalize_text` (ASCII-only by design
+    for its own exact-identity-matching callers; reusing it here would
+    silently collapse any non-Latin script, e.g. Devanagari/Tamil, to a
+    near-empty string and make grounding trivially — and wrongly — pass).
+    `.casefold()` is the Unicode-correct case-fold; `\\w` with
+    `re.UNICODE` matches word characters from any script."""
+    return set(_CITATION_TOKEN_RE.findall(text.casefold()))
+
+
+def _citation_is_grounded(value: str | None, block_text: str) -> bool:
+    """True when the structured value's text is genuinely supported by the
+    cited OCR block — a real (if simple) containment check, not just an
+    in-bounds index check. Subset in EITHER direction so both "the value
+    is a fragment of a longer OCR line" and "the OCR block is a shorter
+    fragment than the structured value" pass, without requiring exact
+    string equality (OCR/Gemini punctuation and spacing rarely matches
+    exactly)."""
+    if not value:
+        return False
+    value_tokens = _normalize_for_citation(value)
+    block_tokens = _normalize_for_citation(block_text)
+    if not value_tokens or not block_tokens:
+        return False
+    return value_tokens <= block_tokens or block_tokens <= value_tokens
+
+
+def _assess_reliability(evidence: list[EvidenceRef], citation_count: int) -> FieldReliability:
+    """Pure — derived entirely from what `_to_extracted_field` already
+    computed (grounded evidence + the raw citation count Gemini claimed).
+    No new inputs, no new call. `min_ocr_confidence` stays `None` when no
+    evidence carries a real measured score — never defaulted to 0."""
+    real_confidences = [e.ocr_confidence for e in evidence if e.ocr_confidence is not None]
+    return FieldReliability(
+        citation_count=citation_count,
+        verified_citation_count=len(evidence),
+        has_verified_citation=len(evidence) > 0,
+        min_ocr_confidence=min(real_confidences) if real_confidences else None,
+    )
 
 
 def _to_extracted_field(
@@ -94,25 +152,31 @@ def _to_extracted_field(
         return ExtractedField(value=None, not_detected=True, evidence=[], extraction_confidence=0.0)
 
     evidence: list[EvidenceRef] = []
+    citation_count = 0
     for idx in gemini_field.source_block_indices:
-        if 0 <= idx < len(blocks):
-            block = blocks[idx]
-            evidence.append(
-                EvidenceRef(
-                    image_id=block.image_id,
-                    image_angle=angle_by_image_id.get(block.image_id, "unknown"),
-                    ocr_block_text=block.text,
-                    bbox=block.bbox,
-                    provider=block.provider,
-                    ocr_confidence=block.confidence,
-                )
+        if not (0 <= idx < len(blocks)):
+            continue
+        citation_count += 1
+        block = blocks[idx]
+        if not _citation_is_grounded(gemini_field.value, block.text):
+            continue  # in-bounds but not textually supported — no forged evidence accepted
+        evidence.append(
+            EvidenceRef(
+                image_id=block.image_id,
+                image_angle=angle_by_image_id.get(block.image_id, "unknown"),
+                ocr_block_text=block.text,
+                bbox=block.bbox,
+                provider=block.provider,
+                ocr_confidence=block.confidence,
             )
+        )
 
     return ExtractedField(
         value=gemini_field.value,
         not_detected=gemini_field.not_detected,
         evidence=evidence,
         extraction_confidence=gemini_field.confidence,
+        reliability=_assess_reliability(evidence, citation_count),
     )
 
 
@@ -143,12 +207,19 @@ def _call_structure(api_key: str, prompt: str, settings) -> GeminiStructuredOutp
 
 
 def structure(
-    blocks: list[OcrBlock], angle_by_image_id: dict[str, str], settings
+    blocks: list[OcrBlock],
+    angle_by_image_id: dict[str, str],
+    settings,
+    *,
+    missing_field_hint: list[str] | None = None,
 ) -> StructuredExtraction:
+    """`missing_field_hint` is OP-Phase 6's coverage-retry hook — optional,
+    keyword-only, defaults to `None` so the existing single positional-arg
+    call site (`jobs/pipeline.py:321`) is completely unaffected."""
     if not settings.gemini_api_keys:
         raise GeminiUnavailableError("GEMINI_API_KEY is not set")
 
-    prompt = _build_prompt(blocks)
+    prompt = _build_prompt(blocks, missing_field_hint=missing_field_hint)
     # _call_structure always raises GeminiUnavailableError on failure, so
     # call_with_key_fallback's re-raised "last failure" is already that type.
     parsed = call_with_key_fallback(
@@ -176,6 +247,53 @@ def structure(
         ),
         language_detected=parsed.language_detected,
     )
+
+
+def _missing_required_fields(extraction: StructuredExtraction, required_field_ids: list[str]) -> list[str]:
+    missing = []
+    for field_id in required_field_ids:
+        field: ExtractedField | None = getattr(extraction, field_id, None)
+        if field is None or field.not_detected:
+            missing.append(field_id)
+    return missing
+
+
+def structure_with_coverage_retry(
+    blocks: list[OcrBlock],
+    angle_by_image_id: dict[str, str],
+    settings,
+    *,
+    required_field_ids: list[str],
+    coverage_threshold: float = 0.5,
+    max_retries: int = 1,
+) -> StructuredExtraction:
+    """OP-Phase 6 — a bounded coverage-gate retry, built and tested but
+    DELIBERATELY NOT CALLED from `app/jobs/pipeline.py`. Wiring this in
+    would double Gemini quota usage on exactly the low-coverage scans
+    that most need conserving it — `gemini_client.py`'s own comment
+    records a hard free-tier 20-requests/day ceiling. Enabling this is an
+    explicit operational-cost decision for a later phase, not a pure
+    quality improvement; until then this function exists only for tests
+    and any future caller that has made that call deliberately.
+
+    Retries AT MOST `max_retries` times, regardless of how poor coverage
+    remains — the budget is absolute, not "keep trying until good." A
+    retry keeps only the fields the PRIOR pass missed; anything already
+    found is never overwritten by a later, possibly worse, pass."""
+    extraction = structure(blocks, angle_by_image_id, settings)
+    attempts = 0
+    while attempts < max_retries:
+        missing = _missing_required_fields(extraction, required_field_ids)
+        coverage = 1.0 - (len(missing) / len(required_field_ids)) if required_field_ids else 1.0
+        if coverage >= coverage_threshold or not missing:
+            break
+        attempts += 1
+        retried = structure(blocks, angle_by_image_id, settings, missing_field_hint=missing)
+        for field_id in missing:
+            retried_field: ExtractedField = getattr(retried, field_id)
+            if not retried_field.not_detected:
+                setattr(extraction, field_id, retried_field)
+    return extraction
 
 
 class GeminiOcrProvider:
