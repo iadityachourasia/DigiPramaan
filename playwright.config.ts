@@ -25,5 +25,8 @@ export default defineConfig({
     url: "http://localhost:3000",
     reuseExistingServer: !process.env.CI,
     timeout: 120000,
+    // §T step 1.9: src/proxy.ts 404s the mock API namespace unless this is
+    // set — e2e specs exercise the mock routes, so they need it on.
+    env: { ENABLE_MOCK_API: "true" },
   },
 });
