@@ -12,16 +12,27 @@ verbatim (collecting -> rendering -> finalising) — this is what lets the
 existing ReportProgressTracker.tsx UI (built for Phase 5's mock/multi-
 scope reports) show genuinely real progress for a record-scope report
 with zero UI changes.
+
+F-003 fix (2026-09-19): rendering used to shell out to `npx tsx
+scripts/render-report-cli.ts` — a repo-root Node/TypeScript script the
+backend's own Docker image never includes (its build context is
+`backend/` only; there is no Node in the deployed container at all). The
+renderer code (src/lib/server/report-render-v2/) already lives inside the
+Next.js app, which already has a working, already-deployed Node runtime
+(Vercel) — so the fix isn't "add Node to the Python container," it's
+"call the Node runtime that's already running" via a small internal HTTP
+endpoint (`POST {frontend_base_url}/api/internal/render-report`,
+`src/app/api/internal/render-report/route.ts`), authenticated with a
+shared secret (`internal_render_secret`) neither side logs.
 """
 
 from __future__ import annotations
 
 import base64
 import hashlib
-import json
-import subprocess
 import uuid
-from pathlib import Path
+
+import httpx
 
 from app.core.config import Settings, get_settings
 from app.core.object_storage import get_s3_client
@@ -33,25 +44,12 @@ from app.services.reports.snapshot import build_report_snapshot
 
 REPORT_STAGE_IDS = ["collecting", "rendering", "finalising"]
 
-# repo root: backend/app/jobs/reports.py -> backend/app/jobs -> backend/app
-# -> backend -> <repo root>, where scripts/render-report-cli.ts lives.
-_REPO_ROOT = Path(__file__).resolve().parents[3]
-_RENDERER_SCRIPT = _REPO_ROOT / "scripts" / "render-report-cli.ts"
-# A pre-composited, white-matte JPEG — NOT the transparent
-# digi-pramaan-logo.png the rest of the app uses. jsPDF's PNG path decodes
-# to raw pixels with no compression-worthy passthrough (confirmed: the
-# 1296x1296 transparent PNG alone added ~6.8MB to a single-record PDF),
-# while its JPEG path embeds the original compressed bytes directly. A
-# print report's page is white anyway, so compositing onto white and
-# shipping as JPEG loses nothing visually. Same artwork, not a new logo.
-_LOGO_PATH = _REPO_ROOT / "public" / "images" / "digi-pramaan-logo-report.jpg"
-
-# Image embedding is slower than the old text-only render, but images are
-# already resized server-side before this subprocess ever sees them — this
-# is generous headroom for a slow machine or an evidence-heavy record, not
-# a mask for a genuinely hung process (there is no existing telemetry to
-# calibrate a tighter number against).
-_RENDER_TIMEOUT_SECONDS = 180
+# Image embedding is slower than the old text-only render, and now
+# includes an HTTP round trip — this is generous headroom for a slow
+# render or an evidence-heavy record, not a mask for a genuinely hung
+# process (there is no existing telemetry to calibrate a tighter number
+# against).
+_RENDER_TIMEOUT_SECONDS = 180.0
 
 _FORMAT_STORAGE = {
     "pdf": {"key_attr": "pdf_storage_key", "content_type": "application/pdf"},
@@ -62,39 +60,57 @@ _FORMAT_STORAGE = {
 }
 
 
-def render_via_subprocess(snapshot: ReportSnapshotV2, images: ReportImagePaths) -> tuple[bytes, bytes]:
-    """The renderer is a pure rendering layer: it receives exactly this
-    JSON (the frozen snapshot + local file paths for the logo and
-    already-fetched/optimized evidence images) over stdin and returns
-    {pdfBase64, docxBase64} on stdout. No DB, no B2, no business logic —
-    every path here was already resolved by report_image_workspace()."""
+def _b64_or_none(path) -> str | None:
+    if path is None:
+        return None
+    return base64.b64encode(path.read_bytes()).decode("ascii")
+
+
+def render_via_http(
+    snapshot: ReportSnapshotV2, images: ReportImagePaths, settings: Settings
+) -> tuple[bytes, bytes]:
+    """Calls the Next.js app's internal render route — a pure rendering
+    layer with no DB/B2/business logic of its own, same contract the old
+    subprocess had, just over HTTP instead of stdin/stdout: the frozen
+    snapshot plus the already-fetched/optimized evidence images (now sent
+    as base64 bytes, since the renderer no longer shares a filesystem
+    with this process) in, {pdfBase64, docxBase64} out. The logo asset is
+    resolved by the route itself, from the Next.js app's own `public/`
+    directory — one fewer thing to send over the wire."""
+    if not settings.internal_render_secret:
+        raise RuntimeError("INTERNAL_RENDER_SECRET is not configured")
+
     payload = {
         "snapshot": snapshot.model_dump(by_alias=True),
         "images": {
-            "front": str(images.front) if images.front else None,
-            "back": str(images.back) if images.back else None,
-            "side_pdp": str(images.side_pdp) if images.side_pdp else None,
-            "violationCrops": {k: str(v) for k, v in images.violation_crops.items()},
-            # Dimensions of the files actually written to disk (post-
-            # resize), keyed the same way as the paths above — lets the
-            # DOCX renderer size an ImageRun correctly with zero new
-            # image-dimension-reading dependency (jsPDF's PDF path already
-            # has getImageProperties() built in).
+            "front": _b64_or_none(images.front),
+            "back": _b64_or_none(images.back),
+            "side_pdp": _b64_or_none(images.side_pdp),
+            "violationCrops": {k: _b64_or_none(v) for k, v in images.violation_crops.items()},
+            # Dimensions of the files actually resized, keyed the same way
+            # as the image bytes above — lets the DOCX renderer size an
+            # ImageRun correctly with zero new image-dimension-reading
+            # dependency (jsPDF's PDF path already has getImageProperties()
+            # built in).
             "dimensions": {k: list(v) for k, v in images.embedded_dimensions.items()},
         },
-        "logoPath": str(_LOGO_PATH),
     }
-    result = subprocess.run(
-        ["npx", "tsx", str(_RENDERER_SCRIPT)],
-        input=json.dumps(payload).encode("utf-8"),
-        capture_output=True,
-        cwd=str(_REPO_ROOT),
-        timeout=_RENDER_TIMEOUT_SECONDS,
-        shell=True,  # Windows: npx is a .cmd shim, not directly executable.
-    )
-    if result.returncode != 0:
-        raise RuntimeError(f"Report renderer failed: {result.stderr.decode(errors='replace')[:2000]}")
-    decoded = json.loads(result.stdout)
+    url = f"{settings.frontend_base_url.rstrip('/')}/api/internal/render-report"
+    try:
+        response = httpx.post(
+            url,
+            json=payload,
+            headers={"Authorization": f"Bearer {settings.internal_render_secret.get_secret_value()}"},
+            timeout=_RENDER_TIMEOUT_SECONDS,
+        )
+    except httpx.HTTPError as exc:
+        raise RuntimeError(f"Report renderer request failed: {exc}") from exc
+
+    if response.status_code != 200:
+        # Never echo response headers/body verbatim — could theoretically
+        # reflect the Authorization header back in a misconfigured proxy.
+        raise RuntimeError(f"Report renderer returned HTTP {response.status_code}")
+    decoded = response.json()
     return base64.b64decode(decoded["pdfBase64"]), base64.b64decode(decoded["docxBase64"])
 
 
@@ -135,7 +151,7 @@ def generate_report_job(report_id: uuid.UUID) -> None:
                         ref.image_width_px, ref.image_height_px = dims
 
                 _persist_report(db, report, current_stage="rendering")
-                pdf_bytes, docx_bytes = render_via_subprocess(snapshot, images)
+                pdf_bytes, docx_bytes = render_via_http(snapshot, images, settings)
 
             _persist_report(db, report, current_stage="finalising")
 

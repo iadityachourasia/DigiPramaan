@@ -91,6 +91,7 @@ export const API = {
   companies: {
     list: "/companies",
     profile: (legalEntityId: string) => `/companies/${legalEntityId}/profile` as const,
+    flagEnforcement: (legalEntityId: string) => `/companies/${legalEntityId}/flag-enforcement` as const,
   },
 
   cases: {
@@ -124,6 +125,9 @@ export const API = {
     retry: (reportId: string) => `/reports/${reportId}/retry` as const,
     download: (reportId: string, format: string) =>
       `/reports/${reportId}/download/${format}` as const,
+    /** P2 hardening (F-010) — issues a short-lived download ticket that
+     * replaces the raw session token in the download href's query string. */
+    downloadTicket: (reportId: string) => `/reports/${reportId}/download-ticket` as const,
   },
 
   /** Public, unauthenticated — the QR-verification page's data source.
@@ -140,5 +144,13 @@ export const API = {
   grievances: {
     submit: "/grievances",
     lookup: (reference: string) => `/grievances/${reference}` as const,
+  },
+
+  /** Admin Console (page 12) — real FastAPI backend only, no mock equivalent kept for these routes. */
+  admin: {
+    team: "/admin/team",
+    thresholds: "/admin/thresholds",
+    deactivateUser: (userId: string) => `/admin/users/${userId}/deactivate` as const,
+    reassignCase: "/admin/cases/reassign",
   },
 } as const;

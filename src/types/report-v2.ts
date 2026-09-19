@@ -225,10 +225,15 @@ export interface ReportSnapshotV2 {
   integrity: IntegrityBlockV2;
 }
 
-/** The stdin contract `render-report-cli.ts` parses — the snapshot plus
- * local file paths for the logo and already-fetched/optimized evidence
- * images. The renderer reads these paths; it never fetches anything
- * itself. */
+/** What `renderPdfV2`/`renderDocxV2` (src/lib/server/report-render-v2/)
+ * actually consume — the snapshot plus local file paths for the logo and
+ * already-fetched/optimized evidence images. The renderer reads these
+ * paths; it never fetches anything itself. `src/app/api/internal/
+ * render-report/route.ts` (F-003 fix, 2026-09-19) is what builds this:
+ * it receives evidence images as base64 bytes over HTTP from the FastAPI
+ * backend (which shares no filesystem with this process), writes them to
+ * its own request-scoped temp directory, and constructs this exact shape
+ * before calling the renderer — the renderer itself never changed. */
 export interface RenderReportInputV2 {
   snapshot: ReportSnapshotV2;
   images: {

@@ -115,6 +115,39 @@ export async function apiPost<T>(
   }
 }
 
+export async function apiPut<T>(
+  path: string,
+  body: unknown
+): Promise<ApiResult<T>> {
+  try {
+    const token = getToken();
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
+    const response = await fetch(`${API_BASE}${path}`, {
+      method: "PUT",
+      headers,
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message: `PUT ${path} failed with status ${response.status}`,
+      };
+    }
+
+    const data = (await response.json()) as T;
+    return { ok: true, data };
+  } catch {
+    return { ok: false, status: 0, message: "Network error" };
+  }
+}
+
 export async function apiUpload<T>(
   path: string,
   formData: FormData

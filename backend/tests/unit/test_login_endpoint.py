@@ -39,6 +39,17 @@ def _fake_profile(**overrides):
     return p
 
 
+@pytest.fixture(autouse=True)
+def _rate_limit_always_allows():
+    """P2 hardening added a real Postgres-backed rate-limit check
+    (app.services.auth.rate_limit.check_and_increment) ahead of every
+    login/refresh attempt — patched here so this file's unit tests keep
+    testing login/refresh logic itself, not rate-limit persistence
+    (which has its own dedicated tests, see test_auth_rate_limit.py)."""
+    with patch("app.api.v1.auth.check_and_increment", return_value=True):
+        yield
+
+
 @pytest.fixture()
 def client_with_db(request) -> tuple[TestClient, MagicMock]:
     app = create_app()

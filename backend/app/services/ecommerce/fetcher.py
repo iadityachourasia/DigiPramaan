@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import httpx
 
-from app.services.ecommerce.ssrf_guard import UnsafeUrlError, validate_url_is_safe_to_fetch
+from app.services.ecommerce.ssrf_guard import UnsafeUrlError, validate_url_is_safe_to_fetch_and_pin
 
 _HTML_CONTENT_TYPES = ("text/html", "application/xhtml+xml")
 _IMAGE_CONTENT_TYPES = ("image/jpeg", "image/png", "image/webp", "image/gif")
@@ -46,17 +46,36 @@ def _fetch_with_manual_redirects(
     current_url = url
     for _ in range(settings.ecommerce_max_redirects + 1):
         try:
-            validate_url_is_safe_to_fetch(current_url)
+            hostname, pinned_ip = validate_url_is_safe_to_fetch_and_pin(current_url)
         except UnsafeUrlError as exc:
             raise FetchError(str(exc)) from exc
 
+        # P2 hardening (F-009): connect to the EXACT IP just validated,
+        # never a second, independent DNS resolution (that gap is what let
+        # a DNS-rebinding attack swap the target between check and
+        # connect). `sni_hostname` keeps TLS certificate verification
+        # against the real hostname; the `Host` header does the same for
+        # the origin server's own virtual-hosting — the request is
+        # otherwise identical to fetching `current_url` directly.
+        pinned_url = httpx.URL(current_url).copy_with(host=pinned_ip)
+        extensions = {"sni_hostname": hostname} if pinned_url.scheme == "https" else {}
+
         try:
-            with httpx.stream(
+            # A fresh Client per hop (matches the old httpx.stream()
+            # shortcut's own per-call-connection shape) — `extensions` is
+            # only exposed via the Client/Request API, not the module-
+            # level httpx.stream() shortcut. `trust_env=False`: an
+            # operator-configured HTTP_PROXY/HTTPS_PROXY/NO_PROXY env var
+            # must never silently reroute a request this guard just
+            # validated through a proxy that itself has access to
+            # internal ranges.
+            with httpx.Client(trust_env=False) as http_client, http_client.stream(
                 "GET",
-                current_url,
+                pinned_url,
                 follow_redirects=False,
                 timeout=settings.ecommerce_fetch_timeout_seconds,
-                headers={"User-Agent": "DigiPramaanEcommerceScanner/1.0"},
+                headers={"User-Agent": "DigiPramaanEcommerceScanner/1.0", "Host": hostname},
+                extensions=extensions,
             ) as response:
                 if response.is_redirect:
                     location = response.headers.get("location")

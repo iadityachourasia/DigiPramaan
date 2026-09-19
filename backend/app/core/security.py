@@ -31,6 +31,11 @@ _jwks_clients: dict[str, PyJWKClient] = {}
 
 SUPABASE_AUDIENCE = "authenticated"
 
+# P2 fix (2026-09-19): fixed, not a Settings field — this is an invariant
+# of what Supabase can ever emit, not an environment-tunable value. An
+# env-configurable allowlist would just let a misconfiguration widen it.
+_ALLOWED_ALGORITHMS = frozenset({"HS256", "RS256", "ES256"})
+
 
 class AuthError(Exception):
     """Raised for any token that fails verification, for any reason —
@@ -57,6 +62,14 @@ def verify_supabase_jwt(token: str, settings) -> dict:
         raise AuthError("Malformed token") from exc
 
     algorithm = header.get("alg", "HS256")
+    if algorithm not in _ALLOWED_ALGORITHMS:
+        # P2 fix (2026-09-19): the old code let an attacker-controlled
+        # header `alg` value (e.g. "none", "HS512", garbage) fall through
+        # into the `else` branch below and reach `jwt.decode(algorithms=
+        # [algorithm])` unconstrained. Reject before either decode branch
+        # runs, so only the three algorithms Supabase can ever actually
+        # sign with are ever passed to `jwt.decode`.
+        raise AuthError("Unsupported token algorithm")
 
     # A few seconds of tolerance against `exp`/`iat`/`nbf` for clock drift
     # between this server and Supabase's — with zero leeway, a token
@@ -97,12 +110,16 @@ def verify_supabase_jwt(token: str, settings) -> dict:
     except jwt.PyJWTError as exc:
         raise AuthError("Token signature is invalid") from exc
 
-    # Soft issuer check: reject a token from a DIFFERENT Supabase project
-    # (e.g. a stray token from a staging/other project reused against this
-    # one), without hard-requiring an exact string match against whatever
-    # trailing-slash/path convention this Supabase version happens to emit.
+    # Exact (trailing-slash-tolerant) issuer check: reject a token from a
+    # DIFFERENT Supabase project (e.g. a stray token from a staging/other
+    # project reused against this one). P2 fix (2026-09-19): the previous
+    # `resolved_supabase_url not in issuer` substring check was not
+    # anchored — an issuer like "https://evil.example/?x=<real-project>"
+    # would satisfy it. Supabase's own issuer format is always
+    # "{SUPABASE_URL}/auth/v1", so compare against that exactly.
     issuer = claims.get("iss")
-    if issuer and settings.resolved_supabase_url not in issuer:
+    expected_issuer = f"{settings.resolved_supabase_url}/auth/v1"
+    if issuer and issuer.rstrip("/") != expected_issuer.rstrip("/"):
         raise AuthError("Token was not issued by this project")
 
     if not claims.get("sub"):

@@ -25,7 +25,7 @@ import type {
   ReportStage,
   ReportStageId,
 } from "@/types";
-import { apiGet, apiPost } from "./client";
+import { apiGet, apiPost, isMockMode } from "./client";
 import type { ApiResult } from "./client";
 
 /**
@@ -168,7 +168,35 @@ export interface ReportListResponse {
   total: number;
 }
 
+interface RealReportListResponse {
+  reports: RecordReportSummary[];
+  total: number;
+}
+
+/**
+ * §AF (2026-09-20): real branch calling `GET /reports` (backend/app/api/v1/
+ * reports.py::list_reports) — Download History's real, officer-scoped,
+ * paginated list. Every real report is record-scope (see this file's own
+ * top comment), so each row maps through the same toGeneratedReport() the
+ * rest of this file already uses. No per-report generatedByUserName is
+ * available from this list endpoint — left blank, same as fetchReport()'s
+ * real branch already does for the detail view.
+ */
+async function fetchReportsReal(page?: number, pageSize?: number): Promise<ApiResult<ReportListResponse>> {
+  const params = new URLSearchParams();
+  if (page) params.set("page", String(page));
+  if (pageSize) params.set("pageSize", String(pageSize));
+  const query = params.toString() ? `?${params.toString()}` : "";
+  const result = await apiGet<RealReportListResponse>(`${API.reports.list}${query}`);
+  if (!result.ok) return result;
+  const reports = result.data.reports.map((r) =>
+    toGeneratedReport(r, { kind: "record", recordId: r.complianceRecordId }, "", "")
+  );
+  return { ok: true, data: { reports, total: result.data.total } };
+}
+
 export function fetchReports(viewerId?: string): Promise<ApiResult<ReportListResponse>> {
+  if (!isMockMode()) return fetchReportsReal();
   const query = viewerId ? `?viewerId=${encodeURIComponent(viewerId)}` : "";
   return requestJson(`/api/reports${query}`);
 }
@@ -344,16 +372,17 @@ export async function retryReportStage(
 /**
  * The download link for one format. A plain href rather than a fetch — the
  * route sets `Content-Disposition`, so the browser handles the save and no
- * blob juggling is needed on the client. Record-scope reports point
- * DIRECTLY at the real FastAPI backend with the session token as a query
- * param (`access_token`) — the anchor tag cannot attach an Authorization
- * header, and this UX is being kept unchanged deliberately (see this file's
- * top comment). A token in a URL is a real MVP tradeoff (browser history,
- * server logs) surfaced in the Phase 5 report, not hidden; a hardening pass
- * should replace it with a short-lived signed download ticket.
+ * blob juggling is needed on the client. Mock-scope reports are unaffected
+ * by the P2 ticket fix below (no session token ever appeared in their URL).
  */
 export function reportDownloadHref(report: GeneratedReport, format: ReportFormat, viewerId?: string): string {
   if (report.scope.kind === "record" && isRealBackendReportId(report.id)) {
+    // P2 hardening (F-010): record-scope report downloads now go through
+    // getRecordReportDownloadHref() (below), which issues a short-lived
+    // ticket first instead of embedding the raw session token here. This
+    // fallback (still `?access_token=`) only fires if a caller somehow
+    // renders a static href without going through that async path first —
+    // kept as a safety net, not the intended route.
     const token = getSessionToken();
     const params = new URLSearchParams();
     if (token) params.set("access_token", token);
@@ -361,4 +390,33 @@ export function reportDownloadHref(report: GeneratedReport, format: ReportFormat
   }
   const query = viewerId ? `?viewerId=${encodeURIComponent(viewerId)}` : "";
   return `/api/reports/${report.id}/download/${format.toLowerCase()}${query}`;
+}
+
+/**
+ * P2 hardening (F-010): the real fix. For a record-scope report on the
+ * real backend, issues a short-lived signed download ticket (a real
+ * Bearer JWT, already attached by apiPost, is required to issue one) and
+ * returns the href with `?ticket=` instead of the raw session token.
+ * Mock-scope reports are returned unchanged (reportDownloadHref already
+ * never embeds a token for those).
+ */
+export async function getRecordReportDownloadHref(
+  report: GeneratedReport,
+  format: ReportFormat,
+  viewerId?: string,
+): Promise<string> {
+  if (report.scope.kind === "record" && isRealBackendReportId(report.id)) {
+    const result = await apiPost<{ ticket: string; expiresAt: string }>(
+      API.recordReports.downloadTicket(report.id),
+      {},
+    );
+    if (!result.ok) {
+      // Falls back to the old (still-functional, just less ideal)
+      // token-in-URL path rather than failing the download outright.
+      return reportDownloadHref(report, format, viewerId);
+    }
+    const params = new URLSearchParams({ ticket: result.data.ticket });
+    return `${REAL_API_BASE}${API.recordReports.download(report.id, format.toLowerCase())}?${params.toString()}`;
+  }
+  return reportDownloadHref(report, format, viewerId);
 }

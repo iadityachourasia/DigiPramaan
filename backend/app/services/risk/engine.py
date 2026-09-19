@@ -42,11 +42,11 @@ _RULE_SCORE = 25
 _CRITICAL_MIN, _HIGH_MIN, _MODERATE_MIN = 80, 60, 30
 
 
-def _within_repeat_window(verified_at: datetime.datetime | None) -> bool:
+def _within_repeat_window(verified_at: datetime.datetime | None, window_days: int) -> bool:
     if verified_at is None:
         return False
     now = datetime.datetime.now(datetime.timezone.utc)
-    return (now - verified_at) <= datetime.timedelta(days=_REPEAT_WINDOW_DAYS)
+    return (now - verified_at) <= datetime.timedelta(days=window_days)
 
 
 def _category_hits(records: list[ComplianceRecord]) -> dict[str, dict[uuid.UUID, ComplianceRecord]]:
@@ -66,20 +66,27 @@ def evaluate_company_rules(
     records: list[ComplianceRecord],
     product_id_by_record: dict[uuid.UUID, uuid.UUID],
     open_case_count: int,
+    *,
+    repeat_threshold: int = _COMPANY_REPEAT_THRESHOLD,
+    window_days: int = _REPEAT_WINDOW_DAYS,
 ) -> list[dict]:
     """R1 (repeat SAME company violation), R3 (multiple distinct
     non-compliant products), R4 (open case) — evaluated over `records`,
-    whatever set the caller chose to pass (full or scope-filtered)."""
+    whatever set the caller chose to pass (full or scope-filtered).
+    `repeat_threshold`/`window_days` default to the original hardcoded
+    constants — a caller with access to Admin Console's live thresholds
+    (services/admin/thresholds.py::get_effective_thresholds) passes them
+    explicitly instead."""
     triggered: list[dict] = []
 
-    recent = [r for r in records if _within_repeat_window(r.verified_at)]
+    recent = [r for r in records if _within_repeat_window(r.verified_at, window_days)]
     for category_id, hits in _category_hits(recent).items():
-        if len(hits) >= _COMPANY_REPEAT_THRESHOLD:
+        if len(hits) >= repeat_threshold:
             triggered.append({
                 "rule_id": "R1",
                 "score_contribution": _RULE_SCORE,
                 "reason": f"Repeat {violation_category_label(category_id)} violations: "
-                          f"{len(hits)} verified inspections in {_REPEAT_WINDOW_DAYS} days.",
+                          f"{len(hits)} verified inspections in {window_days} days.",
                 "evidence_record_ids": [str(rid) for rid in hits],
             })
 
@@ -107,12 +114,17 @@ def evaluate_company_rules(
     return triggered
 
 
-def evaluate_product_rules(records: list[ComplianceRecord], open_case_count: int) -> list[dict]:
+def evaluate_product_rules(
+    records: list[ComplianceRecord],
+    open_case_count: int,
+    *,
+    repeat_threshold: int = _PRODUCT_REPEAT_THRESHOLD,
+) -> list[dict]:
     """R2 (repeat SAME product violation), R4 (open case)."""
     triggered: list[dict] = []
 
     for category_id, hits in _category_hits(records).items():
-        if len(hits) >= _PRODUCT_REPEAT_THRESHOLD:
+        if len(hits) >= repeat_threshold:
             triggered.append({
                 "rule_id": "R2",
                 "score_contribution": _RULE_SCORE,

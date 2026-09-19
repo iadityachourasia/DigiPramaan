@@ -38,5 +38,9 @@ def test_readiness_returns_well_formed_body_regardless_of_dependency_state(
     assert body["status"] in ("ready", "not_ready")
     for check in body["checks"].values():
         assert "ok" in check
+        # P2 hardening (F-019): a fixed reason CODE, never the raw
+        # exception text (which could leak connection strings/credential
+        # detail to an unauthenticated caller).
         if not check["ok"]:
-            assert "error" in check
+            assert "reason" in check
+            assert "error" not in check

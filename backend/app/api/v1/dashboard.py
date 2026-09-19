@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session as DbSession
 from app.api.deps.auth import get_current_user
 from app.db.models import ComplianceRecord, LegalEntity, Product, ProductInspectionLink, Profile, ViolationCase
 from app.db.session import get_db
+from app.services.admin.thresholds import get_effective_thresholds
 from app.services.records.serialize import to_frontend_record
 from app.services.risk.engine import aggregate_score, evaluate_company_rules, evaluate_product_rules
 from app.services.scope import apply_officer_scope
@@ -66,6 +67,8 @@ def _risk_alerts(records: list[ComplianceRecord], db: DbSession, current_user: P
     if not record_ids:
         return []
 
+    thresholds = get_effective_thresholds(db)
+
     links = (
         db.query(ProductInspectionLink, Product.legal_entity_id)
         .join(Product, Product.id == ProductInspectionLink.product_id)
@@ -98,7 +101,10 @@ def _risk_alerts(records: list[ComplianceRecord], db: DbSession, current_user: P
         entity_record_ids = {r.id for r in entity_records}
         open_count = len(open_case_records_by_id & entity_record_ids)
         pid_map = {r.id: product_id_by_record[r.id] for r in entity_records if r.id in product_id_by_record}
-        triggered = evaluate_company_rules(entity_records, pid_map, open_count)
+        triggered = evaluate_company_rules(
+            entity_records, pid_map, open_count,
+            repeat_threshold=thresholds["repeatViolationCount"], window_days=thresholds["repeatViolationDays"],
+        )
         if not triggered:
             continue
         entity = db.get(LegalEntity, entity_id)
@@ -116,7 +122,9 @@ def _risk_alerts(records: list[ComplianceRecord], db: DbSession, current_user: P
     for product_id, product_records in by_product.items():
         product_record_ids = {r.id for r in product_records}
         open_count = len(open_case_records_by_id & product_record_ids)
-        triggered = evaluate_product_rules(product_records, open_count)
+        triggered = evaluate_product_rules(
+            product_records, open_count, repeat_threshold=thresholds["repeatViolationCount"],
+        )
         if not triggered:
             continue
         risk = aggregate_score(triggered)

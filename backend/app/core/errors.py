@@ -14,10 +14,13 @@ paths for both (get_current_user's 401s, require_permission's 403s).
 
 from typing import Literal
 
+import structlog
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
+
+logger = structlog.get_logger("digipramaan.errors")
 
 ErrorCode = Literal[
     "VALIDATION_ERROR",
@@ -26,6 +29,9 @@ ErrorCode = Literal[
     "AUTHORIZATION_ERROR",
     "CONFLICT",
     "INTERNAL_ERROR",
+    # P2 hardening (2026-09-19): a real, distinct client-facing outcome
+    # (login/refresh rate limiting) — not a generic VALIDATION_ERROR.
+    "RATE_LIMITED",
 ]
 
 _STATUS_TO_CODE: dict[int, ErrorCode] = {
@@ -44,6 +50,8 @@ _STATUS_TO_CODE: dict[int, ErrorCode] = {
     # for something the client caused and can fix by retrying differently.
     status.HTTP_400_BAD_REQUEST: "VALIDATION_ERROR",
     status.HTTP_413_REQUEST_ENTITY_TOO_LARGE: "VALIDATION_ERROR",
+    # P2 hardening (2026-09-19): login/refresh rate limiting.
+    status.HTTP_429_TOO_MANY_REQUESTS: "RATE_LIMITED",
 }
 
 
@@ -100,8 +108,11 @@ def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(Exception)
     async def unhandled_exception_handler(request: Request, exc: Exception):
         # Never leak internal exception details to the client — the real
-        # message goes to the structured log (core/logging.py), keyed by the
-        # same request_id, so it's still fully diagnosable server-side.
+        # message goes to the structured log, keyed by the same request_id,
+        # so it's still fully diagnosable server-side. P2 fix (2026-09-19):
+        # this comment used to assert that without actually doing it — no
+        # logging call existed anywhere in this handler.
+        logger.exception("unhandled_exception", request_id=_request_id(request), path=request.url.path)
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content=_error_body("INTERNAL_ERROR", "An unexpected error occurred.", _request_id(request)),
