@@ -1,4 +1,4 @@
-name: Build, push and deploy backend image
+name: Build and push backend image
 
 on:
   push:
@@ -11,8 +11,6 @@ on:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
-    outputs:
-      image_sha: ${{ github.sha }}
     steps:
       - uses: actions/checkout@v4
 
@@ -32,42 +30,3 @@ jobs:
           tags: |
             ${{ secrets.ACR_LOGIN_SERVER }}/digipramaan-backend:latest
             ${{ secrets.ACR_LOGIN_SERVER }}/digipramaan-backend:${{ github.sha }}
-
-  # Deploys the just-built image to the real App Service — without this
-  # job, a successful build/push never actually reaches production; that
-  # gap is exactly what let PR #25's OP-Phase 1 routes (POST /scans/draft
-  # etc.) sit built in ACR but never live, causing the deployed frontend
-  # to call a route the deployed backend didn't have (2026-09-19 incident).
-  deploy:
-    needs: build-and-push
-    runs-on: ubuntu-latest
-    steps:
-      - name: Log in to Azure
-        uses: azure/login@v2
-        with:
-          creds: ${{ secrets.AZURE_BACKEND_DEPLOY_CREDENTIALS }}
-
-      - name: Point App Service at the new image
-        uses: azure/CLI@v2
-        with:
-          inlineScript: |
-            az webapp config container set \
-              --name digipramaan-backend \
-              --resource-group digipramaan-rg \
-              --container-image-name ${{ secrets.ACR_LOGIN_SERVER }}/digipramaan-backend:${{ needs.build-and-push.outputs.image_sha }} \
-              --container-registry-url https://${{ secrets.ACR_LOGIN_SERVER }}
-            az webapp restart --name digipramaan-backend --resource-group digipramaan-rg
-
-      - name: Wait for the new deployment to become healthy
-        run: |
-          for i in $(seq 1 24); do
-            status=$(curl -s -o /dev/null -w "%{http_code}" https://digipramaan-backend-cfh2aubja6g8dqfz.centralindia-01.azurewebsites.net/api/v1/health || echo "000")
-            if [ "$status" = "200" ]; then
-              echo "Backend is healthy."
-              exit 0
-            fi
-            echo "Waiting for backend to become healthy (attempt $i, got $status)..."
-            sleep 10
-          done
-          echo "Backend did not become healthy within the timeout." >&2
-          exit 1

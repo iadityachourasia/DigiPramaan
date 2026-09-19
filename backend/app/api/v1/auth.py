@@ -12,14 +12,17 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session as DbSession
 
 from app.api.deps.auth import get_current_user
+from app.core.client_ip import resolve_client_ip
 from app.core.config import Settings, get_settings
 from app.db.models import Profile
 from app.db.session import get_db
 from app.schemas.auth import LoginRequest, RefreshRequest, SessionResponse, UserResponse
+from app.services.audit.emit import emit
+from app.services.auth.rate_limit import check_and_increment
 from app.services.auth.supabase_auth import (
     SupabaseAuthError,
     refresh_access_token,
@@ -27,6 +30,27 @@ from app.services.auth.supabase_auth import (
 )
 
 router = APIRouter(tags=["auth"])
+
+
+def _rate_limit_or_raise(
+    db: DbSession, *, keys: list[str], window_seconds: int, max_hits: int, event_type: str, detail: dict
+) -> None:
+    """P2 hardening (F-010): any one of `keys` tripping its own bucket is
+    a 429 — e.g. login checks both the caller's IP and the submitted
+    email, so a distributed attack against one account and a
+    concentrated attack from one source are both caught. Emits ONE
+    AuditEvent per rejection (not per attempt, which would be high-volume
+    noise) in the request's own session, committed immediately since this
+    function is about to raise."""
+    for key in keys:
+        if not check_and_increment(key, window_seconds=window_seconds, max_hits=max_hits):
+            emit(db, event_type, detail={**detail, "bucketKey": key})
+            db.commit()
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Too many attempts. Try again shortly.",
+                headers={"Retry-After": str(window_seconds)},
+            )
 
 
 def _to_user_response(profile: Profile) -> UserResponse:
@@ -82,9 +106,23 @@ def _session_response_from_auth_result(auth_result: dict, db: DbSession) -> Sess
 @router.post("/auth/login", response_model=SessionResponse)
 def login(
     payload: LoginRequest,
+    request: Request,
     db: DbSession = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ) -> SessionResponse:
+    client_ip = resolve_client_ip(request, settings)
+    _rate_limit_or_raise(
+        db,
+        keys=[
+            f"login:ip:{client_ip}",
+            f"login:email:{payload.username.strip().lower()}",
+        ],
+        window_seconds=settings.auth_login_rate_limit_window_seconds,
+        max_hits=settings.auth_login_rate_limit_max_attempts,
+        event_type="login_rate_limited",
+        detail={"clientIp": client_ip},
+    )
+
     # The login form accepts a username or an email (01-login.md §2). Supabase's
     # password grant is email-only, so a bare username is resolved to its
     # mirrored profiles.email first (see user_profile.py's own docstring on
@@ -113,6 +151,7 @@ def login(
 @router.post("/auth/refresh", response_model=SessionResponse)
 def refresh(
     payload: RefreshRequest,
+    request: Request,
     db: DbSession = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ) -> SessionResponse:
@@ -122,6 +161,16 @@ def refresh(
     valid access token — the whole point is that the access token may be
     about to (or already did) expire; the refresh token is the only
     credential this endpoint trusts."""
+    client_ip = resolve_client_ip(request, settings)
+    _rate_limit_or_raise(
+        db,
+        keys=[f"refresh:ip:{client_ip}"],
+        window_seconds=settings.auth_refresh_rate_limit_window_seconds,
+        max_hits=settings.auth_refresh_rate_limit_max_attempts,
+        event_type="refresh_rate_limited",
+        detail={"clientIp": client_ip},
+    )
+
     try:
         auth_result = refresh_access_token(payload.refresh_token, settings)
     except SupabaseAuthError as exc:

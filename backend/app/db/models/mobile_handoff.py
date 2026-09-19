@@ -20,7 +20,7 @@ from __future__ import annotations
 import datetime
 import uuid
 
-from sqlalchemy import DateTime, ForeignKey, String
+from sqlalchemy import DateTime, ForeignKey, Index, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
@@ -30,6 +30,15 @@ from app.db.base import Base
 
 class MobileUploadSession(Base):
     __tablename__ = "mobile_upload_sessions"
+    # Matches migration 0005 exactly: a separate unique constraint plus a
+    # separate non-unique index on token_hash (two DB objects, not one
+    # combined unique index) — previously model/migration drift
+    # (`alembic check` caught it during the 0001 baseline-freeze fix,
+    # R1.3, 2026-09-19).
+    __table_args__ = (
+        UniqueConstraint("token_hash", name="uq_mobile_upload_sessions_token_hash"),
+        Index("ix_mobile_upload_sessions_token_hash", "token_hash"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
@@ -40,7 +49,7 @@ class MobileUploadSession(Base):
     # sha256 hex digest of the raw token — the raw value itself is never
     # written anywhere (not here, not in a log line, not in an audit
     # event). A lookup hashes the caller's token and compares.
-    token_hash: Mapped[str] = mapped_column(String, unique=True, nullable=False, index=True)
+    token_hash: Mapped[str] = mapped_column(String, nullable=False)
     # ACTIVE | COMPLETED | EXPIRED | REVOKED
     status: Mapped[str] = mapped_column(String, nullable=False, default="ACTIVE")
     expires_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), nullable=False)
