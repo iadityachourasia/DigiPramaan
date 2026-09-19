@@ -5,10 +5,15 @@
  * (GET /dashboard, apiGet's Bearer-token convention) — the aggregate is
  * scoped server-side to the authenticated officer, so no viewerId query
  * param is needed any more (the old mock route trusted a client-supplied
- * id; the real backend never does). fetchAnalyticsData() stays on the mock
- * route — the Analytics page (page 7) is outside Phase 5's demo path.
+ * id; the real backend never does).
+ *
+ * §AF (2026-09-20): fetchAnalyticsData() now also has a real branch —
+ * `GET /analytics` returns the full AnalyticsData shape (summary, trends,
+ * every breakdown, and anomalies: [] — anomaly detection isn't built yet,
+ * an honest empty list rather than a fabricated one).
  */
 
+import { isMockMode } from "./client";
 import type { AnalyticsData, DashboardData } from "@/types";
 import { apiGet } from "./client";
 import type { ApiResult } from "./client";
@@ -17,13 +22,8 @@ export function fetchDashboardData(): Promise<ApiResult<DashboardData>> {
   return apiGet("/dashboard");
 }
 
-/**
- * Summary/violation/category/region/source breakdowns come from
- * `GET /api/analytics` — the mock route (outside Phase 5's demo path).
- * Trend and anomalies still come from the static mock data.
- */
-export async function fetchAnalyticsData(viewerId?: string): Promise<ApiResult<AnalyticsData>> {
-  const { MOCK_TREND, MOCK_ANOMALIES } = await import("@/lib/mock");
+async function fetchAnalyticsDataMock(viewerId?: string): Promise<ApiResult<AnalyticsData>> {
+  const { MOCK_TREND, MOCK_TREND_MONTHLY, MOCK_ANOMALIES } = await import("@/lib/mock");
   try {
     const query = viewerId ? `?viewerId=${encodeURIComponent(viewerId)}` : "";
     const response = await fetch(`/api/analytics${query}`);
@@ -34,12 +34,21 @@ export async function fetchAnalyticsData(viewerId?: string): Promise<ApiResult<A
         message: `GET /api/analytics failed with status ${response.status}`,
       };
     }
-    const aggregate = (await response.json()) as Omit<AnalyticsData, "trend" | "anomalies">;
+    const aggregate = (await response.json()) as Omit<AnalyticsData, "trends" | "anomalies">;
     return {
       ok: true,
-      data: { ...aggregate, trend: [...MOCK_TREND], anomalies: [...MOCK_ANOMALIES] },
+      data: {
+        ...aggregate,
+        trends: { weekly: [...MOCK_TREND], monthly: [...MOCK_TREND_MONTHLY] },
+        anomalies: [...MOCK_ANOMALIES],
+      },
     };
   } catch {
     return { ok: false, status: 0, message: "Network error" };
   }
+}
+
+export function fetchAnalyticsData(viewerId?: string): Promise<ApiResult<AnalyticsData>> {
+  if (isMockMode()) return fetchAnalyticsDataMock(viewerId);
+  return apiGet<AnalyticsData>("/analytics");
 }

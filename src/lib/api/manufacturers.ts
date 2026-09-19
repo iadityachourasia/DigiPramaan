@@ -3,10 +3,12 @@
  *
  * Phase 5: cut over to the real backend's Company Profile (Phase 4) via the
  * companies.ts adapter (adapt the response shape, don't duplicate the page
- * — see that file's own doc comment). flagManufacturerForEnforcement has no
- * real backend equivalent (Follow-Through operates per-record, via
- * flagForEnforcement in records.ts) and stays on the mock route, outside
- * Phase 5's demo path.
+ * — see that file's own doc comment).
+ *
+ * §AF (2026-09-20): flagManufacturerForEnforcement now has a real branch —
+ * `POST /companies/{id}/flag-enforcement` (backend/app/api/v1/companies.py),
+ * the bulk version of records.ts's per-record flagForEnforcement, sharing
+ * the same underlying flag_record_for_enforcement.
  */
 
 import { API } from "@/lib/constants";
@@ -17,7 +19,7 @@ import {
   type CompanyProfileResponse,
 } from "@/lib/api/companies";
 import type { ComplianceRecord, ManufacturerScorecard } from "@/types";
-import { apiGet } from "./client";
+import { apiGet, apiPost, isMockMode } from "./client";
 import type { ApiResult } from "./client";
 
 async function requestJson<T>(path: string, init?: RequestInit): Promise<ApiResult<T>> {
@@ -71,11 +73,13 @@ export interface ManufacturerFlagResponse {
   alreadyFlagged: string[];
 }
 
-/** No real per-manufacturer bulk-flag endpoint — Follow-Through operates per-record (records.ts). Stays mock. */
 export function flagManufacturerForEnforcement(
   id: string,
   userId: string
 ): Promise<ApiResult<ManufacturerFlagResponse>> {
+  if (!isMockMode()) {
+    return apiPost<ManufacturerFlagResponse>(API.companies.flagEnforcement(id), {});
+  }
   return requestJson(`/api/manufacturers/${id}/flag-enforcement`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

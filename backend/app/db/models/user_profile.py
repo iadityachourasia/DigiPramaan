@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import Column, ForeignKey, String, Table
+from sqlalchemy import Boolean, Column, ForeignKey, String, Table
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -56,3 +56,10 @@ class Profile(Base):
     region: Mapped[str | None] = mapped_column(String, nullable=True)
     jurisdiction_level: Mapped[str | None] = mapped_column(String, nullable=True)
     jurisdiction_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    # Admin Console (2026-09-20): services/authz/viewer.py::ViewerScope.
+    # from_profile already reads this via getattr(profile, "active",
+    # True) — has been forward-compatible since it was written.
+    active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
+    reports_to: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("profiles.id"), nullable=True
+    )

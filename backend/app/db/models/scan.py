@@ -14,7 +14,7 @@ from __future__ import annotations
 import datetime
 import uuid
 
-from sqlalchemy import DateTime, ForeignKey, String
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, String
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
@@ -24,12 +24,23 @@ from app.db.base import Base
 
 class ScanSession(Base):
     __tablename__ = "scan_sessions"
+    __table_args__ = (
+        # Citizen Grievance Portal fix: a grievance-sourced scan has no
+        # signed-in officer to attribute `created_by` to (the whole point
+        # of the portal is "no account, no form-filling"). Every OTHER
+        # source must still name a real creator — this is not a general
+        # nullability relaxation, only the one documented exception.
+        CheckConstraint(
+            "created_by IS NOT NULL OR source = 'Citizen-Reported'",
+            name="ck_scan_sessions_created_by_or_citizen_reported",
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
     )
-    created_by: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("profiles.id"), nullable=False
+    created_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("profiles.id"), nullable=True
     )
     category: Mapped[str | None] = mapped_column(String, nullable=True)
     region: Mapped[str | None] = mapped_column(String, nullable=True)

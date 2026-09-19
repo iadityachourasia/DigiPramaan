@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from "react";
 
+import { isMockMode } from "@/lib/api/client";
 import { lookupGrievance, submitGrievance } from "@/lib/api/grievances";
 import { inspectPhotoQuality } from "@/lib/utils/photoQuality";
 import type {
@@ -149,11 +150,9 @@ export function useGrievanceForm(demoState?: string): UseGrievanceFormResult {
     }
 
     const result = await submitGrievance({
-      photo: {
-        fileName: slot.image.fileName,
-        url: slot.image.url,
-        sizeBytes: slot.image.sizeBytes,
-      },
+      photo: isMockMode()
+        ? { fileName: slot.image.fileName, url: slot.image.url, sizeBytes: slot.image.sizeBytes }
+        : file,
       concerns,
       ...(fields.concernNote.trim() ? { concernNote: fields.concernNote.trim() } : {}),
       ...(fields.shopNameOrLocation.trim()
