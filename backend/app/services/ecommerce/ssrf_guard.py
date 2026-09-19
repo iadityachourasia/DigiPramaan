@@ -84,7 +84,28 @@ def resolve_and_check_host(hostname: str) -> list[str]:
 
 
 def validate_url_is_safe_to_fetch(url: str) -> None:
-    """Both checks, in order — the one function every fetch call site
-    (the original URL, and every redirect hop) should actually call."""
+    """Both checks, in order. Superseded by
+    `validate_url_is_safe_to_fetch_and_pin` (P2 hardening, F-009) for the
+    real fetch path — kept as a thin wrapper since some callers only ever
+    needed the validation, not a pinned IP to connect to."""
     hostname = validate_url_scheme(url)
     resolve_and_check_host(hostname)
+
+
+def validate_url_is_safe_to_fetch_and_pin(url: str) -> tuple[str, str]:
+    """P2 hardening (2026-09-19, F-009): the DNS-pinning fix. The old
+    `validate_url_is_safe_to_fetch` validated a hostname, then the caller
+    (fetcher.py) did a SECOND, independent DNS lookup when it actually
+    connected (httpx resolves the hostname itself) — a real TOCTOU/DNS-
+    rebinding gap, since the IP validated here was never the IP actually
+    connected to. Returns `(hostname, pinned_ip)`: the caller connects to
+    `pinned_ip` literally (never re-resolving), using `hostname` only for
+    TLS SNI/certificate verification and the `Host` header. Picks the
+    first validated IP deterministically (list order from
+    `resolve_and_check_host`, itself built from a `set` — not literally
+    stable across calls for a multi-IP record, but every returned IP has
+    already passed the exact same safety check, so which one is picked is
+    not a safety-relevant choice)."""
+    hostname = validate_url_scheme(url)
+    ips = resolve_and_check_host(hostname)
+    return hostname, ips[0]

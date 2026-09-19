@@ -10,6 +10,7 @@ them permanently null; both are worse than adding them when they become real.
 """
 
 import logging
+import re
 import time
 import uuid
 from collections.abc import Awaitable, Callable
@@ -20,6 +21,30 @@ from starlette.requests import Request
 from starlette.responses import Response
 
 REQUEST_ID_HEADER = "X-Request-ID"
+
+# P2 hardening (2026-09-19, F-008): the raw mobile-handoff token (a bearer
+# credential for the phone-side capture session, `secrets.token_urlsafe`)
+# travels in the URL PATH on 3 routes (see api/v1/mobile_handoff.py's own
+# module docstring on why — the QR-code UX needs it there) — logging
+# `request.url.path` verbatim, as every request already does, put that
+# token into the structured JSON log stream on every request. Redact just
+# that one path segment, matching the "one targeted redaction helper"
+# discipline services/ocr/openparser/redact.py already established for
+# header secrets.
+_MOBILE_HANDOFF_TOKEN_PATH = re.compile(r"(/mobile-handoff/)[^/]+")
+
+
+def _redact_path(path: str) -> str:
+    return _MOBILE_HANDOFF_TOKEN_PATH.sub(r"\1***", path)
+
+
+# P2 hardening (F-019): an inbound X-Request-ID is untrusted input — never
+# log-inject, never unbounded. A well-formed value (UUID/ULID/any
+# reasonable correlation-id convention an upstream layer might already
+# stamp) is echoed back; anything else silently gets a fresh generated id
+# instead (this server declining to trust an untrusted header shape is not
+# the caller's fault to fix, so this never fails the request over it).
+_REQUEST_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 
 
 def configure_logging(log_level: str) -> None:
@@ -45,7 +70,8 @@ class RequestIdMiddleware(BaseHTTPMiddleware):
     async def dispatch(
         self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
-        request_id = request.headers.get(REQUEST_ID_HEADER) or str(uuid.uuid4())
+        inbound = request.headers.get(REQUEST_ID_HEADER)
+        request_id = inbound if inbound and _REQUEST_ID_RE.match(inbound) else str(uuid.uuid4())
         request.state.request_id = request_id
 
         structlog.contextvars.clear_contextvars()
@@ -61,7 +87,7 @@ class RequestIdMiddleware(BaseHTTPMiddleware):
         logger.info(
             "request_completed",
             method=request.method,
-            path=request.url.path,
+            path=_redact_path(request.url.path),
             status_code=response.status_code,
             duration_ms=duration_ms,
         )
