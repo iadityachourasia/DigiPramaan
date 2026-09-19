@@ -10,21 +10,25 @@ Generation flow: insert a PENDING `Report` row immediately, schedule
 `jobs.reports.generate_report_job` via BackgroundTasks, return 202. The
 job freezes a ReportSnapshotV2 (services/reports/snapshot.py), fetches and
 optimizes real evidence images (services/reports/images.py), renders
-PDF+DOCX via the Node subprocess renderer, uploads both to B2, and writes
-`frozen_snapshot`/storage keys/hashes/status="COMPLETED" in one final
-commit — exactly once, same "written exactly once" discipline as before,
-just later in the sequence (after hashes are knowable) than the old
-synchronous version.
+PDF+DOCX via an internal HTTP call to the Next.js app's own render route
+(F-003 fix, 2026-09-19 — see jobs/reports.py's own module docstring),
+uploads both to B2, and writes `frozen_snapshot`/storage keys/hashes/
+status="COMPLETED" in one final commit — exactly once, same "written
+exactly once" discipline as before, just later in the sequence (after
+hashes are knowable) than the old synchronous version.
 """
 
 from __future__ import annotations
 
+import hashlib
 import uuid
+from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session as DbSession
 
-from app.api.deps.auth import get_current_user, get_current_user_from_bearer_or_query
+from app.api.deps.auth import get_current_user
+from app.api.deps.download_ticket import get_current_user_or_ticket
 from app.api.deps.permissions import require_permission
 from app.core.config import Settings, get_settings
 from app.core.object_storage import get_s3_client
@@ -33,6 +37,7 @@ from app.db.session import get_db
 from app.jobs.reports import generate_report_job, retry_report
 from app.services.authz.repositories import get_visible_record
 from app.services.scope import apply_officer_scope
+from app.services.tickets.download_ticket import issue_download_ticket
 
 router = APIRouter(tags=["reports"])
 
@@ -63,6 +68,29 @@ def _report_summary(report: Report) -> dict:
             fmt for fmt, meta in _FORMAT_FILES.items() if getattr(report, meta["key_attr"]) is not None
         ],
     }
+
+
+@router.get("/reports")
+def list_reports(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100, alias="pageSize"),
+    db: DbSession = Depends(get_db),
+    current_user: Profile = Depends(get_current_user),
+) -> dict:
+    """Download History's global list (2026-09-20 mock-to-real port) —
+    record-scope only, matching the same cut record-scope report
+    generation/detail/download already made. Manufacturer/filtered-scope
+    multi-record reports need the report-manifest redesign F-003's own
+    plan already flagged as separate work."""
+    scoped_record_ids = apply_officer_scope(db.query(ComplianceRecord.id), current_user).subquery()
+    query = (
+        db.query(Report)
+        .filter(Report.compliance_record_id.in_(db.query(scoped_record_ids)))
+        .order_by(Report.generated_at.desc())
+    )
+    total = query.count()
+    reports = query.offset((page - 1) * page_size).limit(page_size).all()
+    return {"reports": [_report_summary(r) for r in reports], "total": total}
 
 
 @router.post("/records/{record_id}/reports", status_code=status.HTTP_202_ACCEPTED)
@@ -172,13 +200,33 @@ def _download_filename(report: Report, extension: str) -> str:
     return f"DigiPramaan_Compliance_Report_{inspection_id}.{extension}"
 
 
+@router.post("/reports/{report_id}/download-ticket")
+def issue_report_download_ticket(
+    report_id: uuid.UUID,
+    db: DbSession = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+    current_user: Profile = Depends(get_current_user),
+) -> dict:
+    """P2 hardening (F-010): replaces the raw session JWT that used to
+    travel in `download_report`'s own `?access_token=` query param. Runs
+    the SAME scope check `download_report` itself applies (_scoped_report_
+    or_404) before minting — a ticket can never be issued for a report the
+    caller isn't allowed to see, and requires a real Bearer JWT to call."""
+    report = _scoped_report_or_404(report_id, db, current_user)
+    ticket = issue_download_ticket(
+        settings, resource_id=report.id, kind="report", issued_by=current_user.id
+    )
+    expires_at = datetime.now(timezone.utc) + timedelta(seconds=settings.download_ticket_ttl_seconds)
+    return {"ticket": ticket, "expiresAt": expires_at.isoformat()}
+
+
 @router.get("/reports/{report_id}/download/{report_format}")
 def download_report(
     report_id: uuid.UUID,
     report_format: str,
     db: DbSession = Depends(get_db),
     settings: Settings = Depends(get_settings),
-    current_user: Profile = Depends(get_current_user_from_bearer_or_query),
+    current_user: Profile = Depends(get_current_user_or_ticket(kind="report", resource_id_param="report_id")),
 ) -> Response:
     """NEVER regenerates. Reads the stored storage key off the `Report` row
     (written exactly once, at generation time) and streams back the exact
@@ -213,7 +261,9 @@ def download_report(
 
 
 @router.get("/verify/reports/{report_id}")
-def verify_report(report_id: str, db: DbSession = Depends(get_db)) -> dict:
+def verify_report(
+    report_id: str, db: DbSession = Depends(get_db), settings: Settings = Depends(get_settings)
+) -> dict:
     """Public, unauthenticated — no Depends(get_current_user*) at all. A
     `Report.id` is a server-generated gen_random_uuid() (122 bits, never
     derived from another field) and this response is deliberately minimal
@@ -224,12 +274,19 @@ def verify_report(report_id: str, db: DbSession = Depends(get_db)) -> dict:
     malformed ID — `report_id` is deliberately typed `str`, not
     `uuid.UUID`, so a bad ID reaches this function instead of FastAPI's
     own path-validation 422, and the response shape never distinguishes
-    the two failure modes."""
+    the two failure modes.
+
+    F-003 fix (2026-09-19): `authenticity` used to be "VALID" the moment
+    `status == COMPLETED", trusting whatever `pdf_sha256` was written at
+    generation time without ever looking at the actual stored bytes again.
+    Now the real PDF object is re-fetched from B2 and re-hashed on every
+    call — "VALID" means the object in storage right now still matches the
+    hash recorded at generation, not just that a row says so."""
     try:
         report = db.get(Report, uuid.UUID(report_id))
     except ValueError:
         report = None
-    if report is None or report.status != "COMPLETED":
+    if report is None or report.status != "COMPLETED" or not report.pdf_storage_key:
         return {
             "reportId": report_id,
             "inspectionId": None,
@@ -241,11 +298,20 @@ def verify_report(report_id: str, db: DbSession = Depends(get_db)) -> dict:
 
     snapshot = report.frozen_snapshot or {}
     inspection_id = snapshot.get("inspection", {}).get("inspectionId")
+
+    s3_client = get_s3_client(settings)
+    try:
+        obj = s3_client.get_object(Bucket=settings.s3_bucket, Key=report.pdf_storage_key)
+        actual_sha256 = hashlib.sha256(obj["Body"].read()).hexdigest()
+        authenticity = "VALID" if actual_sha256 == report.pdf_sha256 else "TAMPERED"
+    except Exception:  # noqa: BLE001 - storage unreachable/object missing is never "VALID"
+        authenticity = "TAMPERED"
+
     return {
         "reportId": str(report.id),
         "inspectionId": inspection_id,
         "generatedAt": report.generated_at.isoformat() if report.generated_at else None,
         "status": report.status,
         "pdfSha256": report.pdf_sha256,
-        "authenticity": "VALID",
+        "authenticity": authenticity,
     }
