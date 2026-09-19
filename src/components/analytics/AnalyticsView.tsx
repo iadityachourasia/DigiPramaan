@@ -112,6 +112,7 @@ export function AnalyticsView({ locale }: { locale: string }) {
 
       {/* Time Trends */}
       <TrendPanel
+        {...(data ? { dataByPeriod: data.trends } : {})}
         labels={{
           heading: t("trend.heading"),
           weekly: t("trend.weekly"),
