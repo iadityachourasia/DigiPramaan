@@ -4,6 +4,23 @@ import type { NextConfig } from "next";
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
 /**
+ * §T step 1.9 build-time half of the mock-API lockdown (the runtime half is
+ * src/proxy.ts). A production build must never ship with the mock namespace
+ * reachable or the client defaulting to mock data — fail the build outright
+ * rather than silently deploying either.
+ */
+if (
+  process.env.VERCEL_ENV === "production" &&
+  (process.env.ENABLE_MOCK_API === "true" || process.env.NEXT_PUBLIC_USE_MOCK_DATA !== "false")
+) {
+  throw new Error(
+    "Refusing to build for production with mock mode enabled — " +
+      "ENABLE_MOCK_API must be unset (or \"false\") and NEXT_PUBLIC_USE_MOCK_DATA must be " +
+      '"false". See src/proxy.ts and F-002 in docs/internal/BACKEND_PRODUCTION_AUDIT_AND_REMEDIATION.md.',
+  );
+}
+
+/**
  * P2 hardening (2026-09-19, N-21) — CSP + security headers.
  *
  * `connect-src` must include the real FastAPI backend's origin, not just
