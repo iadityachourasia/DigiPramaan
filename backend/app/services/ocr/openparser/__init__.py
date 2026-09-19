@@ -2,10 +2,12 @@
 services/ocr/openparser/ — OP-Phase 2's typed config, error taxonomy, and
 HTTP client for OpenParser, the same-day key-pool addendum (`pool.py`),
 OP-Phase 3's durable persistence/outbox/worker over `ocr_provider_jobs`,
-and OP-Phase 4's normalization adapter (confidence, coordinate mapping,
-`OcrElement`). Not wired into the pipeline yet (Phase 5) and never
-called from anywhere in this codebase's own runtime path — see
-client.py's own module docstring.
+OP-Phase 4's normalization adapter (confidence, coordinate mapping,
+`OcrElement`), and (OP-Phase 5) `pipeline_bridge.py`, the module
+`app/jobs/pipeline.py` calls into when `OCR_PROVIDER` is
+`openparser`/`openparser_shadow`. `local_paddle` (the default in every
+real deployment today) never reaches any of this — see
+`pipeline_bridge.py`'s own module docstring.
 """
 
 from app.services.ocr.openparser.client import OpenParserClient
@@ -30,6 +32,12 @@ from app.services.ocr.openparser.normalize import (
     OcrElement,
     normalize_parsed_document,
     to_legacy_ocr_block,
+)
+from app.services.ocr.openparser.pipeline_bridge import (
+    OpenParserPipelineFailure,
+    OpenParserPipelineTimeout,
+    resume_openparser_text_extraction,
+    run_openparser_text_extraction,
 )
 from app.services.ocr.openparser.artifacts import ArtifactRef, write_artifact
 from app.services.ocr.openparser.persistence import (
@@ -93,6 +101,10 @@ __all__ = [
     "OcrElement",
     "normalize_parsed_document",
     "to_legacy_ocr_block",
+    "OpenParserPipelineFailure",
+    "OpenParserPipelineTimeout",
+    "resume_openparser_text_extraction",
+    "run_openparser_text_extraction",
     "ArtifactRef",
     "write_artifact",
     "StaleStateError",
