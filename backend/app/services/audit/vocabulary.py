@@ -61,6 +61,11 @@ ACTIVITY_EVENT_TYPES = frozenset(
         "evidence_image_uploaded",
         "evidence_image_replaced",
         "evidence_override_submitted",
+        # --- new, P2 hardening (2026-09-19) — login/refresh rate limiting
+        # (app/services/auth/rate_limit.py). Emitted only on a 429
+        # rejection, never per attempt (would be high-volume noise). ---
+        "login_rate_limited",
+        "refresh_rate_limited",
     }
 )
 
@@ -107,4 +112,6 @@ ACTIVITY_TO_AUDIT_TYPE: dict[str, str | None] = {
     "evidence_image_uploaded": None,
     "evidence_image_replaced": None,
     "evidence_override_submitted": None,
+    "login_rate_limited": None,
+    "refresh_rate_limited": None,
 }

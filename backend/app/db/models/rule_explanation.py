@@ -18,7 +18,7 @@ from __future__ import annotations
 import datetime
 import uuid
 
-from sqlalchemy import DateTime, ForeignKey, String
+from sqlalchemy import DateTime, ForeignKey, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
@@ -28,6 +28,15 @@ from app.db.base import Base
 
 class RuleExplanation(Base):
     __tablename__ = "rule_explanations"
+    # Matches migration 0002's own uq_rule_explanations_record_rule —
+    # previously model/migration drift (`alembic check` caught it during
+    # the 0001 baseline-freeze fix, R1.3, 2026-09-19); one row per
+    # (record, rule) is this table's own documented invariant.
+    __table_args__ = (
+        UniqueConstraint(
+            "compliance_record_id", "rule_id", name="uq_rule_explanations_record_rule"
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()

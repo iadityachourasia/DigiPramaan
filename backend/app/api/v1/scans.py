@@ -24,11 +24,13 @@ from sqlalchemy.orm import Session as DbSession
 from pydantic import BaseModel
 
 from app.api.deps.auth import get_current_user, get_current_user_from_bearer_or_query
+from app.api.deps.body_size import max_body_size, read_capped_sync
 from app.api.deps.permissions import require_permission
 from app.core.config import Settings, get_settings
 from app.core.ids import derive_record_id
 from app.core.object_storage import get_s3_client
-from app.db.models import AuditEvent, ComplianceRecord, EvidenceImage, Profile, ScanSession
+from app.db.models import ComplianceRecord, EvidenceImage, Profile, ScanSession
+from app.services.audit import emit
 from app.db.session import get_db
 from app.jobs.pipeline import initial_stages, mark_capture_stages_completed, retry_stage, run_pipeline
 from app.services.extraction.schema import CalibrationData, ComplianceEvidenceBundle, Point
@@ -215,11 +217,12 @@ def _frontend_failure_reason(quality: QualityResult) -> str:
     return "no_text_detected"
 
 
-@router.post("/scans/quality-check")
-async def check_scan_image_quality(
+@router.post("/scans/quality-check", dependencies=[Depends(max_body_size("scan_image_max_bytes"))])
+def check_scan_image_quality(
     angle: str = Form(...),
     file: UploadFile = File(...),
     _current_user: Profile = Depends(require_permission("scan.create")),
+    settings: Settings = Depends(get_settings),
 ) -> dict:
     """Per-photo pre-check for the Device/Camera capture wizard (03 §2) —
     gives an early Retake verdict before the officer reaches final
@@ -228,11 +231,17 @@ async def check_scan_image_quality(
     persists anything: a rejected photo here leaves no trace, matching that
     same "a failed attempt leaves no trace" rule mobile-handoff's own
     per-image endpoint already follows.
+
+    Plain `def` (P2/N-16 fix, 2026-09-19): the only prior `await` was the
+    file read itself; `evaluate_image_quality` is pure synchronous
+    OpenCV/PIL work. FastAPI threadpools a plain `def` handler's entire
+    body automatically, matching every other route in this file — the old
+    `async def` blocked the event loop for the duration of image decoding.
     """
     if angle not in VALID_ANGLES:
         raise HTTPException(status_code=422, detail=f"angle must be one of {VALID_ANGLES}")
 
-    image_bytes = await file.read()
+    image_bytes = read_capped_sync(file, settings.scan_image_max_bytes)
     quality = evaluate_image_quality(image_bytes)
 
     if quality.overall_verdict == QualityVerdict.RECAPTURE_REQUIRED:
@@ -242,7 +251,7 @@ async def check_scan_image_quality(
 
 
 @router.post("/scans", status_code=status.HTTP_201_CREATED)
-async def create_scan(
+def create_scan(
     background_tasks: BackgroundTasks,
     metadata: str = Form(...),
     front: UploadFile = File(...),
@@ -255,6 +264,9 @@ async def create_scan(
     db: DbSession = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ) -> dict:
+    """Plain `def` (P2/N-16 fix, 2026-09-19) — see check_scan_image_quality's
+    own docstring for the rationale; the only prior `await`s were the three
+    file reads, now sync-capped reads instead."""
     try:
         meta = json.loads(metadata)
     except json.JSONDecodeError as exc:
@@ -265,7 +277,7 @@ async def create_scan(
     for angle, upload in uploads:
         if upload is None:
             continue
-        image_bytes = await upload.read()
+        image_bytes = read_capped_sync(upload, settings.scan_image_max_bytes)
         filename = upload.filename or f"{angle}.{_extension_for(upload)}"
         images.append((angle, filename, image_bytes))
 
@@ -310,8 +322,11 @@ def create_scan_draft(
     return {"scanId": str(scan_session.id)}
 
 
-@router.post("/scans/{scan_id}/images/{angle}")
-async def upload_capture_image(
+@router.post(
+    "/scans/{scan_id}/images/{angle}",
+    dependencies=[Depends(max_body_size("scan_image_max_bytes"))],
+)
+def upload_capture_image(
     scan_id: uuid.UUID,
     angle: str,
     file: UploadFile,
@@ -325,7 +340,10 @@ async def upload_capture_image(
     Mobile QR Handoff's phone-side upload uses. `override_reason` lets an
     officer accept a `RECAPTURE_REQUIRED` photo anyway (e.g. a genuinely
     low-quality but otherwise unobtainable label), persisted and audited,
-    never silently — see services/scans/intake.py's own docstring."""
+    never silently — see services/scans/intake.py's own docstring.
+
+    Plain `def` (P2/N-16 fix, 2026-09-19) — see check_scan_image_quality's
+    own docstring for the rationale."""
     if angle not in VALID_ANGLES:
         raise HTTPException(status_code=422, detail=f"angle must be one of {VALID_ANGLES}")
 
@@ -336,7 +354,7 @@ async def upload_capture_image(
             detail="This record has already been verified and cannot accept new evidence.",
         )
 
-    image_bytes = await file.read()
+    image_bytes = read_capped_sync(file, settings.scan_image_max_bytes)
     acceptance = accept_evidence_image(
         db, settings,
         scan_session_id=scan_session.id, angle=angle,
@@ -417,14 +435,10 @@ def finalize_scan_draft(
         for image in images
     )
     scan_session.stages = mark_capture_stages_completed(scan_session.stages, quality_summary)
-    db.add(
-        AuditEvent(
-            actor_id=current_user.id,
-            event_type="scan_created",
-            entity_type="ScanSession",
-            entity_id=scan_session.id,
-            detail={},
-        )
+    emit(
+        db, "scan_created", viewer=current_user,
+        entity_type="ScanSession", entity_id=scan_session.id, region=scan_session.region,
+        detail={},
     )
     db.commit()
 

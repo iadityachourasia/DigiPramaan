@@ -250,7 +250,7 @@ export const MOCK_ANALYTICS: AnalyticsData = {
         : Math.round((compliantCount / (compliantCount + nonCompliantCount)) * 100),
     processingSuccessRatePercentage: 94,
   },
-  trend: [...MOCK_TREND],
+  trends: { weekly: [...MOCK_TREND], monthly: [...MOCK_TREND_MONTHLY] },
   violationBreakdown: [...MOCK_VIOLATION_BREAKDOWN],
   categoryBreakdown: [...MOCK_CATEGORY_BREAKDOWN],
   regionBreakdown: [...MOCK_REGION_BREAKDOWN],

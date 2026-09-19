@@ -9,7 +9,7 @@ import { Link } from "@/i18n/navigation";
 import { ImageViewer } from "@/components/scan/ImageViewer";
 import { ROUTES } from "@/lib/constants";
 import { useAuth, usePermission, useRecordDetail } from "@/lib/hooks";
-import { fetchReportsForRecord, reportDownloadHref } from "@/lib/api/reports";
+import { fetchReportsForRecord, getRecordReportDownloadHref } from "@/lib/api/reports";
 import { formatShortDate } from "@/lib/utils/format";
 import {
   violationCategory,
@@ -68,6 +68,15 @@ export function RecordDetailView({ recordId, locale }: RecordDetailViewProps) {
       cancelled = true;
     };
   }, [recordId, user]);
+
+  // P2 hardening (F-010): a real Bearer-authenticated fetch to issue a
+  // short-lived download ticket first, then a normal browser navigation
+  // to the download URL — a plain <a href> can no longer carry the raw
+  // session token directly.
+  async function handleDownload(report: GeneratedReport, format: (typeof report.formats)[number]) {
+    const href = await getRecordReportDownloadHref(report, format);
+    window.location.assign(href);
+  }
 
   if (notFound) {
     return (
@@ -393,13 +402,14 @@ export function RecordDetailView({ recordId, locale }: RecordDetailViewProps) {
                   </span>
                   <div className="lmcs-record-detail-actions">
                     {report.formats.map((format) => (
-                      <a
+                      <button
                         key={format}
-                        href={reportDownloadHref(report, format)}
+                        type="button"
+                        onClick={() => void handleDownload(report, format)}
                         className="ux4g-btn ux4g-btn-text-primary ux4g-btn-sm"
                       >
                         {t("reportHistory.download", { format })}
-                      </a>
+                      </button>
                     ))}
                   </div>
                 </li>

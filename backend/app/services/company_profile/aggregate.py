@@ -17,10 +17,13 @@ from collections import Counter, defaultdict
 from sqlalchemy.orm import Session
 
 from app.db.models import ComplianceRecord, LegalEntity, Product, ProductInspectionLink, ViolationCase, Profile
+from app.services.admin.thresholds import get_effective_thresholds
 from app.services.risk.engine import aggregate_score, evaluate_company_rules
 from app.services.scope import apply_officer_scope
 
-# Matches the frontend's own REPEAT_VIOLATION_THRESHOLD (src/types/manufacturer.ts).
+# Fallback defaults, matching services/admin/thresholds.py::DEFAULT_THRESHOLDS
+# and the frontend's own REPEAT_VIOLATION_THRESHOLD (src/types/manufacturer.ts)
+# — used only if get_effective_thresholds() is ever unavailable.
 _REPEAT_VIOLATION_COUNT = 3
 _REPEAT_VIOLATION_DAYS = 90
 
@@ -99,14 +102,18 @@ def build_company_profile(legal_entity_id: uuid.UUID, db: Session, current_user:
         {"categoryId": cat, "count": count} for cat, count in violation_counts.most_common()
     ]
 
+    thresholds = get_effective_thresholds(db)
+    repeat_violation_count = thresholds["repeatViolationCount"]
+    repeat_violation_days = thresholds["repeatViolationDays"]
+
     now = datetime.datetime.now(datetime.timezone.utc)
     recent_non_compliant = [
         r for r in records
         if r.compliance_status == "Non-Compliant"
         and r.verified_at
-        and (now - r.verified_at) <= datetime.timedelta(days=_REPEAT_VIOLATION_DAYS)
+        and (now - r.verified_at) <= datetime.timedelta(days=repeat_violation_days)
     ]
-    repeat_violation_flagged = len(recent_non_compliant) >= _REPEAT_VIOLATION_COUNT
+    repeat_violation_flagged = len(recent_non_compliant) >= repeat_violation_count
 
     record_ids = [r.id for r in records]
     open_case_count = (
@@ -117,7 +124,10 @@ def build_company_profile(legal_entity_id: uuid.UUID, db: Session, current_user:
         if record_ids else 0
     )
 
-    triggered = evaluate_company_rules(records, product_id_by_record, open_case_count)
+    triggered = evaluate_company_rules(
+        records, product_id_by_record, open_case_count,
+        repeat_threshold=repeat_violation_count, window_days=repeat_violation_days,
+    )
     risk = aggregate_score(triggered)
 
     recent_inspections = sorted(

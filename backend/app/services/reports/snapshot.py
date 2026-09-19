@@ -428,7 +428,14 @@ def _build_barcode_evidence(record: ComplianceRecord) -> BarcodeEvidenceSection 
     )
 
 
-def _build_officer_verification(record: ComplianceRecord, current_user: Profile) -> OfficerVerification:
+def _build_officer_verification(
+    record: ComplianceRecord, db: DbSession
+) -> OfficerVerification:
+    """F-003 fix (2026-09-19): "verified by" must name the officer who
+    actually verified the RECORD (`record.verified_by`), never whoever
+    happens to click "Generate Report" later — those are routinely
+    different people/times, and the original code silently conflated
+    them by reading `current_user` (the report's generator) here."""
     rule_results = _rule_results(record)
     resolutions = [
         OfficerResolution(
@@ -442,10 +449,11 @@ def _build_officer_verification(record: ComplianceRecord, current_user: Profile)
         for r in rule_results
         if r.resolution is not None
     ]
+    verifier = db.get(Profile, record.verified_by) if record.verified_by else None
     return OfficerVerification(
-        verified_by_name=current_user.full_name,
-        verified_by_role=current_user.role,
-        verified_by_region=current_user.region,
+        verified_by_name=verifier.full_name if verifier else "Unknown",
+        verified_by_role=verifier.role if verifier else "Unknown",
+        verified_by_region=verifier.region if verifier else None,
         verified_at=record.verified_at.isoformat() if record.verified_at else None,
         final_status=record.compliance_status,
         resolutions=resolutions,
@@ -489,6 +497,6 @@ def build_report_snapshot(
         placement_evidence=_build_placement_evidence(record),
         readability_evidence=_build_readability_evidence(record),
         barcode_evidence=_build_barcode_evidence(record),
-        officer_verification=_build_officer_verification(record, current_user),
+        officer_verification=_build_officer_verification(record, db),
         integrity=_build_integrity(report_id, inspection_id, current_user, settings),
     )

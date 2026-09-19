@@ -115,7 +115,8 @@ export interface AnomalyAlert {
 
 export interface AnalyticsData {
   summary: AnalyticsSummary;
-  trend: TrendPoint[];
+  /** Weekly and monthly series, same shape as DashboardData.trends — Time Trends' toggle needs both. */
+  trends: Record<TrendPeriod, TrendPoint[]>;
   violationBreakdown: ViolationBreakdownEntry[];
   categoryBreakdown: CategoryBreakdownEntry[];
   regionBreakdown: RegionBreakdownEntry[];

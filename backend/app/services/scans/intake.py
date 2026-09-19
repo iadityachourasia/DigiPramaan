@@ -37,7 +37,8 @@ from sqlalchemy.orm import Session as DbSession
 
 from app.core.config import Settings
 from app.core.object_storage import get_s3_client
-from app.db.models import AuditEvent, EvidenceImage
+from app.db.models import EvidenceImage
+from app.services.audit import emit
 from app.services.image_quality import QualityResult, QualityVerdict, evaluate_image_quality
 
 CONTENT_TYPE_ALLOWLIST = {"image/jpeg", "image/png", "image/webp"}
@@ -160,24 +161,16 @@ def accept_evidence_image(
     db.add(evidence_image)
     db.flush()
 
-    db.add(
-        AuditEvent(
-            actor_id=actor_id,
-            event_type=event_type_replaced if is_replacement else event_type_uploaded,
-            entity_type="ScanSession",
-            entity_id=scan_session_id,
-            detail={"angle": angle, "acceptanceState": acceptance_state.value},
-        )
+    emit(
+        db, event_type_replaced if is_replacement else event_type_uploaded, actor_id=actor_id,
+        entity_type="ScanSession", entity_id=scan_session_id,
+        detail={"angle": angle, "acceptanceState": acceptance_state.value},
     )
     if acceptance_state == AcceptanceState.OVERRIDDEN:
-        db.add(
-            AuditEvent(
-                actor_id=actor_id,
-                event_type="evidence_override_submitted",
-                entity_type="ScanSession",
-                entity_id=scan_session_id,
-                detail={"angle": angle, "reason": override_reason},
-            )
+        emit(
+            db, "evidence_override_submitted", actor_id=actor_id,
+            entity_type="ScanSession", entity_id=scan_session_id,
+            detail={"angle": angle, "reason": override_reason},
         )
 
     return EvidenceAcceptance(

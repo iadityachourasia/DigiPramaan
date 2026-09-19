@@ -30,10 +30,12 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFi
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session as DbSession
 
+from app.api.deps.body_size import read_capped_sync
 from app.api.deps.mobile_handoff import get_active_handoff
 from app.api.deps.permissions import require_permission
 from app.core.config import Settings, get_settings
-from app.db.models import AuditEvent, EvidenceImage, MobileUploadSession, Profile, ScanSession
+from app.db.models import EvidenceImage, MobileUploadSession, Profile, ScanSession
+from app.services.audit import emit
 from app.db.session import get_db
 from app.jobs.pipeline import mark_capture_stages_completed, run_pipeline
 from app.services.scans import AcceptanceState, accept_evidence_image
@@ -124,14 +126,10 @@ def create_mobile_handoff(
     db.add(handoff)
     db.flush()
 
-    db.add(
-        AuditEvent(
-            actor_id=current_user.id,
-            event_type="mobile_handoff_created",
-            entity_type="ScanSession",
-            entity_id=scan_session.id,
-            detail={"handoffId": str(handoff.id)},
-        )
+    emit(
+        db, "mobile_handoff_created", viewer=current_user,
+        entity_type="ScanSession", entity_id=scan_session.id, region=scan_session.region,
+        detail={"handoffId": str(handoff.id)},
     )
     db.commit()
 
@@ -189,14 +187,10 @@ def revoke_mobile_handoff(
 
     handoff.status = "REVOKED"
     handoff.revoked_at = datetime.now(timezone.utc)
-    db.add(
-        AuditEvent(
-            actor_id=current_user.id,
-            event_type="mobile_handoff_revoked",
-            entity_type="ScanSession",
-            entity_id=scan_session.id,
-            detail={"handoffId": str(handoff.id)},
-        )
+    emit(
+        db, "mobile_handoff_revoked", viewer=current_user,
+        entity_type="ScanSession", entity_id=scan_session.id, region=scan_session.region,
+        detail={"handoffId": str(handoff.id)},
     )
     db.commit()
     return {"status": handoff.status}
@@ -268,14 +262,10 @@ def finalize_mobile_handoff(
         for image in images
     )
     scan_session.stages = mark_capture_stages_completed(scan_session.stages, quality_summary)
-    db.add(
-        AuditEvent(
-            actor_id=current_user.id,
-            event_type="mobile_handoff_finalized",
-            entity_type="ScanSession",
-            entity_id=scan_session.id,
-            detail={},
-        )
+    emit(
+        db, "mobile_handoff_finalized", viewer=current_user,
+        entity_type="ScanSession", entity_id=scan_session.id, region=scan_session.region,
+        detail={},
     )
     db.commit()
 
@@ -314,13 +304,17 @@ def get_handoff_for_token(
 
 
 @router.post("/mobile-handoff/{token}/images/{angle}")
-async def upload_mobile_image(
+def upload_mobile_image(
     angle: str,
     file: UploadFile,
     handoff: MobileUploadSession = Depends(get_active_handoff),
     db: DbSession = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ) -> dict:
+    """Plain `def` (P2/N-16 fix, 2026-09-19) — the only prior `await` was
+    the file read itself; everything downstream (`accept_evidence_image`'s
+    OpenCV quality check + B2 `put_object`/`delete_object`) is sync. Every
+    other route handler in this file is already plain `def`."""
     if angle not in ALL_ANGLES:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Unsupported angle")
 
@@ -330,7 +324,11 @@ async def upload_mobile_image(
             detail="This record has already been verified and cannot accept new evidence.",
         )
 
-    image_bytes = await file.read()
+    # A generous multiple of the real (mobile_upload_max_mb) business
+    # limit — this is only the streaming-read cap (DoS guard against
+    # buffering an oversized body), not the actual business limit, which
+    # accept_evidence_image() below still enforces exactly as before.
+    image_bytes = read_capped_sync(file, settings.mobile_upload_max_mb * 1024 * 1024 * 3)
     acceptance = accept_evidence_image(
         db, settings,
         scan_session_id=handoff.scan_session_id, angle=angle,
@@ -380,14 +378,10 @@ def complete_mobile_handoff(
 
     handoff.status = "COMPLETED"
     handoff.completed_at = datetime.now(timezone.utc)
-    db.add(
-        AuditEvent(
-            actor_id=None,
-            event_type="mobile_handoff_completed",
-            entity_type="ScanSession",
-            entity_id=handoff.scan_session_id,
-            detail={"handoffId": str(handoff.id)},
-        )
+    emit(
+        db, "mobile_handoff_completed",
+        entity_type="ScanSession", entity_id=handoff.scan_session_id,
+        detail={"handoffId": str(handoff.id)},
     )
     db.commit()
     return {"status": handoff.status}

@@ -114,6 +114,11 @@ Phase 0's rollback is "revert doc/test files" — no data, no runtime behavior, 
 
 None of these are answered by this ADR — they require direct vendor contact and are explicitly out of scope for Phase 0. **No production evidence may be sent to OpenParser until these are answered and the spec's §15 security/privacy/procurement gate is signed off.** This blocks OP-Phase 7 (shadow evaluation) and OP-Phase 8 (cutover) — not OP-Phase 0.
 
+> **Overridden 2026-09-19 — see §17.** The project owner explicitly accepted this as a known,
+> documented risk rather than resolving it, and `OCR_PROVIDER` now defaults to `openparser` in
+> real deployments. The statement above remains the correct STANDING POLICY this ADR recommends;
+> §17 records that it was knowingly not followed, by explicit decision, not by oversight.
+
 **Corrected 2026-09-18** — see Correction Log. The table below reproduces all 12 questions from migration-spec §22 exactly (verbatim wording), each now with four separate blank columns (Answer / Answered by / Date / Evidence) rather than one combined "Answered by / date" column — so a partial answer (e.g. an answer with no evidence document yet, or an evidence link pending a named contact) has somewhere to go without overloading one cell. No question below is marked answered.
 
 | # | Question | Answer | Answered by | Date | Evidence |
@@ -147,6 +152,22 @@ None of these are answered by this ADR — they require direct vendor contact an
 - Splitting this ADR from the capture-inventory appendix into two files — a decision record (read once, approved) versus a citation-dense reference (re-read repeatedly during implementation) are different reading modes.
 
 **Explicitly not decided — deferred to §14 above, and to the phases where they become load-bearing:** everything about OpenParser's own tenant/legal/retention/coordinate/training-use posture.
+
+## 17. Risk acceptance override (2026-09-19)
+
+Per `docs/internal/PRODUCTION_READINESS_STATUS_AND_ROADMAP.md` §4 Phase R1, the project owner was
+asked directly whether to (a) accept §14's unresolved questions as a known risk and keep
+`OCR_PROVIDER=openparser` live, (b) pause by reverting the default to `local_paddle` until
+resolved, or (c) handle it separately outside this session. **The answer was (a): accept as a
+known, documented risk for now.**
+
+This is a business/legal decision, not an engineering one — nothing in the codebase changed as a
+result of this entry; it exists purely so a later reader of this ADR (or of §14's still-blank
+answer table) understands that real evidence is flowing to OpenParser *despite* those questions
+being open, by informed choice, and knows where to find the roadmap document that should be
+revisited before any larger-scale citizen-facing rollout. §14's table itself is untouched — still
+zero questions answered — this section does not change that; it only records that the project
+proceeded without waiting for them to be.
 
 ## Correction Log
 
