@@ -108,15 +108,39 @@ def _openparser_env(monkeypatch: pytest.MonkeyPatch, **overrides: str) -> None:
         monkeypatch.setenv(key, value)
 
 
-def test_openparser_defaults_pass_production_validation_at_local_paddle(
+# Full credentials so a test targeting one specific validation rule (a
+# timeout field, poll bounds, ...) doesn't trip the credential-presence
+# check instead, now that `openparser` (which requires them) is the
+# default provider.
+_FULL_OPENPARSER_CREDENTIALS = {
+    "OPENPARSER_API_KEY": "sk-test",
+    "OPENPARSER_API_KEY_ALIAS": "primary-a",
+    "OPENPARSER_TENANT_ALIAS": "approved-tenant-a",
+    "OPENPARSER_IDEMPOTENCY_SECRET": "idem-secret",
+}
+
+
+def test_local_paddle_explicit_passes_production_validation_without_credentials(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """ocr_provider defaults to local_paddle, which needs none of the
-    OpenParser-specific fields — production must not fail startup just
-    because this integration exists in config."""
-    _openparser_env(monkeypatch)
+    """An environment that explicitly opts back into local_paddle (e.g. a
+    rollback) needs none of the OpenParser-specific fields — production
+    must not fail startup just because this integration exists in config."""
+    _openparser_env(monkeypatch, OCR_PROVIDER="local_paddle")
     settings = Settings(_env_file=None)  # type: ignore[call-arg]
     assert settings.ocr_provider == "local_paddle"
+
+
+def test_default_provider_is_openparser_and_requires_credentials_in_production(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`openparser` is now the default (explicit project-owner direction,
+    2026-09-19) — an environment that sets nothing beyond the baseline
+    required vars must fail loudly in production, since it's now missing
+    the OpenParser credentials the default provider needs."""
+    _openparser_env(monkeypatch)
+    with pytest.raises(ValidationError, match="OPENPARSER_API_KEY"):
+        Settings(_env_file=None)  # type: ignore[call-arg]
 
 
 def test_openparser_base_url_must_be_https_in_production(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -200,7 +224,7 @@ def test_openparser_secret_never_appears_in_repr(monkeypatch: pytest.MonkeyPatch
 def test_openparser_non_positive_timeout_or_budget_fields_rejected_in_production(
     monkeypatch: pytest.MonkeyPatch, field: str, value: str
 ) -> None:
-    _openparser_env(monkeypatch, **{field: value})
+    _openparser_env(monkeypatch, **_FULL_OPENPARSER_CREDENTIALS, **{field: value})
     with pytest.raises(ValidationError, match="positive"):
         Settings(_env_file=None)  # type: ignore[call-arg]
 
@@ -209,7 +233,10 @@ def test_openparser_poll_min_must_not_exceed_poll_max_in_production(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _openparser_env(
-        monkeypatch, OPENPARSER_POLL_MIN_SECONDS="90", OPENPARSER_POLL_MAX_SECONDS="60"
+        monkeypatch,
+        **_FULL_OPENPARSER_CREDENTIALS,
+        OPENPARSER_POLL_MIN_SECONDS="90",
+        OPENPARSER_POLL_MAX_SECONDS="60",
     )
     with pytest.raises(ValidationError, match="POLL_MIN"):
         Settings(_env_file=None)  # type: ignore[call-arg]
