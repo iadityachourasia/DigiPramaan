@@ -53,6 +53,11 @@ from app.services.barcode import (
 from app.services.extraction.adapter import to_extraction_result
 from app.services.extraction.schema import ComplianceEvidenceBundle, ImageQualitySummary
 from app.services.ocr.gemini import GeminiOcrProvider, GeminiUnavailableError, structure
+from app.services.ocr.openparser.pipeline_bridge import (
+    resume_openparser_text_extraction,
+    run_openparser_text_extraction,
+)
+from app.services.ocr.openparser.pool import OpenParserKeyPool
 from app.services.ocr.paddle import PaddleOcrProvider
 from app.services.ocr.provider import OcrBlock
 from app.services.rules.aggregate import compute_compliance_score, compute_legal_status
@@ -153,6 +158,23 @@ def _fetch_image_bytes(storage_key: str, settings) -> bytes:
     return obj["Body"].read()
 
 
+def _run_paddle_ocr(images: list[EvidenceImage], settings) -> tuple[list[OcrBlock], dict[str, str]]:
+    """The exact Paddle loop body, extracted verbatim (OP-Phase 5) so
+    `openparser_shadow` mode can run the SAME authoritative Paddle pass
+    the `local_paddle` branch runs, without duplicating it — no behavior
+    change from what this loop already did inline."""
+    provider = PaddleOcrProvider()
+    all_blocks: list[OcrBlock] = []
+    angle_by_image_id: dict[str, str] = {}
+    for image in images:
+        image_bytes = _fetch_image_bytes(image.storage_key, settings)
+        result = provider.extract(image_bytes, image_id=str(image.id))
+        print(f"[OCR-TIMING] angle={image.angle} duration_ms={result.duration_ms:.0f} blocks={len(result.blocks)}", flush=True)
+        all_blocks.extend(result.blocks)
+        angle_by_image_id[str(image.id)] = image.angle
+    return all_blocks, angle_by_image_id
+
+
 def run_pipeline(scan_session_id: uuid.UUID) -> None:
     settings = get_settings()
     with SessionLocal() as db:
@@ -183,16 +205,41 @@ def run_pipeline(scan_session_id: uuid.UUID) -> None:
                 _persist(db, session, stages, status="failed", error="No evidence images")
                 return
 
-            provider = PaddleOcrProvider()
             all_blocks: list[OcrBlock] = []
             angle_by_image_id: dict[str, str] = {}
             try:
-                for image in images:
-                    image_bytes = _fetch_image_bytes(image.storage_key, settings)
-                    result = provider.extract(image_bytes, image_id=str(image.id))
-                    print(f"[OCR-TIMING] angle={image.angle} duration_ms={result.duration_ms:.0f} blocks={len(result.blocks)}", flush=True)
-                    all_blocks.extend(result.blocks)
-                    angle_by_image_id[str(image.id)] = image.angle
+                if settings.ocr_provider == "local_paddle":
+                    all_blocks, angle_by_image_id = _run_paddle_ocr(images, settings)
+                elif settings.ocr_provider == "openparser":
+                    s3_client = get_s3_client(settings)
+                    pool = OpenParserKeyPool(settings)
+                    try:
+                        all_blocks, angle_by_image_id = run_openparser_text_extraction(
+                            db, settings, pool, session, images, s3_client
+                        )
+                    finally:
+                        pool.close()
+                elif settings.ocr_provider == "openparser_shadow":
+                    # Authoritative result: the SAME Paddle pass local_paddle mode
+                    # runs. The OpenParser pass below is best-effort and can never
+                    # affect this outcome — Phase 7 builds the comparison harness;
+                    # this phase only makes the shadow data start flowing.
+                    all_blocks, angle_by_image_id = _run_paddle_ocr(images, settings)
+                    try:
+                        s3_client = get_s3_client(settings)
+                        shadow_pool = OpenParserKeyPool(settings)
+                        try:
+                            run_openparser_text_extraction(
+                                db, settings, shadow_pool, session, images, s3_client
+                            )
+                        finally:
+                            shadow_pool.close()
+                    except Exception as shadow_exc:  # noqa: BLE001 - shadow failures never affect the authoritative result
+                        print(f"[OPENPARSER-SHADOW] scan={scan_session_id} failed: {shadow_exc}", flush=True)
+                elif settings.ocr_provider == "disabled":
+                    raise RuntimeError("OCR_PROVIDER=disabled")
+                else:
+                    raise RuntimeError(f"Unknown OCR_PROVIDER: {settings.ocr_provider!r}")
             except Exception as exc:  # noqa: BLE001 - any OCR/storage failure
                 stages = _with_stage_update(
                     stages, "textExtraction", state="failed", failureReason=str(exc)
@@ -213,7 +260,31 @@ def run_pipeline(scan_session_id: uuid.UUID) -> None:
                 .order_by(EvidenceImage.angle)
                 .all()
             )
-            all_blocks, angle_by_image_id = _reextract_for_resume(images, settings)
+            if settings.ocr_provider == "openparser":
+                s3_client = get_s3_client(settings)
+                pool = OpenParserKeyPool(settings)
+                try:
+                    all_blocks, angle_by_image_id = resume_openparser_text_extraction(
+                        db, settings, pool, session, s3_client
+                    )
+                finally:
+                    pool.close()
+            elif settings.ocr_provider == "openparser_shadow":
+                # Authoritative result stays Paddle on resume too, matching the
+                # forward path — the shadow OpenParser rows are best-effort and
+                # never allowed to affect this outcome.
+                all_blocks, angle_by_image_id = _reextract_for_resume(images, settings)
+                try:
+                    s3_client = get_s3_client(settings)
+                    shadow_pool = OpenParserKeyPool(settings)
+                    try:
+                        resume_openparser_text_extraction(db, settings, shadow_pool, session, s3_client)
+                    finally:
+                        shadow_pool.close()
+                except Exception as shadow_exc:  # noqa: BLE001 - shadow failures never affect the authoritative result
+                    print(f"[OPENPARSER-SHADOW] scan={scan_session_id} resume failed: {shadow_exc}", flush=True)
+            else:
+                all_blocks, angle_by_image_id = _reextract_for_resume(images, settings)
 
         # --- fallbackExtraction ---
         fallback = _find_stage(stages, "fallbackExtraction")

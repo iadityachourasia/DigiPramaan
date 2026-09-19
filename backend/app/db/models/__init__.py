@@ -10,6 +10,7 @@ from app.db.models.case import CaseStatusHistory, ViolationCase
 from app.db.models.compliance_record import ComplianceRecord
 from app.db.models.legal_entity import LegalEntity
 from app.db.models.mobile_handoff import MobileUploadSession
+from app.db.models.ocr_provider_job import OcrProviderJob
 from app.db.models.product import Product, ProductInspectionLink
 from app.db.models.product_identifier import ProductIdentifier
 from app.db.models.record_review_flag import RecordReviewFlag
@@ -26,6 +27,7 @@ __all__ = [
     "ComplianceRecord",
     "LegalEntity",
     "MobileUploadSession",
+    "OcrProviderJob",
     "Product",
     "ProductInspectionLink",
     "ProductIdentifier",

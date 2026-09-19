@@ -1,0 +1,8 @@
+{
+  "error": {
+    "code": "rate_limited",
+    "message": "request rate limit exceeded",
+    "request_id": "req_01h2example",
+    "retryable": true
+  }
+}

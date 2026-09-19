@@ -47,6 +47,17 @@ dev = [
   "pytest>=8.3",
   "pytest-asyncio>=0.24",
   "respx>=0.21",
+  # OpenParser OCR migration, OP-Phase 0 (contract validation only — never
+  # imported by app/): jsonschema is the reference Draft 2020-12
+  # implementation, pure Python, dev-only. rfc3339-validator/rfc3986-validator
+  # back jsonschema's FormatChecker for the `date-time`/`uri` formats the
+  # OpenAPI contract uses; rfc3986-validator (MIT) is used instead of the
+  # GPL-licensed rfc3987 jsonschema also supports for `uri`. PyYAML parses
+  # OCR_API_OPENAPI.yaml itself.
+  "jsonschema>=4.18",
+  "PyYAML>=6.0",
+  "rfc3339-validator>=0.1.4",
+  "rfc3986-validator>=0.1.1",
 ]
 
 [build-system]
