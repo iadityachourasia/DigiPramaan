@@ -5,12 +5,20 @@ OP-Phase 3's durable persistence/outbox/worker over `ocr_provider_jobs`,
 OP-Phase 4's normalization adapter (confidence, coordinate mapping,
 `OcrElement`), and (OP-Phase 5) `pipeline_bridge.py`, the module
 `app/jobs/pipeline.py` calls into when `OCR_PROVIDER` is
-`openparser`/`openparser_shadow`. `local_paddle` (the default in every
+`openparser`/`openparser_shadow`, and (OP-Phase 7) `shadow_comparison.py`,
+a read-only reporting harness over Phase 5's shadow-mode output — never
+calls OpenParser or Gemini itself. `local_paddle` (the default in every
 real deployment today) never reaches any of this — see
 `pipeline_bridge.py`'s own module docstring.
 """
 
 from app.services.ocr.openparser.client import OpenParserClient
+from app.services.ocr.openparser.shadow_comparison import (
+    ShadowComparisonRow,
+    ShadowComparisonSummary,
+    build_shadow_comparison_rows,
+    summarize_shadow_comparison,
+)
 from app.services.ocr.openparser.pool import (
     OpenParserAllKeysExhausted,
     OpenParserKeyPool,
@@ -82,6 +90,10 @@ from app.services.ocr.openparser.schemas import (
 
 __all__ = [
     "OpenParserClient",
+    "ShadowComparisonRow",
+    "ShadowComparisonSummary",
+    "build_shadow_comparison_rows",
+    "summarize_shadow_comparison",
     "OpenParserKeyPool",
     "OpenParserAllKeysExhausted",
     "OpenParserUnknownJob",
