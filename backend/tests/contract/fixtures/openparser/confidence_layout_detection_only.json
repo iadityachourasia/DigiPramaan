@@ -1,0 +1,16 @@
+{
+  "id": "el_confidence_layout_only",
+  "locations": [
+    {"page_number": 1, "bbox": {"left": 10, "top": 90, "right": 200, "bottom": 120}}
+  ],
+  "confidence": {
+    "score": 0.97,
+    "scope": "detection",
+    "calibrated": false
+  },
+  "kind": "text",
+  "role": "line",
+  "text": "",
+  "spans": [],
+  "languages": []
+}

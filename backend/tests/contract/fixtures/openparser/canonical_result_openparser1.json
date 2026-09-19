@@ -1,0 +1,65 @@
+{
+  "output_format": "openparser@1",
+  "document_id": "opdoc_example01",
+  "provenance": {
+    "provider": "openparser",
+    "model": "paddleocr-vl-1.6",
+    "operation": "parse"
+  },
+  "text": "Net Quantity: 500 g\nMRP: Rs 120 inclusive of all taxes",
+  "markdown": "**Net Quantity:** 500 g\n\n**MRP:** Rs 120 inclusive of all taxes",
+  "pages": [
+    {
+      "number": 1,
+      "width": 1600,
+      "height": 1200,
+      "unit": "pixel",
+      "rotation_degrees": 0,
+      "languages": [
+        {
+          "code": "en"
+        }
+      ],
+      "element_ids": ["el_text_net_qty", "el_text_mrp"],
+      "reading_order": ["el_text_net_qty", "el_text_mrp"]
+    }
+  ],
+  "elements": [
+    {
+      "id": "el_text_net_qty",
+      "locations": [
+        {
+          "page_number": 1,
+          "bbox": {"left": 120, "top": 340, "right": 520, "bottom": 380}
+        }
+      ],
+      "confidence": {
+        "score": 0.87,
+        "scope": "recognition",
+        "calibrated": false
+      },
+      "kind": "text",
+      "role": "line",
+      "text": "Net Quantity: 500 g",
+      "spans": [],
+      "languages": []
+    },
+    {
+      "id": "el_text_mrp",
+      "locations": [
+        {
+          "page_number": 1,
+          "bbox": {"left": 120, "top": 400, "right": 620, "bottom": 440}
+        }
+      ],
+      "kind": "text",
+      "role": "line",
+      "text": "MRP: Rs 120 inclusive of all taxes",
+      "spans": [],
+      "languages": []
+    }
+  ],
+  "text_annotations": [],
+  "relations": [],
+  "assets": []
+}

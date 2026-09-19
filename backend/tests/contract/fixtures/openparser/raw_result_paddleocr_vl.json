@@ -1,0 +1,33 @@
+{
+  "output_format": "raw",
+  "provider": "paddleocr",
+  "model": "paddleocr-vl-1.6",
+  "profile": {
+    "name": "openparser-quality-max-v1",
+    "options": {
+      "format_block_content": true,
+      "image_block_ocr": false,
+      "chart_recognition": false
+    }
+  },
+  "result": {
+    "layoutParsingResults": [
+      {
+        "prunedResult": {
+          "parsing_res_list": [
+            {
+              "block_label": "text",
+              "block_content": "Net Quantity: 500 g",
+              "block_bbox": [120, 340, 520, 380]
+            },
+            {
+              "block_label": "text",
+              "block_content": "MRP: Rs 120 inclusive of all taxes",
+              "block_bbox": [120, 400, 620, 440]
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

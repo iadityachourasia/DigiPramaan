@@ -1,0 +1,9 @@
+{
+  "id": "opj_batch_example01",
+  "operation": "parse_batch",
+  "status": "queued",
+  "output_format": "openparser@1",
+  "created_at": "2026-09-18T10:00:00Z",
+  "updated_at": "2026-09-18T10:00:00Z",
+  "child_count": 3
+}

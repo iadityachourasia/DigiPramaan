@@ -1,0 +1,11 @@
+{
+  "id": "el_confidence_absent",
+  "locations": [
+    {"page_number": 1, "bbox": {"left": 10, "top": 50, "right": 200, "bottom": 80}}
+  ],
+  "kind": "text",
+  "role": "line",
+  "text": "Country of Origin: India",
+  "spans": [],
+  "languages": []
+}
