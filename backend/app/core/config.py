@@ -126,16 +126,21 @@ class Settings(BaseSettings):
     mobile_handoff_expiry_minutes: int = 15
     mobile_upload_max_mb: int = 10
 
-    # --- OpenParser OCR migration, OP-Phase 2 (config + HTTP client only —
-    # never called this phase; app/services/ocr/openparser/client.py is the
-    # only reader of these) ---
+    # --- OpenParser OCR migration ---
     #
-    # `local_paddle` (default) is unchanged production behavior; the other
-    # three modes are meaningless until Phase 5 wires a caller — declared
-    # now so config validation and the client can both be built and tested
-    # against the real shape ahead of that wiring, per spec §14.
+    # OP-Phases 2-7 built and live-verified the OpenParser integration
+    # (real catalog + parse/poll/result round trip against paddleocr-vl-1.6,
+    # 2026-09-19). Per explicit project-owner direction, `openparser` is now
+    # the DEFAULT provider — cost is not a constraint (the configured key
+    # pool has many separate-tenant keys). `local_paddle` remains fully
+    # supported and unchanged for any deployment that explicitly sets
+    # OCR_PROVIDER=local_paddle (e.g. a rollback). An environment that
+    # already sets OCR_PROVIDER explicitly (this repo's own checked-in
+    # backend/.env.example among them) is unaffected by this default either
+    # way — only an environment with NO OCR_PROVIDER value at all picks this
+    # default up.
     ocr_provider: Literal["local_paddle", "openparser_shadow", "openparser", "disabled"] = (
-        "local_paddle"
+        "openparser"
     )
     openparser_base_url: str = "https://api.openparser.dev"
     # SecretStr specifically here — the one field spec §14/§7.1 calls

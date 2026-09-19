@@ -7,6 +7,16 @@ HTTP against a real running server, real B2, real PaddleOCR, and real
 Gemini; these tests isolate the two behaviors the Phase 2 spec calls out
 that are awkward to force live: a provider failure leaving a stage
 `failed`+retryable, and a retry actually resuming to completion.
+
+This file exists specifically to test the `local_paddle` code path — it
+pins `app.jobs.pipeline.get_settings` to `ocr_provider="local_paddle"`
+via an autouse fixture below, deliberately independent of whatever
+`OCR_PROVIDER` the checked-out `backend/.env` happens to have (which
+defaults to `openparser` as of 2026-09-19). Without that pin, these
+tests would silently start constructing a real `OpenParserKeyPool` and
+either hang or attempt a live call the moment `.env` changes — the
+`openparser`/`openparser_shadow` code paths have their own dedicated
+tests in `tests/integration/test_openparser_pipeline.py`.
 """
 
 from __future__ import annotations
@@ -16,11 +26,31 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from app.core.config import Settings
 from app.jobs.pipeline import initial_stages, retry_stage, run_pipeline
 from app.services.extraction.schema import ExtractedField, StructuredExtraction
 from app.services.ocr.provider import OcrBlock, OcrResult
 
 SCAN_ID = uuid.uuid4()
+
+
+def _local_paddle_settings() -> Settings:
+    return Settings(
+        _env_file=None,
+        database_url="postgresql+psycopg://u:p@localhost/db",
+        s3_endpoint_url="https://example.invalid",
+        s3_access_key="x",
+        s3_secret_key="x",
+        s3_bucket="x",
+        supabase_anon_key="x",
+        supabase_jwt_secret="x" * 32,
+        ocr_provider="local_paddle",
+    )  # type: ignore[call-arg]
+
+
+@pytest.fixture(autouse=True)
+def _pin_local_paddle_provider(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("app.jobs.pipeline.get_settings", _local_paddle_settings)
 
 
 def _fake_evidence_image(angle: str):
