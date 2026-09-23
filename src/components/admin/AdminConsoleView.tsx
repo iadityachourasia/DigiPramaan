@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { EmptyState, ErrorState, Skeleton } from "@/components/shared";
+import { Select } from "@/components/ui/Select";
+import { TextField } from "@/components/ui/TextField";
 import { createAdminUser, deactivateAdminUser, fetchAdminTeam, fetchRuleThresholds, reassignAdminCase, saveRuleThresholds, type CreateUserInput } from "@/lib/api/admin";
 import { fetchRecords } from "@/lib/api/records";
 import { INSPECTION_REGIONS } from "@/lib/mock/reference";
@@ -118,13 +120,13 @@ export function AdminConsoleView() {
       {createError ? <p role="alert" className="ux4g-text-error">{createError}</p> : null}
       {createSuccess ? <p role="status" className="ux4g-text-success">{createSuccess}</p> : null}
       <form onSubmit={(event) => { event.preventDefault(); void submitNewUser(); }} className="lmcs-page-section-block">
-        <label className="ux4g-label-m-default">{t("team.createEmail")}<input aria-label={t("team.createEmail")} required type="email" className="ux4g-input-input" value={newUser.email} onChange={(event) => setNewUser({ ...newUser, email: event.target.value })} /></label>
-        <label className="ux4g-label-m-default">{t("team.createUsername")}<input aria-label={t("team.createUsername")} required className="ux4g-input-input" value={newUser.username} onChange={(event) => setNewUser({ ...newUser, username: event.target.value })} /></label>
-        <label className="ux4g-label-m-default">{t("team.createFullName")}<input aria-label={t("team.createFullName")} required className="ux4g-input-input" value={newUser.fullName} onChange={(event) => setNewUser({ ...newUser, fullName: event.target.value })} /></label>
-        <label className="ux4g-label-m-default">{t("team.createPassword")}<input aria-label={t("team.createPassword")} required minLength={6} type="password" className="ux4g-input-input" value={newUser.password} onChange={(event) => setNewUser({ ...newUser, password: event.target.value })} /></label>
-        <label className="ux4g-label-m-default">{t("team.createRole")}<select aria-label={t("team.createRole")} className="ux4g-form-select" value={newUser.role} onChange={(event) => setNewUser({ ...newUser, role: event.target.value as Role })}>{ROLES.map((role) => <option key={role} value={role}>{role}</option>)}</select></label>
-        <label className="ux4g-label-m-default">{t("team.createRegion")}<select aria-label={t("team.createRegion")} className="ux4g-form-select" value={newUser.region} onChange={(event) => setNewUser({ ...newUser, region: event.target.value, jurisdictionName: newUser.jurisdictionLevel === "State" ? event.target.value : newUser.jurisdictionName })}>{INSPECTION_REGIONS.map((region) => <option key={region} value={region}>{region}</option>)}</select></label>
-        <label className="ux4g-label-m-default">{t("team.createJurisdictionLevel")}<select aria-label={t("team.createJurisdictionLevel")} className="ux4g-form-select" value={newUser.jurisdictionLevel} onChange={(event) => { const level = event.target.value as "State" | "National"; setNewUser({ ...newUser, jurisdictionLevel: level, jurisdictionName: level === "National" ? "National" : newUser.region }); }}><option value="State">{t("team.createJurisdictionState")}</option><option value="National">{t("team.createJurisdictionNational")}</option></select></label>
+        <TextField id="create-user-email" label={t("team.createEmail")} required type="email" value={newUser.email} onChange={(event) => setNewUser({ ...newUser, email: event.target.value })} />
+        <TextField id="create-user-username" label={t("team.createUsername")} required value={newUser.username} onChange={(event) => setNewUser({ ...newUser, username: event.target.value })} />
+        <TextField id="create-user-fullname" label={t("team.createFullName")} required value={newUser.fullName} onChange={(event) => setNewUser({ ...newUser, fullName: event.target.value })} />
+        <TextField id="create-user-password" label={t("team.createPassword")} required minLength={6} type="password" value={newUser.password} onChange={(event) => setNewUser({ ...newUser, password: event.target.value })} />
+        <Select id="create-user-role" label={t("team.createRole")} value={newUser.role} options={ROLES.map((role) => ({ label: role, value: role }))} onChange={(event) => setNewUser({ ...newUser, role: event.target.value as Role })} />
+        <Select id="create-user-region" label={t("team.createRegion")} value={newUser.region} options={INSPECTION_REGIONS.map((region) => ({ label: region, value: region }))} onChange={(event) => setNewUser({ ...newUser, region: event.target.value, jurisdictionName: newUser.jurisdictionLevel === "State" ? event.target.value : newUser.jurisdictionName })} />
+        <Select id="create-user-jurisdiction-level" label={t("team.createJurisdictionLevel")} value={newUser.jurisdictionLevel} options={[{ label: t("team.createJurisdictionState"), value: "State" }, { label: t("team.createJurisdictionNational"), value: "National" }]} onChange={(event) => { const level = event.target.value as "State" | "National"; setNewUser({ ...newUser, jurisdictionLevel: level, jurisdictionName: level === "National" ? "National" : newUser.region }); }} />
         <p className="ux4g-body-s-default ux4g-text-neutral-secondary">{t("team.createJurisdictionName")}: {newUser.jurisdictionName}</p>
         <button type="submit" className="ux4g-btn ux4g-btn-primary" disabled={saving}>{t("team.createSubmit")}</button>
       </form>
