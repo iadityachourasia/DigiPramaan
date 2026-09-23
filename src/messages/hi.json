@@ -2,7 +2,7 @@
   "_meta": {
     "note": "Scaffolded locale. Values still identical to en.json are untranslated.",
     "generatedBy": "scripts/sync-locales.mjs",
-    "untranslatedCount": 1227,
+    "untranslatedCount": 1228,
     "untranslated": [
       "app.descriptor",
       "app.department",
@@ -181,6 +181,7 @@
       "login.successTitle",
       "login.successBody",
       "login.demoHint",
+      "login.demoBody",
       "login.quickSignIn.label",
       "login.quickSignIn.inspector",
       "login.quickSignIn.seniorInspector",
@@ -1481,7 +1482,7 @@
     "successTitle": "Signed in",
     "successBody": "Taking you to your dashboard.",
     "demoHint": "Demonstration accounts",
-    "demoBody": "This build has no live directory. Sign in as r.deshmukh (Enforcement Officer), s.iyer (Admin) or a.banerjee (Reviewer), password Demo@2026.",
+    "demoBody": "This build has no live directory. Use one of the quick sign-in buttons above, or sign in as fieldinspector@digipramaan.click (Enforcement Officer), seniorinspector@digipramaan.click (Reviewer) or Administrator@digipramaan.click (Admin).",
     "quickSignIn": {
       "label": "Quick sign-in (demo)",
       "inspector": "Field Inspector",

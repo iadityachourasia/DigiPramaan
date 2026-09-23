@@ -47,21 +47,21 @@ type Banner =
   | { kind: "success" };
 
 /**
- * MVP-only: the three seeded demo accounts (`backend/app/seed/demo_profiles.json`),
- * one per role, so an officer running a live demo doesn't have to type or
- * remember credentials. Fills the fields only — the officer still reviews
- * and clicks Sign in, same as the "01-login.md" flow the rest of this form
- * follows. Remove alongside the `demoBody` alert once real authentication
- * lands (BRD §15 Q-06).
+ * MVP-only: three demo accounts, one per role, created via the Admin
+ * Console's self-service "Create user" form (2026-09-24) so an officer
+ * running a live demo doesn't have to type or remember credentials. Fills
+ * the fields only — the officer still reviews and clicks Sign in, same as
+ * the "01-login.md" flow the rest of this form follows. Remove alongside
+ * the `demoBody` alert once real authentication lands (BRD §15 Q-06).
  */
 const DEMO_ACCOUNTS: {
   labelKey: "inspector" | "seniorInspector" | "admin";
   username: string;
   password: string;
 }[] = [
-  { labelKey: "inspector", username: "inspector@dp.com", password: "123456" },
-  { labelKey: "seniorInspector", username: "seniorinspector@dp.com", password: "654321" },
-  { labelKey: "admin", username: "oldofficer@dp.com", password: "456789" },
+  { labelKey: "inspector", username: "fieldinspector@digipramaan.click", password: "akshatgupta" },
+  { labelKey: "seniorInspector", username: "seniorinspector@digipramaan.click", password: "harshbankey" },
+  { labelKey: "admin", username: "Administrator@digipramaan.click", password: "adityachourasia" },
 ];
 
 export function LoginForm() {
