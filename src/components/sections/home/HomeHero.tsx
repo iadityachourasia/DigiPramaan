@@ -11,7 +11,7 @@ export async function HomeHero() {
     <section className="lmcs-section-xl lmcs-hero lmcs-section-elevated">
       <div className="ux4g-container lmcs-hero-grid">
         <div className="lmcs-hero-text">
-          <p className="lmcs-hero-promises ux4g-label-s-default">
+          <p className="ux4g-label-s-strong lmcs-hero-promises">
             <span>{t("home.hero.promiseFairTrade")}</span>
             <span>{t("home.hero.promiseTrustedMarkets")}</span>
             <span>{t("home.hero.promiseConsumerProtection")}</span>
@@ -20,11 +20,11 @@ export async function HomeHero() {
             {t("home.hero.eyebrow")}
           </p>
 
-          <h1 className="lmcs-hero-title ux4g-heading-2xl-strong">
+          <h1 className="ux4g-display-m-strong lmcs-hero-title">
             {t("home.hero.title")}
           </h1>
 
-          <p className="lmcs-hero-body ux4g-body-l-default ux4g-text-neutral-secondary">
+          <p className="ux4g-body-l-strong lmcs-hero-body ux4g-text-neutral-secondary">
             {t("home.hero.body")}
           </p>
 
@@ -40,7 +40,7 @@ export async function HomeHero() {
             </Link>
           </div>
 
-          <p className="lmcs-hero-trust ux4g-body-s-default ux4g-text-neutral-secondary">
+          <p className="ux4g-body-s-strong lmcs-hero-trust ux4g-text-neutral-secondary">
             {t("home.hero.trustLine")}
           </p>
         </div>

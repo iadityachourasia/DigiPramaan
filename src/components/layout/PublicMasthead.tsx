@@ -21,7 +21,7 @@ export function PublicMasthead() {
       <div className="lmcs-masthead-utility">
         <div className="ux4g-container lmcs-masthead-utility-inner">
           <div className="lmcs-government-identity">
-            <span className="lmcs-government-names ux4g-label-s-default">
+            <span className="ux4g-label-s-default lmcs-government-names">
               <span lang="hi">{t("app.governmentHindi")}</span>
               <span>{t("app.government")}</span>
             </span>
@@ -44,7 +44,7 @@ export function PublicMasthead() {
                 />
               </span>
             </span>
-            <span className="lmcs-ministry-label ux4g-label-s-default">
+            <span className="ux4g-label-s-default lmcs-ministry-label">
               {t("app.ministry")}
             </span>
           </div>
@@ -53,19 +53,19 @@ export function PublicMasthead() {
             {isLanding ? (
               <a
                 href="#main-content"
-                className="lmcs-masthead-link lmcs-utility-skip ux4g-label-s-default"
+                className="ux4g-label-s-default lmcs-masthead-link lmcs-utility-skip"
               >
                 {t("accessibility.skipToMain")}
               </a>
             ) : null}
             <Link
               href={ROUTES.accessibilityStatement}
-              className="lmcs-masthead-link ux4g-label-s-default"
+              className="ux4g-label-s-default lmcs-masthead-link"
             >
               {t("accessibility.screenReaderAccess")}
             </Link>
             <DisplaySizeControl />
-            <span className="lmcs-utility-language ux4g-label-s-default">
+            <span className="ux4g-label-s-default lmcs-utility-language">
               <span className="ux4g-icon-outlined" aria-hidden="true">
                 language
               </span>

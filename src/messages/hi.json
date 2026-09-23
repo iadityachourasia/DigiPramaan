@@ -1563,7 +1563,7 @@
         },
         "validate": {
           "title": "Validate",
-          "body": "Rules 6, 7 and 8 evaluated against the structured record."
+          "body": "Rules 6, 7 and 8 are evaluated against the structured record."
         },
         "explain": {
           "title": "Explain",
@@ -1584,36 +1584,36 @@
       "body": "Eight capabilities, working together on every scan.",
       "items": {
         "scan": {
-          "title": "Scan & Extract",
-          "body": "Reads every mandatory declaration"
+          "title": "Scan & extract",
+          "body": "Reads every mandatory declaration."
         },
         "rules": {
-          "title": "Compliance Rule Engine",
-          "body": "Checks each declaration against the Rules"
+          "title": "Compliance rule engine",
+          "body": "Checks each declaration against the Rules."
         },
         "fontSize": {
-          "title": "Font Size Verification",
-          "body": "Measures numeral height from a photo"
+          "title": "Font size verification",
+          "body": "Measures numeral height from a photo."
         },
         "evidence": {
-          "title": "Evidence Verification",
-          "body": "Every finding traced to its image"
+          "title": "Evidence verification",
+          "body": "Every finding traced to its image."
         },
         "reports": {
-          "title": "Digital Reports",
-          "body": "Signed PDF and Word reports on demand"
+          "title": "Digital reports",
+          "body": "Signed PDF and Word reports on demand."
         },
         "history": {
-          "title": "Compliance History",
-          "body": "Every past scan, one record"
+          "title": "Compliance history",
+          "body": "Every past scan, one record."
         },
         "risk": {
-          "title": "Smart Risk",
-          "body": "Flags repeat and high-risk manufacturers"
+          "title": "Smart risk",
+          "body": "Flags repeat and high-risk manufacturers."
         },
         "enforcement": {
-          "title": "Enforcement Follow-Through",
-          "body": "Tracks a violation to its outcome"
+          "title": "Enforcement follow-through",
+          "body": "Tracks a violation to its outcome."
         }
       }
     },
@@ -1664,7 +1664,7 @@
     "finalCta": {
       "heading": "Ready to verify a label?",
       "body": "Sign in to start an inspection.",
-      "cta": "Start Inspection"
+      "cta": "Start inspection"
     }
   },
   "dashboard": {
