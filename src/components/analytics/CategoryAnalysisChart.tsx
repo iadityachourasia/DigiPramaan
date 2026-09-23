@@ -19,6 +19,7 @@ import {
   tooltipStyle,
   type CommonChartTokens,
 } from "@/lib/utils/chartTheme";
+import { useTheme } from "@/lib/theme";
 import type {
   CategoryBreakdownEntry,
   ComplianceStatus,
@@ -53,6 +54,7 @@ export function CategoryAnalysisChart({
   const [tokens, setTokens] = useState<CommonChartTokens>(FALLBACK_COMMON_CHART_TOKENS);
   const [compliantColor, setCompliantColor] = useState("#16a34a");
   const [nonCompliantColor, setNonCompliantColor] = useState("#dc2626");
+  const theme = useTheme();
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -63,7 +65,7 @@ export function CategoryAnalysisChart({
     setNonCompliantColor(
       readToken(containerRef.current, "--ux4g-bg-error-strong", "#dc2626")
     );
-  }, []);
+  }, [theme]);
 
   return (
     <div ref={containerRef} className="lmcs-chart-container">

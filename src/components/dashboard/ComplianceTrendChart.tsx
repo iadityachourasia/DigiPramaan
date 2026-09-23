@@ -13,6 +13,7 @@ import {
 } from "recharts";
 
 import type { TrendPoint } from "@/types";
+import { useTheme } from "@/lib/theme";
 
 /**
  * ComplianceTrendChart — Compliant vs. Non-Compliant scans over time.
@@ -31,11 +32,8 @@ import type { TrendPoint } from "@/types";
  * product.
  *
  * SVG fill/stroke attributes cannot take a CSS custom property directly in
- * every renderer recharts targets, and reading it once via `getComputedStyle`
- * is also what keeps this "theme-correct in Dark mode" per the DashboardPanel
- * recipe: if the token's resolved value changes with the theme, a live read
- * picks that up rather than baking in whichever value happened to be current
- * at build time.
+ * every renderer recharts targets. The values are read again when the active
+ * theme changes, so a mounted chart repaints along with the page.
  */
 
 export interface ComplianceTrendChartProps {
@@ -152,12 +150,13 @@ export function ComplianceTrendChart({
 }: ComplianceTrendChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [colors, setColors] = useState<SeriesColors>(FALLBACK_COLORS);
+  const theme = useTheme();
 
   useEffect(() => {
     if (containerRef.current) {
       setColors(readSeriesColors(containerRef.current));
     }
-  }, []);
+  }, [theme]);
 
   return (
     <div ref={containerRef} className="lmcs-chart-container">

@@ -22,13 +22,14 @@ import Image from "next/image";
 const SIZE_PX = {
   sm: 32,
   md: 40,
+  nav: 64,
   lg: 112,
 } as const;
 
 export type DigiPramaanLogoSize = keyof typeof SIZE_PX;
 
 export interface DigiPramaanLogoProps {
-  /** sm: compact nav/sidebar. md: slightly larger emphasis. lg: auth/sign-in. */
+  /** sm: sidebar. md: standard brand. nav: landing masthead. lg: auth/sign-in. */
   size?: DigiPramaanLogoSize;
   /** Extra class appended to the existing `.lmcs-brand-mark` tile, for
    * per-surface padding/radius variants (e.g. `lmcs-brand-mark-login`). */
@@ -51,9 +52,7 @@ export function DigiPramaanLogo({
   const px = SIZE_PX[size];
 
   return (
-    <span
-      className={`lmcs-brand-mark${className ? ` ${className}` : ""}`}
-    >
+    <span className={`lmcs-brand-mark${className ? ` ${className}` : ""}`}>
       <Image
         src="/images/digi-pramaan-logo.png"
         alt={decorative ? "" : "DigiPramaan"}

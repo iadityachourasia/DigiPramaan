@@ -19,6 +19,7 @@ import {
   tooltipStyle,
   type CommonChartTokens,
 } from "@/lib/utils/chartTheme";
+import { useTheme } from "@/lib/theme";
 import {
   violationCategory,
   type ViolationBreakdownEntry,
@@ -59,12 +60,13 @@ export function ViolationBreakdownChart({
   const containerRef = useRef<HTMLDivElement>(null);
   const [tokens, setTokens] = useState<CommonChartTokens>(FALLBACK_COMMON_CHART_TOKENS);
   const [barColor, setBarColor] = useState(FALLBACK_COMMON_CHART_TOKENS.grid);
+  const theme = useTheme();
 
   useEffect(() => {
     if (!containerRef.current) return;
     setTokens(readCommonChartTokens(containerRef.current));
     setBarColor(readToken(containerRef.current, "--ux4g-bg-error-strong", "#dc2626"));
-  }, []);
+  }, [theme]);
 
   const rows: Row[] = [...data]
     .map((entry) => ({

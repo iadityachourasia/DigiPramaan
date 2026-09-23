@@ -43,14 +43,11 @@ from pydantic import BaseModel, Field
 from sqlalchemy import or_
 from sqlalchemy import cast as sa_cast
 from sqlalchemy.dialects.postgresql import JSONB as PG_JSONB
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session as DbSession
 
 from app.api.deps.auth import get_current_user
 from app.api.deps.permissions import require_permission
 from app.db.models import (
-    AuditEvent,
-    CaseStatusHistory,
     ComplianceRecord,
     LegalEntity,
     Product,
@@ -63,10 +60,10 @@ from app.db.models import (
 from app.db.session import get_db
 from app.services.audit import emit
 from app.services.authz.repositories import get_visible_record
+from app.services.cases.flagging import flag_record_for_enforcement
 from app.services.extraction.schema import ComplianceEvidenceBundle, ExtractedField
 from app.services.intelligence_loop import (
     EnrichmentSkipped,
-    recompute_risk_for_record_subjects,
     run_post_verification_loop,
 )
 from app.services.rules.aggregate import compute_compliance_score, compute_legal_status
@@ -231,11 +228,10 @@ def verify_record(
         run_post_verification_loop(record, db)
     except Exception as exc:  # noqa: BLE001 - best-effort enrichment, see docstring
         db.rollback()
-        db.add(AuditEvent(
-            actor_id=current_user.id, event_type="intelligence_enrichment_failed",
-            entity_type="ComplianceRecord", entity_id=record.id,
+        emit(
+            db, "intelligence_enrichment_failed", viewer=current_user, record=record,
             detail={"error": str(exc), "skipped": isinstance(exc, EnrichmentSkipped)},
-        ))
+        )
         db.commit()
         logger.warning("intelligence_enrichment_failed", record_id=str(record.id), error=str(exc))
 
@@ -472,52 +468,7 @@ def flag_for_enforcement(
     the same record. Requires the record to already be Verified; Follow-
     Through operates on confirmed findings, not provisional extractions."""
     record = get_visible_record(db, record_id, current_user, for_update=True)
-    if record.verification_status != "Verified":
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Record must be Verified before it can be flagged for enforcement",
-        )
-
-    existing = (
-        db.query(ViolationCase)
-        .filter(ViolationCase.originating_record_id == record_id)
-        .filter(ViolationCase.status != "CLOSED")
-        .first()
-    )
-    if existing is not None:
-        return _case_summary(existing)
-
-    case = ViolationCase(originating_record_id=record_id, status="OPEN", assigned_officer_id=current_user.id)
-    try:
-        with db.begin_nested():
-            db.add(case)
-            db.flush()
-    except IntegrityError:
-        # The DB's own partial unique index (uq_one_open_case_per_record)
-        # is the final backstop against a genuine race — a savepoint here
-        # unwinds only this failed insert, never the record lookup above.
-        existing = (
-            db.query(ViolationCase)
-            .filter(ViolationCase.originating_record_id == record_id)
-            .filter(ViolationCase.status != "CLOSED")
-            .first()
-        )
-        if existing is not None:
-            return _case_summary(existing)
-        raise
-
-    db.add(CaseStatusHistory(
-        case_id=case.id, from_status=None, to_status="OPEN",
-        changed_by=current_user.id, note="Flagged for enforcement.",
-    ))
-    db.commit()
-    db.refresh(case)
-
-    try:
-        recompute_risk_for_record_subjects(record, db)
-    except Exception:  # noqa: BLE001 - best-effort; case creation itself already committed
-        db.rollback()
-
+    case, _was_created = flag_record_for_enforcement(db, record, current_user)
     return _case_summary(case)
 
 
@@ -553,11 +504,10 @@ def retry_enrichment(
         run_post_verification_loop(record, db)
     except Exception as exc:  # noqa: BLE001 - see verify_record's identical handling
         db.rollback()
-        db.add(AuditEvent(
-            actor_id=current_user.id, event_type="intelligence_enrichment_failed",
-            entity_type="ComplianceRecord", entity_id=record.id,
+        emit(
+            db, "intelligence_enrichment_failed", viewer=current_user, record=record,
             detail={"error": str(exc), "skipped": isinstance(exc, EnrichmentSkipped)},
-        ))
+        )
         db.commit()
         logger.warning("intelligence_enrichment_retry_failed", record_id=str(record.id), error=str(exc))
 

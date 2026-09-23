@@ -3,12 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
 
+import { useTheme } from "@/lib/theme";
+
 /**
  * QrCode — renders a QR code as an SVG, coloured from live UX4G tokens rather
- * than invented hex values (the same `getComputedStyle`-once pattern already
- * established by ComplianceTrendChart, for the same reason: SVG libraries
- * need literal colour values, not CSS custom properties, and a live read
- * keeps this theme-correct in dark mode without baking in a build-time value).
+ * than invented hex values. SVG libraries need literal colour values, so the
+ * component rereads the tokens whenever the active theme changes.
  *
  * UX4G ships no QR-rendering component or token family (confirmed — no
  * `.ux4g-*qr*` class exists in the compiled stylesheet) — this is pure
@@ -26,12 +26,15 @@ export interface QrCodeProps {
 export function QrCode({ value, size = 176 }: QrCodeProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [svg, setSvg] = useState<string | null>(null);
+  const theme = useTheme();
 
   useEffect(() => {
     if (!containerRef.current) return;
     const style = getComputedStyle(containerRef.current);
-    const dark = style.getPropertyValue("--ux4g-text-neutral-primary").trim() || "#171717";
-    const light = style.getPropertyValue("--ux4g-bg-neutral-elevated").trim() || "#ffffff";
+    const dark =
+      style.getPropertyValue("--ux4g-text-neutral-primary").trim() || "#171717";
+    const light =
+      style.getPropertyValue("--ux4g-bg-neutral-elevated").trim() || "#ffffff";
 
     let cancelled = false;
     QRCode.toString(value, {
@@ -45,7 +48,7 @@ export function QrCode({ value, size = 176 }: QrCodeProps) {
     return () => {
       cancelled = true;
     };
-  }, [value]);
+  }, [value, theme]);
 
   return (
     <div

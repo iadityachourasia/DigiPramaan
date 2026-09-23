@@ -126,6 +126,17 @@ class Settings(BaseSettings):
     mobile_handoff_expiry_minutes: int = 15
     mobile_upload_max_mb: int = 10
 
+    # --- Internal report-render bridge (F-003 fix) ---
+    # Service-to-service auth for POST {frontend_base_url}/api/internal/
+    # render-report — the Next.js route that actually renders the PDF/DOCX
+    # (report-render-v2 lives in that repo, with a working Node runtime
+    # already deployed; the backend's own container never has one). This
+    # secret is the ONLY thing standing between that route and the public
+    # internet, since /api/internal/* is deliberately excluded from the
+    # ENABLE_MOCK_API lockdown (src/proxy.ts) — it must be set identically
+    # on both sides, never logged, never reused for anything else.
+    internal_render_secret: SecretStr | None = None
+
     # --- OpenParser OCR migration ---
     #
     # OP-Phases 2-7 built and live-verified the OpenParser integration
@@ -240,6 +251,56 @@ class Settings(BaseSettings):
             raise ValueError(
                 "OPENPARSER_POLL_MIN_SECONDS must not exceed OPENPARSER_POLL_MAX_SECONDS"
             )
+        return self
+
+    @model_validator(mode="after")
+    def _validate_internal_render_secret_in_production(self) -> "Settings":
+        """Report generation silently can't reach the renderer without this
+        (F-003 fix) — fail fast at startup in production rather than only
+        discovering it the first time an officer clicks "Generate Report"."""
+        if self.app_env == "production" and not self.internal_render_secret:
+            raise ValueError("INTERNAL_RENDER_SECRET must be set in production")
+        return self
+
+    # --- P2 hardening (2026-09-19): request-size limits (F-006/N-16) ---
+    # `scan_image_max_bytes` covers desktop/device-camera capture, which
+    # had no equivalent cap before this phase (only the mobile per-image
+    # path had `mobile_upload_max_mb`, checked post-read). Headroom above
+    # mobile_upload_max_mb since device capture can produce larger raw
+    # files than a phone's own compressed camera output.
+    scan_image_max_bytes: int = 15_000_000
+    # Generic cap for any bulk list-bound request body, reused across
+    # bulk-shaped endpoints rather than one bespoke field per route.
+    records_bulk_max_items: int = 500
+    # Matches the existing ecommerce_max_category_listings order of
+    # magnitude — a batch is officer-selected URLs from that same listing.
+    ecommerce_batch_max_urls: int = 20
+
+    # --- P2 hardening (2026-09-19): login/refresh rate limiting (F-010) ---
+    auth_login_rate_limit_window_seconds: int = 60
+    auth_login_rate_limit_max_attempts: int = 10
+    auth_refresh_rate_limit_window_seconds: int = 60
+    auth_refresh_rate_limit_max_attempts: int = 20
+    # How many hops of X-Forwarded-For to trust as proxy-appended (Azure
+    # App Service's own front end typically adds exactly one) before
+    # reading the real client IP — see app/core/client_ip.py. 0 means
+    # "trust nothing, use the raw socket peer" — always safe, never a
+    # fail-open condition, so no production-only validation is needed here.
+    trusted_proxy_hop_count: int = 1
+
+    # --- P2 hardening (2026-09-19): short-lived download tickets (F-010) ---
+    # Replaces `?access_token=` for report downloads and evidence-image
+    # reads. A DEDICATED secret, separate from every other secret in this
+    # file (supabase_jwt_secret, internal_render_secret, the OpenParser
+    # idempotency secret) — one secret per purpose, so rotating one never
+    # invalidates or weakens another.
+    download_ticket_secret: SecretStr | None = None
+    download_ticket_ttl_seconds: int = 120
+
+    @model_validator(mode="after")
+    def _validate_download_ticket_secret_in_production(self) -> "Settings":
+        if self.app_env == "production" and not self.download_ticket_secret:
+            raise ValueError("DOWNLOAD_TICKET_SECRET must be set in production")
         return self
 
     @property

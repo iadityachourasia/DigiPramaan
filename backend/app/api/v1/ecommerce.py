@@ -222,6 +222,12 @@ def create_ecommerce_batch(
     """Bulk commit (08 §4): one independent ScanSession per selected URL,
     all sharing one EcommerceBatch row — a listing that fails to fetch is
     recorded as its own failed entry and never affects the others."""
+    if len(payload.selected_urls) > settings.ecommerce_batch_max_urls:
+        raise HTTPException(
+            status_code=422,
+            detail=f"A batch cannot exceed {settings.ecommerce_batch_max_urls} URLs",
+        )
+
     batch = EcommerceBatch(source_url=payload.source_url, created_by=current_user.id)
     db.add(batch)
     db.flush()  # assigns batch.id without committing yet

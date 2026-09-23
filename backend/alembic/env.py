@@ -26,6 +26,20 @@ settings = get_settings()
 config.set_main_option("sqlalchemy.url", settings.database_url)
 
 
+def _include_object(object, name, type_, reflected, compare_to) -> bool:
+    """`auth.users` (app/db/models/user_profile.py) is Supabase Auth's own
+    table — `profiles.id` has an FK into it, so it must exist on
+    Base.metadata for that FK to resolve, but this project's migrations
+    never create or alter it (see 0001_mvp_schema.py's own docstring and
+    docker/postgres-init/002-auth-stub.sql, which stubs it locally). Without
+    this filter, `alembic check`/`--autogenerate` always reports it as a
+    spurious "new table" — a false positive on every run, not a real drift
+    signal. R1.3, 2026-09-19."""
+    if type_ == "table" and getattr(object, "schema", None) == "auth":
+        return False
+    return True
+
+
 def run_migrations_offline() -> None:
     url = config.get_main_option("sqlalchemy.url")
     context.configure(
@@ -33,6 +47,7 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        include_object=_include_object,
     )
     with context.begin_transaction():
         context.run_migrations()
@@ -45,7 +60,11 @@ def run_migrations_online() -> None:
         poolclass=pool.NullPool,
     )
     with connectable.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata)
+        context.configure(
+            connection=connection,
+            target_metadata=target_metadata,
+            include_object=_include_object,
+        )
         with context.begin_transaction():
             context.run_migrations()
 

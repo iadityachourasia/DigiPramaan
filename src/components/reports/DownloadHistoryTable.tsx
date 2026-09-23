@@ -1,7 +1,7 @@
 "use client";
 
 import { DataTable, type DataTableColumn } from "@/components/shared";
-import { reportDownloadHref } from "@/lib/api/reports";
+import { getRecordReportDownloadHref } from "@/lib/api/reports";
 import { formatShortDate } from "@/lib/utils/format";
 import type { GeneratedReport } from "@/types";
 
@@ -46,6 +46,13 @@ export function DownloadHistoryTable({
   viewerId,
   labels,
 }: DownloadHistoryTableProps) {
+  // P2 hardening (F-010): issues a short-lived download ticket before
+  // navigating, instead of a static href carrying the raw session token.
+  async function handleDownload(report: GeneratedReport, format: (typeof report.formats)[number]) {
+    const href = await getRecordReportDownloadHref(report, format, viewerId);
+    window.location.assign(href);
+  }
+
   const columns: DataTableColumn<GeneratedReport>[] = [
     {
       key: "name",
@@ -96,14 +103,15 @@ export function DownloadHistoryTable({
       render: (report) => (
         <div className="lmcs-records-row-actions">
           {report.formats.map((format) => (
-            <a
+            <button
               key={format}
-              href={reportDownloadHref(report, format, viewerId)}
+              type="button"
+              onClick={() => void handleDownload(report, format)}
               className="ux4g-btn ux4g-btn-text-primary ux4g-btn-sm"
               aria-label={labels.download(format, report.name)}
             >
               {format}
-            </a>
+            </button>
           ))}
         </div>
       ),

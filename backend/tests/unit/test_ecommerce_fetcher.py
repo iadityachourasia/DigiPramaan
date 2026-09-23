@@ -3,6 +3,14 @@ Unit tests for services/ecommerce/fetcher.py — network mocked via respx
 (no real HTTP), DNS resolution mocked via socket.getaddrinfo so the
 ssrf_guard checks inside every fetch see a safe public IP for the test
 domain rather than hitting real DNS.
+
+P2 hardening (F-009, 2026-09-19): the fetcher now connects to the
+DNS-pinned IP literally (never re-resolving at connect time) — so every
+respx mock below targets that pinned IP (93.184.216.34, this file's own
+fake DNS answer), not the original hostname. The request still carries a
+`Host: shop.example.com` header (verified by test_pins_to_the_resolved_ip
+_and_sends_the_real_hostname_via_host_header below), matching what a real
+server needs to route the request correctly.
 """
 
 from __future__ import annotations
@@ -39,7 +47,7 @@ def _safe_dns(monkeypatch):
 
 @respx.mock
 def test_fetches_html_successfully():
-    respx.get("https://shop.example.com/product/1").mock(
+    respx.get("https://93.184.216.34/product/1").mock(
         return_value=httpx.Response(200, headers={"content-type": "text/html"}, text="<html>ok</html>")
     )
     html = fetch_listing_html("https://shop.example.com/product/1", _settings())
@@ -48,7 +56,7 @@ def test_fetches_html_successfully():
 
 @respx.mock
 def test_disallowed_content_type_rejected():
-    respx.get("https://shop.example.com/product/1").mock(
+    respx.get("https://93.184.216.34/product/1").mock(
         return_value=httpx.Response(200, headers={"content-type": "application/pdf"}, content=b"%PDF-1.4")
     )
     with pytest.raises(FetchError, match="content-type"):
@@ -58,7 +66,7 @@ def test_disallowed_content_type_rejected():
 @respx.mock
 def test_html_size_cap_aborts_before_buffering_the_whole_body():
     oversized = b"<html>" + (b"x" * 2000) + b"</html>"
-    respx.get("https://shop.example.com/big").mock(
+    respx.get("https://93.184.216.34/big").mock(
         return_value=httpx.Response(200, headers={"content-type": "text/html"}, content=oversized)
     )
     with pytest.raises(FetchError, match="byte cap"):
@@ -67,7 +75,7 @@ def test_html_size_cap_aborts_before_buffering_the_whole_body():
 
 @respx.mock
 def test_image_fetched_with_content_type():
-    respx.get("https://shop.example.com/img.jpg").mock(
+    respx.get("https://93.184.216.34/img.jpg").mock(
         return_value=httpx.Response(200, headers={"content-type": "image/jpeg"}, content=b"\xff\xd8\xff")
     )
     body, content_type = fetch_image_bytes("https://shop.example.com/img.jpg", _settings())
@@ -77,7 +85,7 @@ def test_image_fetched_with_content_type():
 
 @respx.mock
 def test_image_disallowed_content_type_rejected():
-    respx.get("https://shop.example.com/not-an-image").mock(
+    respx.get("https://93.184.216.34/not-an-image").mock(
         return_value=httpx.Response(200, headers={"content-type": "text/html"}, text="<html></html>")
     )
     with pytest.raises(FetchError):
@@ -86,10 +94,10 @@ def test_image_disallowed_content_type_rejected():
 
 @respx.mock
 def test_redirect_to_safe_host_followed():
-    respx.get("https://shop.example.com/old").mock(
+    respx.get("https://93.184.216.34/old").mock(
         return_value=httpx.Response(302, headers={"location": "https://shop.example.com/new"})
     )
-    respx.get("https://shop.example.com/new").mock(
+    respx.get("https://93.184.216.34/new").mock(
         return_value=httpx.Response(200, headers={"content-type": "text/html"}, text="<html>new</html>")
     )
     html = fetch_listing_html("https://shop.example.com/old", _settings())
@@ -110,7 +118,7 @@ def test_redirect_to_unsafe_host_rejected(monkeypatch):
     monkeypatch.setattr(socket, "getaddrinfo", fake_getaddrinfo)
 
     with respx.mock:
-        respx.get("https://shop.example.com/old").mock(
+        respx.get("https://93.184.216.34/old").mock(
             return_value=httpx.Response(302, headers={"location": "http://internal.evil.com/secret"})
         )
         with pytest.raises(FetchError, match="disallowed"):
@@ -119,11 +127,45 @@ def test_redirect_to_unsafe_host_rejected(monkeypatch):
 
 @respx.mock
 def test_too_many_redirects_rejected():
-    respx.get("https://shop.example.com/a").mock(
+    respx.get("https://93.184.216.34/a").mock(
         return_value=httpx.Response(302, headers={"location": "https://shop.example.com/b"})
     )
-    respx.get("https://shop.example.com/b").mock(
+    respx.get("https://93.184.216.34/b").mock(
         return_value=httpx.Response(302, headers={"location": "https://shop.example.com/a"})
     )
     with pytest.raises(FetchError, match="redirects"):
         fetch_listing_html("https://shop.example.com/a", _settings(ecommerce_max_redirects=2))
+
+
+@respx.mock
+def test_pins_to_the_resolved_ip_and_sends_the_real_hostname_via_host_header():
+    """The direct proof of the P2/F-009 fix: the actual outgoing request
+    targets the validated IP literally (this mock only matches requests
+    to 93.184.216.34, never shop.example.com — respx would report
+    "not mocked" if the fetcher re-resolved and connected to a DIFFERENT
+    IP than the one ssrf_guard validated), while still carrying a `Host`
+    header naming the real hostname for the origin server's own routing."""
+    route = respx.get("https://93.184.216.34/product/1").mock(
+        return_value=httpx.Response(200, headers={"content-type": "text/html"}, text="<html>ok</html>")
+    )
+    fetch_listing_html("https://shop.example.com/product/1", _settings())
+    assert route.called
+    sent_request = route.calls.last.request
+    assert sent_request.url.host == "93.184.216.34"
+    assert sent_request.headers["host"] == "shop.example.com"
+
+
+def test_does_not_trust_environment_proxy_settings(monkeypatch):
+    """F-009: trust_env=False must be set explicitly, so an
+    operator-configured HTTP_PROXY/HTTPS_PROXY/NO_PROXY can never
+    silently reroute a request this guard already validated."""
+    monkeypatch.setenv("HTTPS_PROXY", "http://127.0.0.1:1")  # an address nothing listens on
+    with respx.mock:
+        respx.get("https://93.184.216.34/product/1").mock(
+            return_value=httpx.Response(200, headers={"content-type": "text/html"}, text="<html>ok</html>")
+        )
+        # If trust_env were still True, httpx would attempt to route
+        # through the (unreachable) proxy above and this would raise a
+        # connection error instead of succeeding via respx's direct mock.
+        html = fetch_listing_html("https://shop.example.com/product/1", _settings())
+    assert html == "<html>ok</html>"

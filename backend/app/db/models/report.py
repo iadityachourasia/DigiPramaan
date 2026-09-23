@@ -52,7 +52,12 @@ class Report(Base):
     # PENDING | GENERATING | COMPLETED | FAILED (unconstrained String, same
     # convention as verification_status/compliance_status elsewhere in this
     # schema — enforced at the application layer, not a DB CHECK).
-    status: Mapped[str] = mapped_column(String, nullable=False, server_default="COMPLETED")
+    # index=True matches migration 0006's own ix_reports_status — previously
+    # model/migration drift (`alembic check` caught it during the 0001
+    # baseline-freeze fix, R1.3, 2026-09-19).
+    status: Mapped[str] = mapped_column(
+        String, nullable=False, server_default="COMPLETED", index=True
+    )
     current_stage: Mapped[str | None] = mapped_column(String, nullable=True)
     report_format_version: Mapped[str] = mapped_column(String, nullable=False, server_default="1.0")
     pdf_sha256: Mapped[str | None] = mapped_column(String, nullable=True)

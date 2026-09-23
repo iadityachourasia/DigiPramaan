@@ -106,12 +106,15 @@ def upgrade() -> None:
         sa.Column("normalized_artifact_sha256", sa.String(), nullable=True),
         sa.Column("provider_page_count", sa.Integer(), nullable=True),
         sa.Column("cost_usage", postgresql.JSONB(), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
         sa.Column(
             "updated_at",
             sa.DateTime(timezone=True),
             server_default=sa.func.now(),
             onupdate=sa.func.now(),
+            nullable=False,
         ),
         sa.CheckConstraint("attempt_number >= 1", name="ck_ocr_provider_jobs_attempt_number"),
         sa.CheckConstraint("poll_count >= 0", name="ck_ocr_provider_jobs_poll_count"),

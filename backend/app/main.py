@@ -21,12 +21,15 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1.activity import router as activity_router
+from app.api.v1.admin import router as admin_router
+from app.api.v1.analytics import router as analytics_router
 from app.api.v1.auth import router as auth_router
 from app.api.v1.cases import router as cases_router
 from app.api.v1.companies import router as companies_router
 from app.api.v1.dashboard import router as dashboard_router
 from app.api.v1.ecommerce import router as ecommerce_router
 from app.api.v1.explanations import router as explanations_router
+from app.api.v1.grievances import router as grievances_router
 from app.api.v1.health import router as health_router
 from app.api.v1.internal import router as internal_router
 from app.api.v1.mobile_handoff import router as mobile_handoff_router
@@ -58,8 +61,15 @@ def create_app() -> FastAPI:
         CORSMiddleware,
         allow_origins=settings.cors_origin_list,
         allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        # P2 hardening (2026-09-19, F-019): tightened from "*"/"*" — the
+        # real frontend client (src/lib/api/client.ts) only sends
+        # GET/POST/PUT with Authorization/Content-Type/Accept. Wildcarding
+        # either alongside allow_credentials=True was strictly more
+        # permissive than any real caller needs.
+        # §AF (2026-09-20): PUT added — admin.py's PUT /admin/thresholds is
+        # the first real PUT route (client.ts gained apiPut() for it).
+        allow_methods=["GET", "POST", "PUT"],
+        allow_headers=["Authorization", "Content-Type", "Accept", "X-Request-ID"],
     )
     app.add_middleware(RequestIdMiddleware)
 
@@ -79,6 +89,9 @@ def create_app() -> FastAPI:
     app.include_router(reports_router, prefix="/api/v1")
     app.include_router(explanations_router, prefix="/api/v1")
     app.include_router(activity_router, prefix="/api/v1")
+    app.include_router(analytics_router, prefix="/api/v1")
+    app.include_router(admin_router, prefix="/api/v1")
+    app.include_router(grievances_router, prefix="/api/v1")
 
     return app
 

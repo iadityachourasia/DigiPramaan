@@ -39,7 +39,8 @@ export interface TrendPanelProps {
     retryLabel: string;
   };
   demoState?: "loading" | "empty" | "error";
-  /** Dashboard's live, viewer-scoped series. Analytics retains its fixture fallback. */
+  /** Dashboard's and Analytics' live, viewer-scoped series. Falls back to the
+   * illustrative mock series (getTrendForPeriod) only when omitted, i.e. mock mode. */
   dataByPeriod?: Record<TrendPeriod, TrendPoint[]>;
   /** Analytics & Violation Trends' (page 7) drill-down — unused by Dashboard's own usage. */
   onPointClick?: (point: TrendPoint, series: "compliant" | "nonCompliant") => void;

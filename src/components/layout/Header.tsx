@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 
 import { MOCK_DASHBOARD_ALERTS } from "@/lib/mock";
 import { DigiPramaanLogo } from "@/components/shared";
+import { ThemeToggle } from "@/components/shared/ThemeToggle";
 
 import { OfficerProfileButton } from "./OfficerProfileButton";
 
@@ -67,6 +68,7 @@ export function Header({ onMenuToggle }: HeaderProps) {
       </div>
 
       <div className="lmcs-header-right">
+        <ThemeToggle />
         <button
           type="button"
           className="ux4g-btn ux4g-btn-text-neutral lmcs-header-action"

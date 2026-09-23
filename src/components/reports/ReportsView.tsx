@@ -7,7 +7,7 @@ import { useState } from "react";
 import { ErrorState } from "@/components/shared";
 import { Alert } from "@/components/ui/Alert";
 import { Link } from "@/i18n/navigation";
-import { reportDownloadHref } from "@/lib/api/reports";
+import { getRecordReportDownloadHref } from "@/lib/api/reports";
 import { ROUTES } from "@/lib/constants";
 import { useAuth, useReportBuilder, useReportHistory } from "@/lib/hooks";
 import { LARGE_REPORT_ROW_THRESHOLD, type ReportFormat } from "@/types";
@@ -43,6 +43,14 @@ export function ReportsView({ locale }: { locale: string }) {
   /* Bumped when a report completes, so Download History picks it up. */
   const [historyKey, setHistoryKey] = useState(0);
   const history = useReportHistory(demoState, historyKey);
+
+  // P2 hardening (F-010): issues a short-lived download ticket before
+  // navigating, instead of a static href carrying the raw session token.
+  async function handleDownload(format: ReportFormat) {
+    if (!builder.detail) return;
+    const href = await getRecordReportDownloadHref(builder.detail.report, format, user?.id);
+    window.location.assign(href);
+  }
 
   const completedReportId = builder.run?.status === "completed" ? builder.run.report?.id : null;
   const [seenReportId, setSeenReportId] = useState<string | null>(null);
@@ -256,16 +264,17 @@ export function ReportsView({ locale }: { locale: string }) {
             </h2>
             <div className="lmcs-report-actions">
               {builder.detail.report.formats.map((format) => (
-                <a
+                <button
                   key={format}
-                  href={reportDownloadHref(builder.detail!.report, format, user?.id)}
+                  type="button"
+                  onClick={() => void handleDownload(format)}
                   className="ux4g-btn ux4g-btn-primary"
                 >
                   <span className="ux4g-icon-outlined" aria-hidden="true">
                     download
                   </span>
                   {t("download.action", { format })}
-                </a>
+                </button>
               ))}
             </div>
           </section>

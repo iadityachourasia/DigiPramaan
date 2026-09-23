@@ -104,6 +104,13 @@ def _openparser_env(monkeypatch: pytest.MonkeyPatch, **overrides: str) -> None:
     for key, value in REQUIRED_ENV.items():
         monkeypatch.setenv(key, value)
     monkeypatch.setenv("APP_ENV", "production")
+    # F-003 fix: production always requires this now, regardless of OCR
+    # provider — set it here so it doesn't trip up every unrelated
+    # OpenParser-focused test in this file.
+    monkeypatch.setenv("INTERNAL_RENDER_SECRET", "render-secret")
+    # P2 fix: same reasoning — production always requires the download
+    # ticket secret now, independent of OCR provider.
+    monkeypatch.setenv("DOWNLOAD_TICKET_SECRET", "download-ticket-secret")
     for key, value in overrides.items():
         monkeypatch.setenv(key, value)
 

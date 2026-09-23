@@ -1,0 +1,10 @@
+# Local-only, gitignored. Port 5432 on this machine is already bound by a
+# native Windows PostgreSQL 18 service (unrelated to this project), which
+# silently wins IPv4 connections to localhost:5432 ahead of Docker's port
+# forwarder. Remaps ONLY the disposable test/dev container's host port so
+# it never conflicts with that service. docker-compose.yml itself (the
+# committed file every developer shares) is untouched.
+services:
+  postgres:
+    ports:
+      - "5433:5432"
