@@ -26,3 +26,14 @@ backend/app/seed/demo_profiles.json
 
 .vercel
 .env*
+
+# Per-tool AI assistant config — local to each contributor's setup, not shared code.
+# CLAUDE.md is the one canonical instructions file this repo tracks.
+.agents/
+.clinerules
+.codex/
+AGENTS.md
+mailmap.txt
+
+# One-time design handoff bundle — already implemented (see src/, ux4g-web-components).
+design_system/
