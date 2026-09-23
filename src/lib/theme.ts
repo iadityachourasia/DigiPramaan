@@ -19,10 +19,7 @@ function savedTheme(): Theme | null {
 }
 
 function preferredTheme(): Theme {
-  return (
-    savedTheme() ??
-    (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
-  );
+  return savedTheme() ?? "light";
 }
 
 export function applyTheme(theme: Theme): void {
@@ -65,10 +62,6 @@ export function useTheme(): Theme {
 }
 
 export function observeThemePreferences(): () => void {
-  const media = window.matchMedia("(prefers-color-scheme: dark)");
-  const onSystemChange = () => {
-    if (!savedTheme()) syncTheme();
-  };
   const onStorageChange = (event: StorageEvent) => {
     if (event.key === THEME_STORAGE_KEY || event.key === null) {
       pageChoice = null;
@@ -76,12 +69,10 @@ export function observeThemePreferences(): () => void {
     }
   };
 
-  media.addEventListener("change", onSystemChange);
   window.addEventListener("storage", onStorageChange);
   syncTheme();
 
   return () => {
-    media.removeEventListener("change", onSystemChange);
     window.removeEventListener("storage", onStorageChange);
   };
 }
