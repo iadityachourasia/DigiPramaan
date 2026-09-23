@@ -5,6 +5,7 @@
     "department": "Department of Consumer Affairs",
     "ministry": "Ministry of Consumer Affairs, Food & Public Distribution",
     "government": "Government of India",
+    "governmentHindi": "भारत सरकार",
     "tagline": "Check packaged commodity labels against the Legal Metrology (Packaged Commodities) Rules, 2011."
   },
   "vocabulary": {
@@ -184,9 +185,18 @@
     "notificationsUnread": "{count} unread notifications",
     "logout": "Log out"
   },
+  "theme": {
+    "darkMode": "Dark mode",
+    "switchToDark": "Switch to dark mode",
+    "switchToLight": "Switch to light mode"
+  },
   "accessibility": {
     "skipToMain": "Skip to main content",
     "screenReaderAccess": "Screen reader access",
+    "displaySize": "Display size",
+    "displaySize0": "Default display size",
+    "displaySize1": "Larger display size",
+    "displaySize2": "Largest display size",
     "languageSwitcher": "Choose a language",
     "openMenu": "Open menu",
     "closeMenu": "Close menu",
@@ -267,28 +277,28 @@
     },
     "nav": {
       "label": "Site sections",
+      "home": "Home",
       "howItWorks": "How it works",
       "categories": "What we check",
       "citizens": "For citizens",
+      "resources": "Resources",
+      "contact": "Contact",
+      "search": "Search the site",
+      "searchLabel": "Search site sections",
+      "searchPlaceholder": "Search pages and sections",
+      "noResults": "No matching sections found.",
       "signIn": "Officer sign in"
     },
     "hero": {
+      "promiseFairTrade": "Ensuring fair trade",
+      "promiseTrustedMarkets": "Trusted markets",
+      "promiseConsumerProtection": "Consumer protection",
       "eyebrow": "Legal Metrology (Packaged Commodities) Rules, 2011",
       "title": "AI-assisted compliance verification for Legal Metrology enforcement",
       "body": "Digi-Pramaan reads the mandatory declarations off a packaged commodity, checks each one against the Rules, and produces an evidence-backed, citable compliance record — built for the officers who do this work in the field.",
       "ctaPrimary": "Officer sign in",
       "ctaSecondary": "Report a label",
-      "trustLine": "A service of the Department of Consumer Affairs, Ministry of Consumer Affairs, Food & Public Distribution",
-      "demoCaption": "Extraction result, sample record",
-      "demoFlow": {
-        "scan": "Scan",
-        "ocr": "OCR",
-        "rules": "Rules",
-        "verified": "Verified"
-      },
-      "demoScoreLabel": "Declarations passed",
-      "demoVerdictPass": "Present",
-      "demoVerdictFail": "Missing"
+      "trustLine": "A service of the Department of Consumer Affairs, Ministry of Consumer Affairs, Food & Public Distribution"
     },
     "valueStrip": {
       "items": {
@@ -1557,11 +1567,57 @@
     "loadError": "We could not load the Admin Console.",
     "retry": "Try again",
     "tabsLabel": "Admin Console sections",
-    "tabs": { "team": "Team & Jurisdiction", "thresholds": "Rule Thresholds", "system": "System" },
-    "team": { "heading": "Team & Jurisdiction", "scopeNote": "Only people within your jurisdiction are shown.", "name": "Name", "role": "Role", "jurisdiction": "Jurisdiction", "caseLoad": "Assigned cases", "status": "Status", "action": "Action", "active": "Active", "deactivated": "Deactivated", "deactivate": "Deactivate", "reassignHeading": "Reassign case", "outsideTeamNote": "Cases assigned outside your team are identified by their current officer. New assignments are limited to in-scope active officers.", "caseLabel": "Case", "officerLabel": "New officer", "selectCase": "Select a case", "selectOfficer": "Select an officer", "unassigned": "Unassigned", "reassign": "Reassign case", "reassignConfirm": "Reassign {product} to {officer}?", "confirmReassignmentHeading": "Confirm case reassignment", "confirmDeactivationHeading": "Confirm account deactivation", "confirmReassignmentBody": "Reassign {product} from {currentOfficer} to {newOfficer}?", "confirmReassignment": "Confirm reassignment", "cancel": "Cancel", "sessionNote": "Deactivation prevents future sign-ins and new case assignment. Existing mock sessions cannot be revoked until authentication is server-validated." },
+    "tabs": {
+      "team": "Team & Jurisdiction",
+      "thresholds": "Rule Thresholds",
+      "system": "System"
+    },
+    "team": {
+      "heading": "Team & Jurisdiction",
+      "scopeNote": "Only people within your jurisdiction are shown.",
+      "name": "Name",
+      "role": "Role",
+      "jurisdiction": "Jurisdiction",
+      "caseLoad": "Assigned cases",
+      "status": "Status",
+      "action": "Action",
+      "active": "Active",
+      "deactivated": "Deactivated",
+      "deactivate": "Deactivate",
+      "reassignHeading": "Reassign case",
+      "outsideTeamNote": "Cases assigned outside your team are identified by their current officer. New assignments are limited to in-scope active officers.",
+      "caseLabel": "Case",
+      "officerLabel": "New officer",
+      "selectCase": "Select a case",
+      "selectOfficer": "Select an officer",
+      "unassigned": "Unassigned",
+      "reassign": "Reassign case",
+      "reassignConfirm": "Reassign {product} to {officer}?",
+      "confirmReassignmentHeading": "Confirm case reassignment",
+      "confirmDeactivationHeading": "Confirm account deactivation",
+      "confirmReassignmentBody": "Reassign {product} from {currentOfficer} to {newOfficer}?",
+      "confirmReassignment": "Confirm reassignment",
+      "cancel": "Cancel",
+      "sessionNote": "Deactivation prevents future sign-ins and new case assignment. Existing mock sessions cannot be revoked until authentication is server-validated."
+    },
     "deactivateConfirm": "Deactivate {name}? They will not be able to sign in again or receive new cases.",
-    "thresholds": { "heading": "Rule Thresholds", "freezeNote": "A verified record keeps the score band assigned at verification. Changes apply only to records verified afterwards.", "repeatViolationCount": "Repeat non-compliant records", "repeatViolationDays": "Repeat-violation window (days)", "ocrConfidenceThreshold": "OCR confidence threshold (%)", "excellentMinimum": "Excellent minimum score", "goodMinimum": "Good minimum score", "poorMinimum": "Poor minimum score", "save": "Save thresholds" },
-    "system": { "heading": "System", "locales": "Active languages: English and Hindi", "upload": "Maximum upload size: 10 MB", "readOnly": "System settings are displayed for reference; editing is deferred." }
+    "thresholds": {
+      "heading": "Rule Thresholds",
+      "freezeNote": "A verified record keeps the score band assigned at verification. Changes apply only to records verified afterwards.",
+      "repeatViolationCount": "Repeat non-compliant records",
+      "repeatViolationDays": "Repeat-violation window (days)",
+      "ocrConfidenceThreshold": "OCR confidence threshold (%)",
+      "excellentMinimum": "Excellent minimum score",
+      "goodMinimum": "Good minimum score",
+      "poorMinimum": "Poor minimum score",
+      "save": "Save thresholds"
+    },
+    "system": {
+      "heading": "System",
+      "locales": "Active languages: English and Hindi",
+      "upload": "Maximum upload size: 10 MB",
+      "readOnly": "System settings are displayed for reference; editing is deferred."
+    }
   },
   "staticPages": {
     "accessibilityStatement": {

@@ -23,6 +23,11 @@
  */
 html {
   background-color: var(--ux4g-bg-neutral);
+  color-scheme: light;
+}
+
+html[data-theme="dark"] {
+  color-scheme: dark;
 }
 
 body {
@@ -44,7 +49,8 @@ body {
   top: var(--ux4g-padding-s);
   z-index: var(--ux4g-z-layout-top);
   transform: translateY(-200%);
-  transition: transform var(--ux4g-transition-duration-base) var(--ux4g-transition-timing-ease);
+  transition: transform var(--ux4g-transition-duration-base)
+    var(--ux4g-transition-timing-ease);
 }
 
 .lmcs-skip-link:focus-visible {

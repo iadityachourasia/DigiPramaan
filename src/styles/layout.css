@@ -190,7 +190,7 @@
 
 .lmcs-sidebar-link-active {
   background-color: var(--ux4g-bg-primary-subtle);
-  color: var(--ux4g-text-brand-primary-default);
+  color: var(--ux4g-text-neutral-primary);
   border-left-color: var(--ux4g-border-color-primary-default);
 }
 
@@ -235,6 +235,30 @@
   gap: var(--ux4g-gap-column-s);
 }
 
+/* The mobile header has four controls. Keep the service name on one line and
+   let the navigation drawer carry the full logo and descriptor. */
+@media (max-width: 639px) {
+  .lmcs-header {
+    gap: var(--ux4g-gap-column-2xs);
+    padding-inline: var(--ux4g-padding-xs);
+  }
+
+  .lmcs-header-left,
+  .lmcs-header-right {
+    gap: var(--ux4g-gap-column-2xs);
+    min-width: 0;
+  }
+
+  .lmcs-header-brand .lmcs-brand-mark-compact,
+  .lmcs-header-titles .ux4g-label-s-default {
+    display: none;
+  }
+
+  .lmcs-header-titles .ux4g-title-s-strong {
+    white-space: nowrap;
+  }
+}
+
 .lmcs-header-titles {
   display: flex;
   flex-direction: column;
@@ -243,6 +267,13 @@
 .lmcs-header-action {
   min-width: var(--lmcs-touch-target);
   min-height: var(--lmcs-touch-target);
+}
+
+/* The UX4G text button supplies interaction states; only its hit area is set here. */
+.lmcs-theme-toggle {
+  min-width: var(--lmcs-touch-target);
+  min-height: var(--lmcs-touch-target);
+  flex-shrink: 0;
 }
 
 /* ─── Officer profile control (header account menu) ─── */
@@ -403,6 +434,12 @@
 .lmcs-capture-shell {
   min-height: 100dvh;
   background: var(--ux4g-bg-neutral-elevated);
+}
+
+.lmcs-capture-theme-control {
+  display: flex;
+  justify-content: flex-end;
+  padding: var(--ux4g-padding-xs) var(--ux4g-padding-m);
 }
 
 /* ─── Public Shell ─── */
@@ -1476,7 +1513,8 @@
   flex-direction: column;
   gap: var(--ux4g-gap-row-2xs);
   padding-bottom: var(--ux4g-padding-s);
-  border-bottom: var(--ux4g-border-width-sm) solid var(--ux4g-border-color-neutral-default);
+  border-bottom: var(--ux4g-border-width-sm) solid
+    var(--ux4g-border-color-neutral-default);
 }
 
 .lmcs-audit-trail-entry:last-child {

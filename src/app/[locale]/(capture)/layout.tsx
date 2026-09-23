@@ -1,6 +1,8 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import type { ReactNode } from "react";
 
+import { ThemeToggle } from "@/components/shared/ThemeToggle";
+
 /**
  * Capture layout — deliberately no sidebar, header, or footer.
  *
@@ -32,6 +34,9 @@ export default async function CaptureLayout({ children, params }: CaptureLayoutP
       <a href="#main-content" className="lmcs-skip-link ux4g-btn ux4g-btn-primary">
         {t("skipToMain")}
       </a>
+      <div className="lmcs-capture-theme-control">
+        <ThemeToggle />
+      </div>
       {children}
     </div>
   );

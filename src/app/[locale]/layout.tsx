@@ -4,10 +4,27 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import type { Metadata } from "next";
 
 import { routing } from "@/i18n/routing";
+import { DISPLAY_SIZE_STORAGE_KEY } from "@/lib/display-size-constants";
+import { THEME_STORAGE_KEY } from "@/lib/theme-constants";
 import { AuthProvider } from "@/providers/AuthProvider";
+import { ThemeRuntime } from "@/providers/ThemeRuntime";
 import { UX4GRuntime } from "@/providers/UX4GRuntime";
 
 import "../globals.css";
+
+const themeInitScript = `try {
+  const stored = localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)});
+  const systemDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  document.documentElement.dataset.theme = stored === "light" || stored === "dark"
+    ? stored : systemDark ? "dark" : "light";
+  const displaySize = localStorage.getItem(${JSON.stringify(DISPLAY_SIZE_STORAGE_KEY)});
+  if (displaySize === "large" || displaySize === "larger") {
+    document.documentElement.dataset.displaySize = displaySize;
+  }
+} catch {
+  document.documentElement.dataset.theme = window.matchMedia("(prefers-color-scheme: dark)").matches
+    ? "dark" : "light";
+}`;
 
 /**
  * Root layout for the locale segment: the document, the providers and the
@@ -72,18 +89,14 @@ export default async function LocaleLayout({
   setRequestLocale(locale);
 
   return (
-    /**
-     * `lang` is set from the active locale, which WCAG 3.1.1 requires and which also
-     * lets UX4G pick the right script face for Devanagari once Hindi is enabled.
-     *
-     * `data-theme` is deliberately absent. The package's dark theme is opt-in through
-     * this attribute and BRD §11.3 marks dark mode out of scope for the MVP, so the
-     * document stays on the light theme until that decision changes. The QA sweep
-     * sets the attribute itself so dark mode is still verified.
-     */
-    <html lang={locale}>
+    <html lang={locale} suppressHydrationWarning>
+      <head>
+        {/* Apply the saved or system theme before the first paint. */}
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
       <body>
         <NextIntlClientProvider>
+          <ThemeRuntime />
           <UX4GRuntime />
           <AuthProvider>{children}</AuthProvider>
         </NextIntlClientProvider>
