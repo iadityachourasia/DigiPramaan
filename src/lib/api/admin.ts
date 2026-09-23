@@ -12,8 +12,20 @@
  */
 
 import { API } from "@/lib/constants";
-import type { ManagedUser, RuleThresholds } from "@/types";
+import type { ManagedUser, RuleThresholds, Role } from "@/types";
 import { apiGet, apiPost, apiPut, isMockMode } from "./client";
+
+export interface CreateUserInput {
+  email: string;
+  username: string;
+  fullName: string;
+  password: string;
+  role: Role;
+  department: string;
+  region: string;
+  jurisdictionLevel: "State" | "National";
+  jurisdictionName: string;
+}
 
 interface AdminTeamResponse { users: ManagedUser[]; }
 
@@ -48,6 +60,10 @@ export function deactivateAdminUser(actorId: string, userId: string) {
     return apiPost<ManagedUser>(API.admin.deactivateUser(userId), {}).then(unwrap);
   }
   return request<ManagedUser>(`/api/admin/users/${encodeURIComponent(userId)}/deactivate`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ actorId }) });
+}
+export function createAdminUser(actorId: string, input: CreateUserInput) {
+  if (!isMockMode()) return apiPost<ManagedUser>(API.admin.createUser, input).then(unwrap);
+  return request<ManagedUser>("/api/admin/users", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ actorId, ...input }) });
 }
 export function reassignAdminCase(actorId: string, recordId: string, newOfficerUserId: string) {
   if (!isMockMode()) {

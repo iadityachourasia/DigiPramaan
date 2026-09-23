@@ -1,9 +1,10 @@
 """
 api/v1/admin.py — Admin Console mock-to-real port (2026-09-20):
 GET /admin/team, GET/PUT /admin/thresholds, POST /admin/users/{id}/deactivate,
-POST /admin/cases/reassign. Every route requires the `rules.manageThresholds`
-permission, Admin-only per api/deps/permissions.py's ROLE_PERMISSIONS —
-matches the mock store's own `isInAdminScope`'s implicit Admin-only gate.
+POST /admin/cases/reassign, POST /admin/users. Every route requires the
+`rules.manageThresholds` permission, Admin-only per api/deps/permissions.py's
+ROLE_PERMISSIONS — matches the mock store's own `isInAdminScope`'s implicit
+Admin-only gate.
 
 Identity comes from the Bearer token only (`current_user`) — never an
 `actorId`/`viewerId` request field, the same discipline every other real
@@ -21,11 +22,13 @@ from sqlalchemy.orm import Session as DbSession
 
 from app.api.deps.permissions import require_permission
 from app.api.v1.auth import _to_user_response
+from app.core.config import Settings, get_settings
 from app.db.models import CaseStatusHistory, ComplianceRecord, Profile, ViolationCase
 from app.db.session import get_db
 from app.services.admin.thresholds import get_effective_thresholds, set_thresholds
 from app.services.audit import emit
-from app.services.authz.viewer import InvalidViewerProfile, ViewerScope
+from app.services.auth.supabase_auth import SupabaseAuthError, create_user_as_admin
+from app.services.authz.viewer import VALID_ROLES, InvalidViewerProfile, ViewerScope
 
 router = APIRouter(tags=["admin"], prefix="/admin")
 
@@ -216,3 +219,79 @@ def reassign_case(
     )
     db.commit()
     return {"status": "ok"}
+
+
+class CreateUserRequest(BaseModel):
+    email: str
+    username: str
+    full_name: str = Field(alias="fullName")
+    password: str
+    role: str
+    department: str = "Department of Consumer Affairs"
+    region: str
+    jurisdiction_level: str = Field(alias="jurisdictionLevel")
+    jurisdiction_name: str = Field(alias="jurisdictionName")
+
+    model_config = {"populate_by_name": True}
+
+
+@router.post("/users", status_code=status.HTTP_201_CREATED)
+def create_user(
+    payload: CreateUserRequest,
+    db: DbSession = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+    current_user: Profile = Depends(require_permission("rules.manageThresholds")),
+) -> dict:
+    """Creates a real Supabase Auth account plus its `profiles` row in one
+    step — the self-service equivalent of the manual "create in the
+    Supabase dashboard, then run seed/demo_profiles.py" process this
+    project used before. Needs SUPABASE_SERVICE_ROLE_KEY configured (see
+    core/config.py); 503s with a clear message if it isn't, rather than
+    the whole app failing to start over a feature most deployments won't
+    use."""
+    if payload.role not in VALID_ROLES:
+        raise HTTPException(
+            status_code=422,
+            detail=f"role must be one of: {', '.join(sorted(VALID_ROLES))}",
+        )
+    if len(payload.password) < 6:
+        raise HTTPException(status_code=422, detail="password must be at least 6 characters")
+    if payload.jurisdiction_level not in ("State", "National"):
+        raise HTTPException(status_code=422, detail="jurisdictionLevel must be State or National")
+
+    if db.query(Profile).filter(Profile.email == payload.email).first() is not None:
+        raise HTTPException(status_code=409, detail="An account with this email already exists")
+    if db.query(Profile).filter(Profile.username == payload.username).first() is not None:
+        raise HTTPException(status_code=409, detail="That username is already taken")
+
+    try:
+        auth_user = create_user_as_admin(payload.email, payload.password, settings)
+    except SupabaseAuthError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+
+    user_id = uuid.UUID(auth_user["id"])
+    profile = Profile(
+        id=user_id,
+        username=payload.username,
+        email=payload.email,
+        full_name=payload.full_name,
+        role=payload.role,
+        department=payload.department,
+        region=payload.region,
+        jurisdiction_level=payload.jurisdiction_level,
+        jurisdiction_name=payload.jurisdiction_name,
+        active=True,
+    )
+    db.add(profile)
+    emit(
+        db, "user_created", viewer=current_user, entity_type="Profile", entity_id=user_id,
+        detail={"email": payload.email, "role": payload.role},
+    )
+    db.commit()
+    db.refresh(profile)
+
+    user = _to_user_response(profile).model_dump(by_alias=True)
+    user["active"] = profile.active
+    user["caseLoad"] = 0
+    user["jurisdictionName"] = profile.jurisdiction_name or "National"
+    return user

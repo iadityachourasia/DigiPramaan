@@ -54,6 +54,7 @@ ACTIVITY_EVENT_TYPES = frozenset(
         "calibration_submitted",
         "case_status_changed",
         "user_deactivated",
+        "user_created",
         # --- new, OP-Phase 1 — desktop upload-once intake
         # (services/scans/intake.py), shared with (but distinct from) the
         # mobile_image_* pair above, which the phone-side flow keeps using
@@ -109,6 +110,7 @@ ACTIVITY_TO_AUDIT_TYPE: dict[str, str | None] = {
     "calibration_submitted": None,
     "case_status_changed": None,
     "user_deactivated": None,
+    "user_created": None,
     "evidence_image_uploaded": None,
     "evidence_image_replaced": None,
     "evidence_override_submitted": None,

@@ -70,6 +70,13 @@ class Settings(BaseSettings):
     # key: that key bypasses Row Level Security entirely and must never be
     # reachable from anything the frontend can trigger a leak of.
     supabase_anon_key: str = Field(...)
+    # Bypasses Row Level Security entirely — only ever used server-side, for
+    # the Admin Console's "create user" endpoint (Supabase Auth's admin API
+    # has no lesser-privileged key that can create accounts). Optional: that
+    # one endpoint 503s with a clear message if this is unset, rather than
+    # the whole app failing to start over a feature most deployments won't
+    # use. Never logged, never returned in any response.
+    supabase_service_role_key: SecretStr | None = None
     # Only used for the fast, local, no-network-round-trip HS256 verification
     # path — see app/core/security.py for why this project also supports
     # the newer asymmetric (RS256/ES256) signing path via JWKS, which does

@@ -58,6 +58,52 @@ def sign_in_with_password(email: str, password: str, settings) -> dict:
     return response.json()
 
 
+def create_user_as_admin(email: str, password: str, settings) -> dict:
+    """Creates a Supabase Auth user via the Admin API — the one call in this
+    module that uses the service-role key instead of the anon key, since
+    Supabase has no lesser-privileged way to create an account. Only ever
+    called from the Admin Console's create-user endpoint, itself gated to
+    Admin role. Returns Supabase's raw user object ({id, email, ...}) on
+    success. Raises SupabaseAuthError(409) if the email is already
+    registered, or (503) if the key is missing or the service can't be
+    reached — a caller must not confuse "already exists" with "failed"."""
+    if settings.supabase_service_role_key is None:
+        raise SupabaseAuthError(
+            "User creation is not configured on this server (no service-role key)",
+            status_code=503,
+        )
+
+    url = f"{settings.resolved_supabase_url}/auth/v1/admin/users"
+    service_key = settings.supabase_service_role_key.get_secret_value()
+    headers = {
+        "apikey": service_key,
+        "Authorization": f"Bearer {service_key}",
+        "Content-Type": "application/json",
+    }
+
+    try:
+        response = httpx.post(
+            url,
+            headers=headers,
+            json={"email": email, "password": password, "email_confirm": True},
+            timeout=8.0,
+        )
+    except httpx.HTTPError as exc:
+        raise SupabaseAuthError(
+            "Could not reach the authentication service", status_code=503
+        ) from exc
+
+    if response.status_code in (400, 422) and "already been registered" in response.text.lower():
+        raise SupabaseAuthError("An account with this email already exists", status_code=409)
+    if response.status_code not in (200, 201):
+        raise SupabaseAuthError(
+            f"Authentication service returned an unexpected status: {response.status_code}",
+            status_code=503,
+        )
+
+    return response.json()
+
+
 def refresh_access_token(refresh_token: str, settings) -> dict:
     """Exchanges a refresh token for a new access token, via Supabase's own
     refresh grant — the WCAG 2.2.1 "extend before expiry" flow's only

@@ -152,5 +152,6 @@ export const API = {
     thresholds: "/admin/thresholds",
     deactivateUser: (userId: string) => `/admin/users/${userId}/deactivate` as const,
     reassignCase: "/admin/cases/reassign",
+    createUser: "/admin/users",
   },
 } as const;

@@ -1598,7 +1598,20 @@
       "confirmReassignmentBody": "Reassign {product} from {currentOfficer} to {newOfficer}?",
       "confirmReassignment": "Confirm reassignment",
       "cancel": "Cancel",
-      "sessionNote": "Deactivation prevents future sign-ins and new case assignment. Existing mock sessions cannot be revoked until authentication is server-validated."
+      "sessionNote": "Deactivation prevents future sign-ins and new case assignment. Existing mock sessions cannot be revoked until authentication is server-validated.",
+      "createHeading": "Create user",
+      "createEmail": "Email",
+      "createUsername": "Username",
+      "createFullName": "Full name",
+      "createPassword": "Password",
+      "createRole": "Role",
+      "createRegion": "Region",
+      "createJurisdictionLevel": "Jurisdiction level",
+      "createJurisdictionName": "Jurisdiction name",
+      "createSubmit": "Create account",
+      "createSuccess": "{name} was created as {role}.",
+      "createJurisdictionState": "State",
+      "createJurisdictionNational": "National"
     },
     "deactivateConfirm": "Deactivate {name}? They will not be able to sign in again or receive new cases.",
     "thresholds": {

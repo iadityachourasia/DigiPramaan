@@ -26,12 +26,13 @@ def test_every_non_null_mapping_is_a_real_coarse_type() -> None:
     assert mapped <= _COARSE_AUDIT_EVENT_TYPES
 
 
-def test_34_event_types_currently_defined() -> None:
+def test_35_event_types_currently_defined() -> None:
     """A change-detector on purpose — forces this test file to be touched
     (and test_every_activity_type_has_exactly_one_coarse_mapping_entry to
     actually run against the new entry) whenever the vocabulary grows.
     29 -> 32: OP-Phase 1 adds evidence_image_uploaded/evidence_image_replaced/
     evidence_override_submitted (services/scans/intake.py).
     32 -> 34: P2 hardening adds login_rate_limited/refresh_rate_limited
-    (services/auth/rate_limit.py)."""
-    assert len(ACTIVITY_EVENT_TYPES) == 34
+    (services/auth/rate_limit.py).
+    34 -> 35: Admin Console create-user adds user_created (api/v1/admin.py)."""
+    assert len(ACTIVITY_EVENT_TYPES) == 35

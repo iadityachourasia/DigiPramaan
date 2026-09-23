@@ -4,11 +4,19 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { EmptyState, ErrorState, Skeleton } from "@/components/shared";
-import { deactivateAdminUser, fetchAdminTeam, fetchRuleThresholds, reassignAdminCase, saveRuleThresholds } from "@/lib/api/admin";
+import { createAdminUser, deactivateAdminUser, fetchAdminTeam, fetchRuleThresholds, reassignAdminCase, saveRuleThresholds, type CreateUserInput } from "@/lib/api/admin";
 import { fetchRecords } from "@/lib/api/records";
+import { INSPECTION_REGIONS } from "@/lib/mock/reference";
 import { mockUserName } from "@/lib/mock/users";
 import { useAuth, usePermission } from "@/lib/hooks";
-import type { ComplianceRecord, ManagedUser, RuleThresholds } from "@/types";
+import type { ComplianceRecord, ManagedUser, RuleThresholds, Role } from "@/types";
+import { ROLES } from "@/types/vocabulary";
+
+const NEW_USER_DEFAULTS: CreateUserInput = {
+  email: "", username: "", fullName: "", password: "", role: "Enforcement Officer",
+  department: "Department of Consumer Affairs", region: "Delhi",
+  jurisdictionLevel: "State", jurisdictionName: "Delhi",
+};
 
 type Tab = "team" | "thresholds" | "system";
 type PendingAction =
@@ -28,6 +36,9 @@ export function AdminConsoleView() {
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [newUser, setNewUser] = useState<CreateUserInput>(NEW_USER_DEFAULTS);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [createSuccess, setCreateSuccess] = useState<string | null>(null);
 
   function load() {
     if (!user) return;
@@ -72,6 +83,21 @@ export function AdminConsoleView() {
     try { await reassignAdminCase(user.id, record.id, officer.id); setRecordId(""); setOfficerId(""); load(); } catch (reason) { setError(reason instanceof Error ? reason.message : t("loadError")); }
     setSaving(false);
   }
+  async function submitNewUser() {
+    if (!user) return;
+    setCreateError(null);
+    setCreateSuccess(null);
+    setSaving(true);
+    try {
+      const created = await createAdminUser(user.id, newUser);
+      setCreateSuccess(t("team.createSuccess", { name: created.fullName, role: created.role }));
+      setNewUser(NEW_USER_DEFAULTS);
+      load();
+    } catch (reason) {
+      setCreateError(reason instanceof Error ? reason.message : t("loadError"));
+    }
+    setSaving(false);
+  }
   async function confirmPendingAction() {
     if (!pendingAction) return;
     if (pendingAction.kind === "deactivate") {
@@ -87,7 +113,22 @@ export function AdminConsoleView() {
       {(["team", "thresholds", "system"] as const).map((item) => <button key={item} type="button" role="tab" aria-selected={tab === item} className={`ux4g-btn ${tab === item ? "ux4g-btn-primary" : "ux4g-btn-outline-primary"}`} onClick={() => setTab(item)}>{t(`tabs.${item}`)}</button>)}
     </div>
     {pendingAction ? <section className="ux4g-card ux4g-card-outline" aria-labelledby="admin-confirmation-heading"><div className="ux4g-card-body"><h2 id="admin-confirmation-heading" className="ux4g-title-m-strong">{pendingAction.kind === "reassign" ? t("team.confirmReassignmentHeading") : t("team.confirmDeactivationHeading")}</h2><p>{pendingAction.kind === "reassign" ? t("team.confirmReassignmentBody", { product: pendingAction.record.productName, currentOfficer: pendingAction.record.assignedOfficerUserId ? mockUserName(pendingAction.record.assignedOfficerUserId) : t("team.unassigned"), newOfficer: pendingAction.officer.fullName }) : t("deactivateConfirm", { name: pendingAction.person.fullName })}</p><button type="button" className="ux4g-btn ux4g-btn-primary" disabled={saving} onClick={confirmPendingAction}>{pendingAction.kind === "reassign" ? t("team.confirmReassignment") : t("team.deactivate")}</button><button type="button" className="ux4g-btn ux4g-btn-outline-primary" disabled={saving} onClick={() => setPendingAction(null)}>{t("team.cancel")}</button></div></section> : null}
-    {tab === "team" ? <section className="ux4g-card ux4g-card-outline"><div className="ux4g-card-body"><h2 className="ux4g-title-m-strong">{t("team.heading")}</h2><p className="ux4g-body-s-default ux4g-text-neutral-secondary">{t("team.scopeNote")}</p><table className="ux4g-table"><thead><tr><th>{t("team.name")}</th><th>{t("team.role")}</th><th>{t("team.jurisdiction")}</th><th>{t("team.caseLoad")}</th><th>{t("team.status")}</th><th>{t("team.action")}</th></tr></thead><tbody>{users.map((person) => <tr key={person.id}><td>{person.fullName}</td><td>{person.role}</td><td>{person.jurisdictionName}</td><td>{person.caseLoad}</td><td>{person.active ? t("team.active") : t("team.deactivated")}</td><td>{person.active ? <button type="button" className="ux4g-btn ux4g-btn-outline-primary ux4g-btn-sm" disabled={saving || person.id === user?.id} onClick={() => deactivate(person)}>{t("team.deactivate")}</button> : "—"}</td></tr>)}</tbody></table><h3 className="ux4g-title-s-strong">{t("team.reassignHeading")}</h3><p className="ux4g-body-s-default ux4g-text-neutral-secondary">{t("team.outsideTeamNote")}</p><label className="ux4g-label-m-default">{t("team.caseLabel")}<select className="ux4g-form-select" value={recordId} onChange={(event) => setRecordId(event.target.value)}><option value="">{t("team.selectCase")}</option>{records.map((record) => <option key={record.id} value={record.id}>{record.productName} — {record.assignedOfficerUserId ?? t("team.unassigned")}</option>)}</select></label><label className="ux4g-label-m-default">{t("team.officerLabel")}<select className="ux4g-form-select" value={officerId} onChange={(event) => setOfficerId(event.target.value)}><option value="">{t("team.selectOfficer")}</option>{users.filter((person) => person.role === "Enforcement Officer" && person.active).map((person) => <option key={person.id} value={person.id}>{person.fullName}</option>)}</select></label><button type="button" className="ux4g-btn ux4g-btn-primary" disabled={saving || !recordId || !officerId} onClick={reassign}>{t("team.reassign")}</button><p className="ux4g-body-s-default ux4g-text-neutral-secondary">{t("team.sessionNote")}</p></div></section> : null}
+    {tab === "team" ? <section className="ux4g-card ux4g-card-outline"><div className="ux4g-card-body"><h2 className="ux4g-title-m-strong">{t("team.heading")}</h2><p className="ux4g-body-s-default ux4g-text-neutral-secondary">{t("team.scopeNote")}</p><table className="ux4g-table"><thead><tr><th>{t("team.name")}</th><th>{t("team.role")}</th><th>{t("team.jurisdiction")}</th><th>{t("team.caseLoad")}</th><th>{t("team.status")}</th><th>{t("team.action")}</th></tr></thead><tbody>{users.map((person) => <tr key={person.id}><td>{person.fullName}</td><td>{person.role}</td><td>{person.jurisdictionName}</td><td>{person.caseLoad}</td><td>{person.active ? t("team.active") : t("team.deactivated")}</td><td>{person.active ? <button type="button" className="ux4g-btn ux4g-btn-outline-primary ux4g-btn-sm" disabled={saving || person.id === user?.id} onClick={() => deactivate(person)}>{t("team.deactivate")}</button> : "—"}</td></tr>)}</tbody></table>
+      <h3 className="ux4g-title-s-strong">{t("team.createHeading")}</h3>
+      {createError ? <p role="alert" className="ux4g-text-error">{createError}</p> : null}
+      {createSuccess ? <p role="status" className="ux4g-text-success">{createSuccess}</p> : null}
+      <form onSubmit={(event) => { event.preventDefault(); void submitNewUser(); }} className="lmcs-page-section-block">
+        <label className="ux4g-label-m-default">{t("team.createEmail")}<input aria-label={t("team.createEmail")} required type="email" className="ux4g-input-input" value={newUser.email} onChange={(event) => setNewUser({ ...newUser, email: event.target.value })} /></label>
+        <label className="ux4g-label-m-default">{t("team.createUsername")}<input aria-label={t("team.createUsername")} required className="ux4g-input-input" value={newUser.username} onChange={(event) => setNewUser({ ...newUser, username: event.target.value })} /></label>
+        <label className="ux4g-label-m-default">{t("team.createFullName")}<input aria-label={t("team.createFullName")} required className="ux4g-input-input" value={newUser.fullName} onChange={(event) => setNewUser({ ...newUser, fullName: event.target.value })} /></label>
+        <label className="ux4g-label-m-default">{t("team.createPassword")}<input aria-label={t("team.createPassword")} required minLength={6} type="password" className="ux4g-input-input" value={newUser.password} onChange={(event) => setNewUser({ ...newUser, password: event.target.value })} /></label>
+        <label className="ux4g-label-m-default">{t("team.createRole")}<select aria-label={t("team.createRole")} className="ux4g-form-select" value={newUser.role} onChange={(event) => setNewUser({ ...newUser, role: event.target.value as Role })}>{ROLES.map((role) => <option key={role} value={role}>{role}</option>)}</select></label>
+        <label className="ux4g-label-m-default">{t("team.createRegion")}<select aria-label={t("team.createRegion")} className="ux4g-form-select" value={newUser.region} onChange={(event) => setNewUser({ ...newUser, region: event.target.value, jurisdictionName: newUser.jurisdictionLevel === "State" ? event.target.value : newUser.jurisdictionName })}>{INSPECTION_REGIONS.map((region) => <option key={region} value={region}>{region}</option>)}</select></label>
+        <label className="ux4g-label-m-default">{t("team.createJurisdictionLevel")}<select aria-label={t("team.createJurisdictionLevel")} className="ux4g-form-select" value={newUser.jurisdictionLevel} onChange={(event) => { const level = event.target.value as "State" | "National"; setNewUser({ ...newUser, jurisdictionLevel: level, jurisdictionName: level === "National" ? "National" : newUser.region }); }}><option value="State">{t("team.createJurisdictionState")}</option><option value="National">{t("team.createJurisdictionNational")}</option></select></label>
+        <p className="ux4g-body-s-default ux4g-text-neutral-secondary">{t("team.createJurisdictionName")}: {newUser.jurisdictionName}</p>
+        <button type="submit" className="ux4g-btn ux4g-btn-primary" disabled={saving}>{t("team.createSubmit")}</button>
+      </form>
+      <h3 className="ux4g-title-s-strong">{t("team.reassignHeading")}</h3><p className="ux4g-body-s-default ux4g-text-neutral-secondary">{t("team.outsideTeamNote")}</p><label className="ux4g-label-m-default">{t("team.caseLabel")}<select className="ux4g-form-select" value={recordId} onChange={(event) => setRecordId(event.target.value)}><option value="">{t("team.selectCase")}</option>{records.map((record) => <option key={record.id} value={record.id}>{record.productName} — {record.assignedOfficerUserId ?? t("team.unassigned")}</option>)}</select></label><label className="ux4g-label-m-default">{t("team.officerLabel")}<select className="ux4g-form-select" value={officerId} onChange={(event) => setOfficerId(event.target.value)}><option value="">{t("team.selectOfficer")}</option>{users.filter((person) => person.role === "Enforcement Officer" && person.active).map((person) => <option key={person.id} value={person.id}>{person.fullName}</option>)}</select></label><button type="button" className="ux4g-btn ux4g-btn-primary" disabled={saving || !recordId || !officerId} onClick={reassign}>{t("team.reassign")}</button><p className="ux4g-body-s-default ux4g-text-neutral-secondary">{t("team.sessionNote")}</p></div></section> : null}
     {tab === "thresholds" ? <section className="ux4g-card ux4g-card-outline"><div className="ux4g-card-body lmcs-page-section-block"><h2 className="ux4g-title-m-strong">{t("thresholds.heading")}</h2><p className="ux4g-body-s-default ux4g-text-neutral-secondary">{t("thresholds.freezeNote")}</p>{(["repeatViolationCount", "repeatViolationDays", "ocrConfidenceThreshold", "excellentMinimum", "goodMinimum", "poorMinimum"] as const).map((key) => <label key={key} className="ux4g-label-m-default">{t(`thresholds.${key}`)}<input aria-label={t(`thresholds.${key}`)} className="ux4g-input-input" type="number" value={thresholds[key]} onChange={(event) => setNumber(key, event.target.value)} /></label>)}<button type="button" className="ux4g-btn ux4g-btn-primary" disabled={saving} onClick={save}>{t("thresholds.save")}</button></div></section> : null}
     {tab === "system" ? <section className="ux4g-card ux4g-card-outline"><div className="ux4g-card-body"><h2 className="ux4g-title-m-strong">{t("system.heading")}</h2><p>{t("system.locales")}</p><p>{t("system.upload")}</p><p className="ux4g-body-s-default ux4g-text-neutral-secondary">{t("system.readOnly")}</p></div></section> : null}
   </div>;
