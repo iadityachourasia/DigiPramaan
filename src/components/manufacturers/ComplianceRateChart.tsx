@@ -18,6 +18,7 @@ import {
   tooltipStyle,
   type CommonChartTokens,
 } from "@/lib/utils/chartTheme";
+import { useTheme } from "@/lib/theme";
 import type { ComplianceRatePoint } from "@/types";
 
 /**
@@ -56,6 +57,7 @@ export function ComplianceRateChart({ data, labels }: ComplianceRateChartProps) 
     ...FALLBACK_COMMON_CHART_TOKENS,
     line: "#16a34a",
   });
+  const theme = useTheme();
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -64,7 +66,7 @@ export function ComplianceRateChart({ data, labels }: ComplianceRateChartProps) 
       ...readCommonChartTokens(root),
       line: readToken(root, "--ux4g-bg-success-strong", "#16a34a"),
     });
-  }, []);
+  }, [theme]);
 
   const { contentStyle, labelStyle } = tooltipStyle(tokens);
 

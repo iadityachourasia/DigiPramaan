@@ -1,7 +1,6 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import type { Metadata } from "next";
 
-import { PublicNavbar } from "@/components/layout";
 import {
   HomeCapabilities,
   HomeCitizens,
@@ -36,9 +35,8 @@ import {
  * background one step to keep the chain alternating once Capabilities was
  * inserted after Services.
  *
- * The navbar lives here rather than in `(public)/layout.tsx` so it does not leak
- * onto Login, which `01-login.md` requires be free of shell navigation. The
- * masthead is in the layout, because BRD §9.4 mandates it on every page.
+ * PublicMasthead selects the full navigation only for this route. Login keeps
+ * its compact identity row; every public route keeps the government utility strip.
  *
  * NOTE (BRD §6.1): the sitemap in the BRD places Login at `/`. This page now
  * occupies that path and Login sits at `/login`. §6.1 and §6.2 need updating to
@@ -69,8 +67,6 @@ export default async function LandingPage({
 
   return (
     <>
-      <PublicNavbar />
-
       <main id="main-content" tabIndex={-1}>
         <HomeHero />
         <HomeValueStrip />

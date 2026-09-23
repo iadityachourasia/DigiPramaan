@@ -755,9 +755,11 @@ pre-fill is mentioned anywhere. **[TEAM TO CONFIRM]** if this is needed.
 > Phase 1 — otherwise, this row is answered and Claude Code should not need
 > to ask again.
 
-Dark mode: **Not required for MVP** (recommended default — no persona names
-a low-light/field-glare need that would make this a priority for the demo;
-revisit as Optional at v2). **[TEAM TO CONFIRM]**
+Dark mode: **Shipped.** Reversed from the original "not required for MVP"
+default — a full light/dark theme system (system-preference-following,
+manual override persisted per device, applied consistently across the
+landing page, officer shell, and capture flow) was built and verified
+working across the app. Confirmed by the team.
 
 ### 11.4 Typography
 
