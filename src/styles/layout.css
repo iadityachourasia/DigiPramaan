@@ -31,6 +31,7 @@
   --lmcs-state-icon-xl: 4rem;
   --lmcs-desktop-breakpoint: 1024px; /* DESIGN_SYSTEM §8: Tablet grid starts here */
   --lmcs-chart-height: 320px;
+  --lmcs-public-shell-max-width: 1500px; /* Deliberately wider than --ux4g-container-2xl (1320px) for the public masthead/navbar/hero shell */
 }
 
 /* ─── App Shell ─── */

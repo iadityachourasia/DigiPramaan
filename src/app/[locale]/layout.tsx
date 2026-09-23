@@ -14,16 +14,13 @@ import "../globals.css";
 
 const themeInitScript = `try {
   const stored = localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)});
-  const systemDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-  document.documentElement.dataset.theme = stored === "light" || stored === "dark"
-    ? stored : systemDark ? "dark" : "light";
+  document.documentElement.dataset.theme = stored === "light" || stored === "dark" ? stored : "light";
   const displaySize = localStorage.getItem(${JSON.stringify(DISPLAY_SIZE_STORAGE_KEY)});
   if (displaySize === "large" || displaySize === "larger") {
     document.documentElement.dataset.displaySize = displaySize;
   }
 } catch {
-  document.documentElement.dataset.theme = window.matchMedia("(prefers-color-scheme: dark)").matches
-    ? "dark" : "light";
+  document.documentElement.dataset.theme = "light";
 }`;
 
 /**
@@ -91,7 +88,7 @@ export default async function LocaleLayout({
   return (
     <html lang={locale} suppressHydrationWarning>
       <head>
-        {/* Apply the saved or system theme before the first paint. */}
+        {/* Apply the saved theme (default light) before the first paint. */}
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body>
