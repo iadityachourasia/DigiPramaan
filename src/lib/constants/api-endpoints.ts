@@ -73,6 +73,8 @@ export const API = {
     violations: "/analytics/violations",
   },
 
+  activity: "/activity",
+
   manufacturers: {
     list: "/manufacturers",
     scorecard: (id: string) => `/manufacturers/${id}/scorecard` as const,

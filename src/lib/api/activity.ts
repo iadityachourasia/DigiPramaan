@@ -1,13 +1,19 @@
 /**
  * activity.ts — Global Activity Log API client (13 §3.2).
  *
- * A real HTTP call, never gated by `isMockMode()`, matching every other
- * server-authoritative surface. The log lives in the server process; a
- * client-side branch would only ever see this tab's own events.
+ * Branches on `isMockMode()` like every other real client (§AF, 2026-09-24)
+ * — this file's own header comment previously claimed the mock branch below
+ * was "never gated by isMockMode()... matching every other server-
+ * authoritative surface", but `/api/activity` is a same-origin Next.js
+ * route, and F-002's lockdown (src/proxy.ts) 404s every `/api/*` route in
+ * production unless ENABLE_MOCK_API=true. The real backend's own
+ * GET /activity (backend/app/api/v1/activity.py) was live and correct the
+ * whole time; nothing here ever called it.
  */
 
+import { API } from "@/lib/constants";
 import type { ActivityFilters, ActivityPage, ActivitySort } from "@/types";
-import type { ApiResult } from "./client";
+import { apiGet, isMockMode, type ApiResult } from "./client";
 
 export interface ActivityPageResponse extends ActivityPage {
   /** Regions present in the log, for the filter's options. */
@@ -51,7 +57,12 @@ export async function fetchActivity(
   page: number,
   pageSize: number
 ): Promise<ApiResult<ActivityPageResponse>> {
-  const path = `/api/activity?${buildActivityQuery(filters, sort, page, pageSize)}`;
+  const query = buildActivityQuery(filters, sort, page, pageSize);
+  if (!isMockMode()) {
+    return apiGet<ActivityPageResponse>(`${API.activity}?${query}`);
+  }
+
+  const path = `/api/activity?${query}`;
   try {
     const response = await fetch(path);
     if (!response.ok) {
