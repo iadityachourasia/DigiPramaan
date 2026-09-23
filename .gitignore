@@ -37,3 +37,13 @@ mailmap.txt
 
 # One-time design handoff bundle — already implemented (see src/, ux4g-web-components).
 design_system/
+
+# vexp indexing tool — per-tool config duplicated across assistants, and a
+# .vscode/mcp.json with a machine-specific absolute path. .claude/skills/ and
+# .claude/launch.json are the real, shared project files and stay tracked.
+.claude/CLAUDE.md
+.claude/hooks/
+.claude/settings.json
+.codex-remote-attachments/
+.github/copilot-instructions.md
+.vscode/mcp.json
