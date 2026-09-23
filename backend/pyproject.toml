@@ -19,12 +19,23 @@ dependencies = [
   # this machine's paddlepaddle 3.3.1 CPU build crashes inside its oneDNN
   # (mkldnn) inference path (NotImplementedError on ConvertPirAttribute2...);
   # every PaddleOCR() construction in this codebase MUST pass
-  # enable_mkldnn=False (see app/services/ocr/paddle.py). Pulls in
-  # opencv-contrib-python as a transitive dependency, reused by
-  # app/services/image_quality.py rather than adding a second CV library.
+  # enable_mkldnn=False (see app/services/ocr/paddle.py).
   "paddleocr>=3.7",
   "paddlepaddle>=3.3",
   "numpy>=1.26",
+  # OP-Phase 9 (dependency hygiene): previously only transitive (pulled in
+  # by paddleocr/paddlepaddle). Made explicit because both are used
+  # directly for real, authoritative work independent of Paddle —
+  # opencv-contrib-python for image_quality.py's quality checks and
+  # barcode/detect.py's region detection; Pillow for image
+  # decode/EXIF-orientation across image_quality.py, barcode/detect.py,
+  # and reports/images.py. Must not silently disappear if PaddleOCR is
+  # ever removed (spec's own OP-Phase 9 task list, deferred until a
+  # production cutover + rollback retirement decision — this dependency
+  # declaration is safe and useful ahead of that, everything else in that
+  # phase is not).
+  "opencv-contrib-python>=4.10",
+  "Pillow>=11.0",
   "google-genai>=0.3",
   "python-multipart>=0.0.9",
   # Barcode decoding (Phase 8). Chosen over pyzbar specifically to avoid a
@@ -47,6 +58,17 @@ dev = [
   "pytest>=8.3",
   "pytest-asyncio>=0.24",
   "respx>=0.21",
+  # OpenParser OCR migration, OP-Phase 0 (contract validation only — never
+  # imported by app/): jsonschema is the reference Draft 2020-12
+  # implementation, pure Python, dev-only. rfc3339-validator/rfc3986-validator
+  # back jsonschema's FormatChecker for the `date-time`/`uri` formats the
+  # OpenAPI contract uses; rfc3986-validator (MIT) is used instead of the
+  # GPL-licensed rfc3987 jsonschema also supports for `uri`. PyYAML parses
+  # OCR_API_OPENAPI.yaml itself.
+  "jsonschema>=4.18",
+  "PyYAML>=6.0",
+  "rfc3339-validator>=0.1.4",
+  "rfc3986-validator>=0.1.1",
 ]
 
 [build-system]

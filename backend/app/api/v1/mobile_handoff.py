@@ -26,7 +26,6 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from botocore.exceptions import BotoCoreError, ClientError
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session as DbSession
@@ -34,25 +33,22 @@ from sqlalchemy.orm import Session as DbSession
 from app.api.deps.mobile_handoff import get_active_handoff
 from app.api.deps.permissions import require_permission
 from app.core.config import Settings, get_settings
-from app.core.object_storage import get_s3_client
 from app.db.models import AuditEvent, EvidenceImage, MobileUploadSession, Profile, ScanSession
 from app.db.session import get_db
 from app.jobs.pipeline import mark_capture_stages_completed, run_pipeline
-from app.services.image_quality import QualityVerdict, evaluate_image_quality
+from app.services.scans import AcceptanceState, accept_evidence_image
 from app.services.mobile_handoff import (
     ALL_ANGLES,
     MANDATORY_ANGLES,
     build_angle_status,
     create_pending_scan_session,
     generate_token,
+    get_owned_scan_session,
     hash_token,
     is_scan_session_record_verified,
 )
 
 router = APIRouter(tags=["mobile-handoff"])
-
-_CONTENT_TYPE_ALLOWLIST = {"image/jpeg", "image/png", "image/webp"}
-_EXTENSION_BY_CONTENT_TYPE = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
 
 
 class FinalizeRequest(BaseModel):
@@ -73,20 +69,6 @@ class CreateHandoffRequest(BaseModel):
     scan_id: uuid.UUID | None = Field(default=None, alias="scanId")
 
     model_config = ConfigDict(populate_by_name=True)
-
-
-def _get_owned_scan_session(
-    scan_id: uuid.UUID, current_user: Profile, db: DbSession
-) -> ScanSession:
-    """A handoff belongs to an in-progress, unverified draft scan — not
-    yet a ComplianceRecord, so `apply_officer_scope()` (hardcoded to
-    ComplianceRecord) does not apply. Ownership-by-creator is the
-    correct, stricter check for a draft. 404 (not 403) on mismatch,
-    matching this project's existing "don't leak existence" convention."""
-    scan_session = db.get(ScanSession, scan_id)
-    if scan_session is None or scan_session.created_by != current_user.id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Scan not found")
-    return scan_session
 
 
 # --------------------------------------------------------------------- #
@@ -110,7 +92,7 @@ def create_mobile_handoff(
     first, so already-captured images are never orphaned. Returns the
     raw token exactly once, inside `mobileUrl` — never `token_hash`."""
     if payload.scan_id is not None:
-        scan_session = _get_owned_scan_session(payload.scan_id, current_user, db)
+        scan_session = get_owned_scan_session(payload.scan_id, current_user, db)
         if is_scan_session_record_verified(db, scan_session.id):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -171,7 +153,7 @@ def get_mobile_handoff_status(
     current_user: Profile = Depends(require_permission("scan.create")),
     db: DbSession = Depends(get_db),
 ) -> dict:
-    scan_session = _get_owned_scan_session(scan_id, current_user, db)
+    scan_session = get_owned_scan_session(scan_id, current_user, db)
     handoff = (
         db.query(MobileUploadSession)
         .filter(MobileUploadSession.scan_session_id == scan_session.id)
@@ -195,7 +177,7 @@ def revoke_mobile_handoff(
     current_user: Profile = Depends(require_permission("scan.create")),
     db: DbSession = Depends(get_db),
 ) -> dict:
-    scan_session = _get_owned_scan_session(scan_id, current_user, db)
+    scan_session = get_owned_scan_session(scan_id, current_user, db)
     handoff = (
         db.query(MobileUploadSession)
         .filter(MobileUploadSession.scan_session_id == scan_session.id)
@@ -235,13 +217,31 @@ def finalize_mobile_handoff(
     the instant front+back land (matches device/camera mode, which also
     always waits for an explicit officer submit). Only front/back are
     mandatory; side_pdp is optional and included if present."""
-    scan_session = _get_owned_scan_session(scan_id, current_user, db)
+    scan_session = get_owned_scan_session(scan_id, current_user, db)
 
     if is_scan_session_record_verified(db, scan_session.id):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="This record has already been verified and cannot accept new evidence.",
         )
+
+    # OP-Phase 1 idempotency fix: a second finalize call for an
+    # already-finalized draft (double-click, retried request) must return
+    # the same result, never schedule a second concurrent run_pipeline —
+    # `stages` (not `status`, which run_pipeline never transitions) is the
+    # one persisted signal finalize already ran once.
+    already_finalized = any(
+        s["id"] == "uploading" and s["state"] == "completed" for s in scan_session.stages
+    )
+    if already_finalized:
+        return {
+            "id": str(scan_session.id),
+            "recordId": str(scan_session.record_id) if scan_session.record_id else None,
+            "status": "Processing",
+            "createdAt": scan_session.created_at.isoformat()
+            if scan_session.created_at
+            else datetime.now(timezone.utc).isoformat(),
+        }
 
     images = (
         db.query(EvidenceImage)
@@ -330,83 +330,35 @@ async def upload_mobile_image(
             detail="This record has already been verified and cannot accept new evidence.",
         )
 
-    content_type = file.content_type or ""
-    if content_type not in _CONTENT_TYPE_ALLOWLIST:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Unsupported image type")
-
     image_bytes = await file.read()
-    max_bytes = settings.mobile_upload_max_mb * 1024 * 1024
-    if len(image_bytes) > max_bytes:
-        raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=f"Image exceeds the {settings.mobile_upload_max_mb}MB limit",
-        )
-
-    quality = evaluate_image_quality(image_bytes)
-    if quality.overall_verdict == QualityVerdict.RECAPTURE_REQUIRED:
+    acceptance = accept_evidence_image(
+        db, settings,
+        scan_session_id=handoff.scan_session_id, angle=angle,
+        file_bytes=image_bytes, content_type=file.content_type or "",
+        actor_id=None,  # phone side has no Profile to attribute to
+        event_type_uploaded="mobile_image_uploaded",
+        event_type_replaced="mobile_image_replaced",
+    )
+    if acceptance.acceptance_state == AcceptanceState.RECAPTURE_REQUIRED:
         # Not persisted — a rejected image leaves no EvidenceImage row,
         # matching device/camera mode's own "a failed attempt leaves no
         # trace" rule. The phone shows Retake locally from this response.
         return {
             "passed": False,
-            "failureReason": quality.reason,
-            "checks": [c.model_dump() for c in quality.checks],
+            "failureReason": acceptance.quality.reason,
+            "checks": [c.model_dump() for c in acceptance.quality.checks],
         }
 
-    existing = (
-        db.query(EvidenceImage)
-        .filter(EvidenceImage.scan_session_id == handoff.scan_session_id)
-        .filter(EvidenceImage.angle == angle)
-        .first()
-    )
-    is_replacement = existing is not None
-
-    s3_client = get_s3_client(settings)
-    ext = _EXTENSION_BY_CONTENT_TYPE[content_type]
-    storage_key = f"evidence/{handoff.scan_session_id}/{angle}-{quality.content_hash[:12]}.{ext}"
-
-    try:
-        s3_client.put_object(Bucket=settings.s3_bucket, Key=storage_key, Body=image_bytes)
-    except (BotoCoreError, ClientError) as exc:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Evidence storage is temporarily unavailable. Please retry.",
-        ) from exc
-
-    if existing is not None:
-        old_key = existing.storage_key
-        db.delete(existing)
-        db.flush()
-        try:
-            s3_client.delete_object(Bucket=settings.s3_bucket, Key=old_key)
-        except (BotoCoreError, ClientError):
-            pass  # orphaned object, not incorrect data — best-effort cleanup
-
-    db.add(
-        EvidenceImage(
-            scan_session_id=handoff.scan_session_id,
-            angle=angle,
-            storage_key=storage_key,
-            content_hash=quality.content_hash,
-            quality_result=quality.model_dump(),
-        )
-    )
+    # accept_evidence_image() already queued the mobile_image_uploaded/
+    # _replaced AuditEvent (via the event_type_* overrides above) — only
+    # the handoff-specific bookkeeping happens here.
     handoff.last_activity_at = datetime.now(timezone.utc)
-    db.add(
-        AuditEvent(
-            actor_id=None,  # phone side has no Profile to attribute to
-            event_type="mobile_image_replaced" if is_replacement else "mobile_image_uploaded",
-            entity_type="ScanSession",
-            entity_id=handoff.scan_session_id,
-            detail={"handoffId": str(handoff.id), "angle": angle},
-        )
-    )
     db.commit()
 
     return {
         "passed": True,
         "failureReason": None,
-        "checks": [c.model_dump() for c in quality.checks],
+        "checks": [c.model_dump() for c in acceptance.quality.checks],
     }
 
 

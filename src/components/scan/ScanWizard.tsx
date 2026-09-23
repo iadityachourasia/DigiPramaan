@@ -7,7 +7,7 @@ import { useId, useState } from "react";
 import { EmptyState } from "@/components/shared";
 import { useRouter } from "@/i18n/navigation";
 import { isMockMode } from "@/lib/api/client";
-import { createScan, finalizeMobileHandoff } from "@/lib/api/scans";
+import { createScan, finalizeMobileHandoff, finalizeScan } from "@/lib/api/scans";
 import { ROUTES } from "@/lib/constants";
 import { useAuth, useCaptureSlots, useMobileHandoffSession, usePermission } from "@/lib/hooks";
 import { PRODUCT_NAME_MAX_LENGTH } from "@/lib/validations/scan";
@@ -112,9 +112,10 @@ export function ScanWizard() {
         }
       : undefined;
 
-  const { slots, submitImage, retake, requiredAnglesFilled } = useCaptureSlots({
-    ...(simulateFailure ? { simulateFailure } : {}),
-  });
+  const { slots, submitImage, retake, override, canOverride, requiredAnglesFilled, draftScanId } =
+    useCaptureSlots({
+      ...(simulateFailure ? { simulateFailure } : {}),
+    });
 
   const {
     session: mobileSession,
@@ -168,6 +169,22 @@ export function ScanWizard() {
       return;
     }
 
+    /*
+     * OP-Phase 1 — real mode's device/camera path: every accepted image
+     * was already uploaded exactly once as it was captured
+     * (useCaptureSlots' own real-mode branch), so finalize here only
+     * attaches the Details step's category/region and schedules the
+     * pipeline — no re-upload, matching the mobile branch above.
+     */
+    if (!manualEntryActive && mode !== "mobile" && !isMockMode() && draftScanId) {
+      const finalizeResult = await finalizeScan(draftScanId, metadata);
+      setSubmitting(false);
+      if (finalizeResult.ok) {
+        router.push(ROUTES.scanStatus(finalizeResult.data.id));
+      }
+      return;
+    }
+
     const images =
       mode === "mobile" && mobileSession
         ? CAPTURE_SLOT_ANGLES.filter((angle) => mobileSession.capturedImages[angle]).map((angle) => {
@@ -175,7 +192,7 @@ export function ScanWizard() {
             return { angle, fileName: image.fileName, url: image.url, sizeBytes: image.sizeBytes };
           })
         : CAPTURE_SLOT_ANGLES.filter(
-            (angle) => slots[angle].status === "passed" && slots[angle].image
+            (angle) => (slots[angle].status === "passed" || slots[angle].status === "review") && slots[angle].image
           ).map((angle) => {
             const image = slots[angle].image!;
             return { angle, fileName: image.fileName, url: image.url, sizeBytes: image.sizeBytes };
@@ -302,6 +319,8 @@ export function ScanWizard() {
           slots={slots}
           onFileSelected={submitImage}
           onRetake={retake}
+          onOverride={override}
+          canOverride={canOverride}
           requiredAnglesFilled={requiredAnglesFilled}
           showIncompletePrompt={attemptedSubmit}
           labels={{
@@ -314,6 +333,13 @@ export function ScanWizard() {
             remove: t("slots.remove"),
             checking: t("slots.checking"),
             passed: t("slots.passed"),
+            reviewWarning: t("slots.reviewWarning"),
+            override: t("slots.override"),
+            overrideReasonLabel: t("slots.overrideReasonLabel"),
+            overrideReasonPlaceholder: t("slots.overrideReasonPlaceholder"),
+            overrideSubmit: t("slots.overrideSubmit"),
+            overrideCancel: t("slots.overrideCancel"),
+            overrideReasonRequired: t("slots.overrideReasonRequired"),
             formatHint: t("slots.formatHint", { maxMb: DEFAULT_MAX_UPLOAD_MB }),
             cameraDenied: t("slots.cameraDenied"),
             slot: slotLabels,

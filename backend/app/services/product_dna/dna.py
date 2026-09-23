@@ -40,9 +40,18 @@ def build_product_dna(product_id: uuid.UUID, db: Session, current_user: Profile)
     product = db.get(Product, product_id)
     if product is None:
         return None
-    legal_entity = db.get(LegalEntity, product.legal_entity_id)
 
     records = _linked_records(product_id, db, current_user)
+    # Phase 1.1 (F-001 closure): a product is visible only if the viewer's
+    # own scope covers at least one verified record linked to it — never
+    # metadata-only, name/manufacturer-leaking access to a product whose
+    # every linked record is out of jurisdiction. Same 404 the object-level
+    # repositories use, so a probe can't tell "no visible link" from
+    # "product does not exist."
+    if not records:
+        return None
+    legal_entity = db.get(LegalEntity, product.legal_entity_id)
+
     record_ids = [r.id for r in records]
 
     violation_counts: Counter[str] = Counter()

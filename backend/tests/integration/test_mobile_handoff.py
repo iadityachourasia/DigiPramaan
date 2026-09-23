@@ -54,6 +54,20 @@ _INSPECTOR_ID = uuid.UUID("eefbff7a-2822-4711-b4f7-d5ec5b417424")  # inspector@d
 _OTHER_OFFICER_ID = uuid.UUID("3de83c79-46ff-434f-ab28-ffce4184b284")  # seniorinspector@dp.com
 
 
+@pytest.fixture(autouse=True)
+def _pin_local_paddle_provider(monkeypatch: pytest.MonkeyPatch) -> None:
+    """This file's `run_pipeline(scan_id)` call (line ~237) must exercise
+    the `local_paddle` OCR path, never `openparser` — this test has no
+    OpenParser mocking of its own, so if the real `.env` ever defaults to
+    `openparser` (it does, as of 2026-09-19), an unpinned run would
+    construct a real `OpenParserKeyPool` and attempt a live call against
+    real API cost. Keeps every other setting (real DB/B2) untouched —
+    only overrides `ocr_provider` on the copy `pipeline.py` itself reads."""
+    real_settings = get_settings()
+    pinned = real_settings.model_copy(update={"ocr_provider": "local_paddle"})
+    monkeypatch.setattr("app.jobs.pipeline.get_settings", lambda: pinned)
+
+
 class _FakeOfficer:
     def __init__(self, officer_id: uuid.UUID = _INSPECTOR_ID):
         self.id = officer_id

@@ -22,6 +22,15 @@ export const API = {
     pipelineRetry: (scanId: string, stageId: string) =>
       `/scans/${scanId}/pipeline/${stageId}/retry` as const,
     calibrate: (scanId: string) => `/scans/${scanId}/calibration` as const,
+    /**
+     * OP-Phase 1 — upload-once intake: create a bare draft, upload each
+     * accepted image exactly once, then finalize. Replaces
+     * qualityCheck+create's double-upload for device/camera capture in
+     * real (non-mock) mode; mock mode is unchanged.
+     */
+    draft: "/scans/draft",
+    uploadImage: (scanId: string, angle: string) => `/scans/${scanId}/images/${angle}` as const,
+    finalize: (scanId: string) => `/scans/${scanId}/finalize` as const,
   },
 
   /**

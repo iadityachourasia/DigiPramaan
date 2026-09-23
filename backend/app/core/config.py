@@ -10,8 +10,9 @@ guessed value. `Settings()` reads from the process environment and from a
 import re
 from functools import lru_cache
 from typing import Literal
+from urllib.parse import urlsplit
 
-from pydantic import Field
+from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Matches the project ref out of a Supabase pooler/direct connection string,
@@ -125,6 +126,122 @@ class Settings(BaseSettings):
     mobile_handoff_expiry_minutes: int = 15
     mobile_upload_max_mb: int = 10
 
+    # --- OpenParser OCR migration ---
+    #
+    # OP-Phases 2-7 built and live-verified the OpenParser integration
+    # (real catalog + parse/poll/result round trip against paddleocr-vl-1.6,
+    # 2026-09-19). Per explicit project-owner direction, `openparser` is now
+    # the DEFAULT provider — cost is not a constraint (the configured key
+    # pool has many separate-tenant keys). `local_paddle` remains fully
+    # supported and unchanged for any deployment that explicitly sets
+    # OCR_PROVIDER=local_paddle (e.g. a rollback). An environment that
+    # already sets OCR_PROVIDER explicitly (this repo's own checked-in
+    # backend/.env.example among them) is unaffected by this default either
+    # way — only an environment with NO OCR_PROVIDER value at all picks this
+    # default up.
+    ocr_provider: Literal["local_paddle", "openparser_shadow", "openparser", "disabled"] = (
+        "openparser"
+    )
+    openparser_base_url: str = "https://api.openparser.dev"
+    # SecretStr specifically here — the one field spec §14/§7.1 calls
+    # "redacted settings" about. str(settings.openparser_api_key) still
+    # reveals it on purpose (the client needs the real value to
+    # authenticate); what SecretStr buys is that logging, repr(), and
+    # model_dump() never do that by accident.
+    #
+    # May hold ONE key or a COMMA-SEPARATED LIST — same raw-field-plus-
+    # parsed-property convention as gemini_api_key/gemini_api_keys below,
+    # so `openparser_api_keys` (plural property, further down) is how
+    # multi-key code reads it. Multi-key round-robin
+    # (OpenParserKeyPool, services/ocr/openparser/pool.py) is a
+    # DELIBERATE deviation from the implementation spec's own §7.2
+    # guidance ("do not round-robin keys... keys from different tenants
+    # fragment idempotency, job visibility, billing, retention, access
+    # control, and deletion") — the project owner confirmed the 15+
+    # configured keys ARE from separate accounts/tenants, accepting that
+    # tradeoff explicitly. The pool's own module docstring documents the
+    # mitigation (pinning a job to the same key/tenant for its whole
+    # lifecycle) in full. Add more keys later by editing this one env
+    # var — no code change needed.
+    openparser_api_key: SecretStr | None = None
+    openparser_api_key_alias: str | None = None
+    openparser_tenant_alias: str | None = None
+    # OP-Phase 3 — idempotency key derivation (spec §9) deliberately uses a
+    # SEPARATE secret from the provider API key, so a key rotation never
+    # changes what a replayed submission's idempotency key resolves to, and
+    # so this secret is never sent over the wire to OpenParser at all.
+    openparser_idempotency_secret: SecretStr | None = None
+    openparser_ocr_model: str = "paddleocr-vl-1.6"
+    openparser_quality_profile: str = "openparser-quality-max-v1"
+    openparser_connect_timeout_seconds: float = 10.0
+    openparser_write_timeout_seconds: float = 120.0
+    openparser_read_timeout_seconds: float = 30.0
+    openparser_pool_timeout_seconds: float = 10.0
+    openparser_max_response_bytes: int = 52_428_800
+    openparser_poll_min_seconds: float = 2.0
+    openparser_poll_max_seconds: float = 60.0
+    openparser_job_max_age_seconds: int = 3600
+    openparser_submission_max_attempts: int = 8
+    # Gated further at the test-call-site level (spec §17.5: also requires
+    # APP_ENV=test, an explicit test tenant/key, a fixture allow-list, and
+    # a hard cost cap) — this flag alone never authorizes a live call.
+    openparser_live_tests: bool = False
+
+    @model_validator(mode="after")
+    def _validate_openparser_in_production(self) -> "Settings":
+        """Spec §14's production-validation list. Only enforced in
+        `production` — matches this file's own "fail fast at startup"
+        philosophy without blocking local/dev/test runs that never touch
+        OpenParser (ocr_provider defaults to local_paddle everywhere else)."""
+        if self.app_env != "production":
+            return self
+
+        parsed = urlsplit(self.openparser_base_url)
+        if parsed.scheme != "https" or parsed.username or parsed.query or parsed.fragment:
+            raise ValueError(
+                "OPENPARSER_BASE_URL must be HTTPS with no userinfo, query, or fragment "
+                f"in production (got {self.openparser_base_url!r})"
+            )
+
+        if self.ocr_provider != "local_paddle":
+            missing = [
+                name
+                for name, value in (
+                    ("OPENPARSER_API_KEY", self.openparser_api_key),
+                    ("OPENPARSER_API_KEY_ALIAS", self.openparser_api_key_alias),
+                    ("OPENPARSER_TENANT_ALIAS", self.openparser_tenant_alias),
+                    ("OPENPARSER_IDEMPOTENCY_SECRET", self.openparser_idempotency_secret),
+                )
+                if not value
+            ]
+            if missing:
+                raise ValueError(
+                    f"ocr_provider={self.ocr_provider!r} requires {', '.join(missing)} "
+                    "to be set in production"
+                )
+
+        positive_fields = (
+            "openparser_connect_timeout_seconds",
+            "openparser_write_timeout_seconds",
+            "openparser_read_timeout_seconds",
+            "openparser_pool_timeout_seconds",
+            "openparser_max_response_bytes",
+            "openparser_poll_min_seconds",
+            "openparser_poll_max_seconds",
+            "openparser_job_max_age_seconds",
+            "openparser_submission_max_attempts",
+        )
+        non_positive = [name for name in positive_fields if getattr(self, name) <= 0]
+        if non_positive:
+            raise ValueError(
+                f"OpenParser timeout/budget/poll fields must be positive: {', '.join(non_positive)}"
+            )
+        if self.openparser_poll_min_seconds > self.openparser_poll_max_seconds:
+            raise ValueError(
+                "OPENPARSER_POLL_MIN_SECONDS must not exceed OPENPARSER_POLL_MAX_SECONDS"
+            )
+        return self
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
@@ -134,6 +251,17 @@ class Settings(BaseSettings):
         if not self.gemini_api_key:
             return []
         return [key.strip() for key in self.gemini_api_key.split(",") if key.strip()]
+
+    @property
+    def openparser_api_keys(self) -> list[str]:
+        """`openparser_api_key`'s value split on commas — one key or many.
+        See that field's own docstring for why "many" is a deliberate,
+        disclosed deviation from the implementation spec for this
+        specific project's confirmed-different-tenant key set."""
+        if not self.openparser_api_key:
+            return []
+        raw = self.openparser_api_key.get_secret_value()
+        return [key.strip() for key in raw.split(",") if key.strip()]
 
     @property
     def resolved_supabase_url(self) -> str:

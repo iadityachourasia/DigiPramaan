@@ -95,3 +95,164 @@ def test_explicit_supabase_url_overrides_derivation(monkeypatch: pytest.MonkeyPa
 
     # Trailing slash stripped too, since callers append their own paths.
     assert settings.resolved_supabase_url == "https://explicit-project.supabase.co"
+
+
+# --- OpenParser OCR migration, OP-Phase 2 — production validation ---------
+
+
+def _openparser_env(monkeypatch: pytest.MonkeyPatch, **overrides: str) -> None:
+    for key, value in REQUIRED_ENV.items():
+        monkeypatch.setenv(key, value)
+    monkeypatch.setenv("APP_ENV", "production")
+    for key, value in overrides.items():
+        monkeypatch.setenv(key, value)
+
+
+# Full credentials so a test targeting one specific validation rule (a
+# timeout field, poll bounds, ...) doesn't trip the credential-presence
+# check instead, now that `openparser` (which requires them) is the
+# default provider.
+_FULL_OPENPARSER_CREDENTIALS = {
+    "OPENPARSER_API_KEY": "sk-test",
+    "OPENPARSER_API_KEY_ALIAS": "primary-a",
+    "OPENPARSER_TENANT_ALIAS": "approved-tenant-a",
+    "OPENPARSER_IDEMPOTENCY_SECRET": "idem-secret",
+}
+
+
+def test_local_paddle_explicit_passes_production_validation_without_credentials(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An environment that explicitly opts back into local_paddle (e.g. a
+    rollback) needs none of the OpenParser-specific fields — production
+    must not fail startup just because this integration exists in config."""
+    _openparser_env(monkeypatch, OCR_PROVIDER="local_paddle")
+    settings = Settings(_env_file=None)  # type: ignore[call-arg]
+    assert settings.ocr_provider == "local_paddle"
+
+
+def test_default_provider_is_openparser_and_requires_credentials_in_production(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`openparser` is now the default (explicit project-owner direction,
+    2026-09-19) — an environment that sets nothing beyond the baseline
+    required vars must fail loudly in production, since it's now missing
+    the OpenParser credentials the default provider needs."""
+    _openparser_env(monkeypatch)
+    with pytest.raises(ValidationError, match="OPENPARSER_API_KEY"):
+        Settings(_env_file=None)  # type: ignore[call-arg]
+
+
+def test_openparser_base_url_must_be_https_in_production(monkeypatch: pytest.MonkeyPatch) -> None:
+    _openparser_env(monkeypatch, OPENPARSER_BASE_URL="http://api.openparser.dev")
+    with pytest.raises(ValidationError, match="HTTPS"):
+        Settings(_env_file=None)  # type: ignore[call-arg]
+
+
+def test_openparser_base_url_rejects_userinfo_query_or_fragment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _openparser_env(
+        monkeypatch, OPENPARSER_BASE_URL="https://user:pass@api.openparser.dev/?x=1"
+    )
+    with pytest.raises(ValidationError, match="HTTPS"):
+        Settings(_env_file=None)  # type: ignore[call-arg]
+
+
+def test_openparser_mode_requires_key_and_aliases_in_production(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _openparser_env(monkeypatch, OCR_PROVIDER="openparser")
+    with pytest.raises(ValidationError, match="OPENPARSER_API_KEY"):
+        Settings(_env_file=None)  # type: ignore[call-arg]
+
+
+def test_openparser_mode_with_full_credentials_passes_in_production(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _openparser_env(
+        monkeypatch,
+        OCR_PROVIDER="openparser_shadow",
+        OPENPARSER_API_KEY="sk-test",
+        OPENPARSER_API_KEY_ALIAS="primary-a",
+        OPENPARSER_TENANT_ALIAS="approved-tenant-a",
+        OPENPARSER_IDEMPOTENCY_SECRET="idem-secret",
+    )
+    settings = Settings(_env_file=None)  # type: ignore[call-arg]
+    assert settings.openparser_api_key is not None
+    assert settings.openparser_api_key.get_secret_value() == "sk-test"
+
+
+def test_openparser_mode_requires_idempotency_secret_in_production(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _openparser_env(
+        monkeypatch,
+        OCR_PROVIDER="openparser",
+        OPENPARSER_API_KEY="sk-test",
+        OPENPARSER_API_KEY_ALIAS="primary-a",
+        OPENPARSER_TENANT_ALIAS="approved-tenant-a",
+    )
+    monkeypatch.delenv("OPENPARSER_IDEMPOTENCY_SECRET", raising=False)
+    with pytest.raises(ValidationError, match="OPENPARSER_IDEMPOTENCY_SECRET"):
+        Settings(_env_file=None)  # type: ignore[call-arg]
+
+
+def test_openparser_secret_never_appears_in_repr(monkeypatch: pytest.MonkeyPatch) -> None:
+    _openparser_env(
+        monkeypatch,
+        OCR_PROVIDER="openparser",
+        OPENPARSER_API_KEY="sk-super-secret",
+        OPENPARSER_API_KEY_ALIAS="primary-a",
+        OPENPARSER_TENANT_ALIAS="approved-tenant-a",
+        OPENPARSER_IDEMPOTENCY_SECRET="idem-secret",
+    )
+    settings = Settings(_env_file=None)  # type: ignore[call-arg]
+    assert "sk-super-secret" not in repr(settings.openparser_api_key)
+    assert "sk-super-secret" not in str(settings.openparser_api_key)
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("OPENPARSER_CONNECT_TIMEOUT_SECONDS", "0"),
+        ("OPENPARSER_READ_TIMEOUT_SECONDS", "-1"),
+        ("OPENPARSER_MAX_RESPONSE_BYTES", "0"),
+        ("OPENPARSER_SUBMISSION_MAX_ATTEMPTS", "0"),
+    ],
+)
+def test_openparser_non_positive_timeout_or_budget_fields_rejected_in_production(
+    monkeypatch: pytest.MonkeyPatch, field: str, value: str
+) -> None:
+    _openparser_env(monkeypatch, **_FULL_OPENPARSER_CREDENTIALS, **{field: value})
+    with pytest.raises(ValidationError, match="positive"):
+        Settings(_env_file=None)  # type: ignore[call-arg]
+
+
+def test_openparser_poll_min_must_not_exceed_poll_max_in_production(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _openparser_env(
+        monkeypatch,
+        **_FULL_OPENPARSER_CREDENTIALS,
+        OPENPARSER_POLL_MIN_SECONDS="90",
+        OPENPARSER_POLL_MAX_SECONDS="60",
+    )
+    with pytest.raises(ValidationError, match="POLL_MIN"):
+        Settings(_env_file=None)  # type: ignore[call-arg]
+
+
+def test_openparser_validation_is_skipped_outside_production(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Development/test never enforce this — a developer running locally
+    with ocr_provider=openparser and no key set must not be blocked from
+    starting the app for unrelated work."""
+    for key, value in REQUIRED_ENV.items():
+        monkeypatch.setenv(key, value)
+    monkeypatch.setenv("APP_ENV", "development")
+    monkeypatch.setenv("OCR_PROVIDER", "openparser")
+    monkeypatch.delenv("OPENPARSER_API_KEY", raising=False)
+
+    settings = Settings(_env_file=None)  # type: ignore[call-arg]
+    assert settings.ocr_provider == "openparser"
