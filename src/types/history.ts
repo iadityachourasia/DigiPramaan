@@ -72,6 +72,10 @@ export interface ActivityEvent {
    * Citizen Grievance Portal, which has no signed-in user by design.
    */
   actorUserId?: string;
+  /** Real backend only (GET /activity joins to Profile.full_name) — the
+   * mock route has no equivalent, so the table falls back to its own
+   * static mock-user lookup when this is absent. */
+  actorUserName?: string;
   actorRole?: Role;
   /** Human-readable one-liner. Never the only carrier of structured data. */
   detail?: string;

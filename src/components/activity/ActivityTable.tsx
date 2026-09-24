@@ -82,10 +82,13 @@ export function ActivityTable({
         if (!event.actorUserId) return labels.system;
         if (event.actorUserId === CITIZEN_ACTOR_ID) return labels.citizen;
 
-        const user = findMockUser(event.actorUserId);
+        // Real backend rows carry the resolved name already (GET /activity
+        // joins to Profile.full_name); the mock-user lookup is only a
+        // fallback for the mock route, which has no such join.
+        const name = event.actorUserName ?? findMockUser(event.actorUserId)?.fullName;
         return (
           <>
-            {user?.fullName ?? event.actorUserId}
+            {name ?? event.actorUserId}
             {event.actorRole ? (
               <span className="ux4g-label-s-default ux4g-text-neutral-secondary">
                 {" "}
