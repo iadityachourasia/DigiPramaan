@@ -58,18 +58,24 @@ export function clearToken(): void {
 }
 
 /**
- * FastAPI's own error responses are `{"detail": "..."}` — every failure
- * branch below previously discarded that body entirely and synthesized a
- * generic "failed with status N" message, so a specific, actionable reason
- * from the backend (e.g. "A report can only be generated for a Verified
- * record") never reached the UI. Falls back to `fallback` when the body
- * isn't JSON or has no `detail`/`error` string.
+ * Every failure branch below previously discarded the response body
+ * entirely and synthesized a generic "failed with status N" message, so a
+ * specific, actionable reason from the backend (e.g. "A report can only be
+ * generated for a Verified record") never reached the UI. The backend's
+ * own envelope (backend/app/core/errors.py) is `{"error": {"code",
+ * "message", "requestId"}}`, not FastAPI's raw `{"detail": "..."}` — a bare
+ * `HTTPException(detail=...)` still ends up in `error.message` once
+ * `register_exception_handlers` reformats it. Falls back to `fallback`
+ * when the body isn't JSON or doesn't carry a usable message.
  */
 async function errorMessage(response: Response, fallback: string): Promise<string> {
   const body = (await response.json().catch(() => null)) as
-    | { detail?: unknown; error?: unknown }
+    | { detail?: unknown; error?: { message?: unknown } | unknown }
     | null;
-  const detail = body?.detail ?? body?.error;
+  const detail =
+    (typeof body?.error === "object" && body.error !== null
+      ? (body.error as { message?: unknown }).message
+      : body?.error) ?? body?.detail;
   return typeof detail === "string" && detail.length > 0 ? detail : fallback;
 }
 
