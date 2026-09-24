@@ -14,12 +14,23 @@
  */
 
 import { isMockMode } from "./client";
+import { hydrateRecordImages } from "./records";
 import type { AnalyticsData, DashboardData } from "@/types";
 import { apiGet } from "./client";
 import type { ApiResult } from "./client";
 
-export function fetchDashboardData(): Promise<ApiResult<DashboardData>> {
-  return apiGet("/dashboard");
+export async function fetchDashboardData(): Promise<ApiResult<DashboardData>> {
+  const result = await apiGet<DashboardData>("/dashboard");
+  if (!result.ok) return result;
+  // Real evidence photographs come back as a bare `/evidence-images/{id}`
+  // path (see records.ts's own resolveEvidenceImageUrl doc comment) — found
+  // unresolved here via a live 404 sweep: Recent Scans thumbnails were
+  // requesting that path against digipramaan.click (this app's own origin)
+  // instead of the FastAPI backend that actually serves it.
+  return {
+    ok: true,
+    data: { ...result.data, recentScans: result.data.recentScans.map(hydrateRecordImages) },
+  };
 }
 
 async function fetchAnalyticsDataMock(viewerId?: string): Promise<ApiResult<AnalyticsData>> {

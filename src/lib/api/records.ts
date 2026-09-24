@@ -61,7 +61,11 @@ function hydrateImage(image: UploadedImage): UploadedImage {
   return { ...image, url: resolveEvidenceImageUrl(image.url) };
 }
 
-function hydrateRecordImages(record: ComplianceRecord): ComplianceRecord {
+/** Exported so other real-backend clients whose payload embeds a bare
+ * `ComplianceRecord[]` (e.g. analytics.ts's dashboard `recentScans`) can
+ * resolve evidence-image URLs the same way, instead of rendering the
+ * backend's raw relative path against the wrong (frontend) origin. */
+export function hydrateRecordImages(record: ComplianceRecord): ComplianceRecord {
   return {
     ...record,
     thumbnail: hydrateImage(record.thumbnail),

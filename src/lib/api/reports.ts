@@ -262,6 +262,26 @@ export interface ScopeCountResponse {
   label: string;
 }
 
+/**
+ * Manufacturer/filtered-scope reports have no real backend yet (this
+ * module's own header comment above), so their only handler was the mock
+ * route — which F-002 (src/proxy.ts) 404s in production. That silently
+ * turned "Report on a filtered set instead" into a dead end: no row count,
+ * a raw "failed with status 404" on generate, no indication this is an
+ * unbuilt feature rather than a transient error. Surfacing it as an honest,
+ * specific message here matches this page's own "blocked, not pre-disabled"
+ * philosophy (ReportsView.tsx) — let the officer try, then say precisely
+ * why, instead of a mysterious failure.
+ */
+function nonRecordScopeUnavailable<T>(): ApiResult<T> {
+  return {
+    ok: false,
+    status: 501,
+    message:
+      "Reports for a filtered set or a single manufacturer aren't available yet — only a single record's report can be generated right now.",
+  };
+}
+
 /** How many records a scope covers, for the zero-record block and large-scope warning. */
 export async function fetchScopeCount(
   scope: ReportScope,
@@ -272,6 +292,7 @@ export async function fetchScopeCount(
     if (!result.ok) return result;
     return { ok: true, data: { rowCount: 1, large: false, label: result.data.productName } };
   }
+  if (!isMockMode()) return nonRecordScopeUnavailable();
   return postJson("/api/reports/scope", { scope, ...(viewerId ? { viewerId } : {}) });
 }
 
@@ -319,6 +340,7 @@ export function generateReport(
   if (params.scope.kind === "record") {
     return generateRecordReport(params.scope, params.userId, params.userName);
   }
+  if (!isMockMode()) return Promise.resolve(nonRecordScopeUnavailable());
   return postJson("/api/reports/generate", params);
 }
 
