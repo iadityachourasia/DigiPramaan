@@ -4,9 +4,12 @@
  * Phase 5 cut the demo-path surfaces over to the real FastAPI backend
  * (apiGet/apiPost, client.ts's Bearer-token convention — same pattern Phase 4
  * established in productDna.ts/cases.ts): list, detail, corrections, verify,
- * resolutions, flag-enforcement, retry-enrichment. Archive and the bulk/
- * single Needs-Review actions have no real backend endpoint yet (outside
- * the demo path) and deliberately stay on the old mock route handlers
+ * resolutions, flag-enforcement, retry-enrichment, single-record Needs
+ * Review (§AF, 2026-09-25 — it had a real endpoint the whole time, just
+ * never wired up). Archive and the bulk Needs-Review action still have no
+ * real backend endpoint reachable from the frontend's constants (bulk's
+ * real route exists — POST /records/bulk/review-flag — but hasn't been
+ * verified/wired yet) and deliberately stay on the old mock route handlers
  * rather than being pointed at something that would 404.
  *
  * Phase 7: `fetchRecords()` now sends every RecordFilters field as a real
@@ -28,7 +31,7 @@ import type {
   RecordsPage,
   UploadedImage,
 } from "@/types";
-import { apiGet, apiPost } from "./client";
+import { apiGet, apiPost, isMockMode } from "./client";
 import type { ApiResult } from "./client";
 
 const REAL_API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
@@ -217,16 +220,28 @@ export async function verifyRecord(recordId: string): Promise<ApiResult<VerifyRe
 
 /**
  * `flag` defaults to `true` (existing callers on pages 4/5 never pass it).
- * No real backend endpoint models Needs Review yet — stays on the mock
- * route (outside Phase 5's demo path), a documented gap rather than a
- * silently-broken real call.
+ * `POST /records/{id}/review-flag` (backend/app/api/v1/records.py) is the
+ * real backend for this — this file's own header comment previously
+ * claimed no such endpoint existed, but it's been live since Phase 1.3
+ * (migration 0008, record_review_flags); nothing here ever called it, the
+ * same gap the Activity Log client had (§AF, 2026-09-24). `userId` is kept
+ * in the signature for callers (the backend derives the actor from the
+ * auth token, not the body), and stays unused in the real branch.
  */
-export function flagNeedsReview(
+export async function flagNeedsReview(
   recordId: string,
   userId: string,
   note?: string,
   flag?: boolean
 ): Promise<ApiResult<ComplianceRecord>> {
+  if (!isMockMode()) {
+    const result = await apiPost<ComplianceRecord>(API.records.flagNeedsReview(recordId), {
+      flag: flag ?? true,
+      ...(note ? { note } : {}),
+    });
+    if (!result.ok) return result;
+    return { ok: true, data: hydrateRecordImages(result.data) };
+  }
   return postJsonMock(`/api/records/${recordId}/needs-review`, {
     userId,
     ...(note ? { note } : {}),
