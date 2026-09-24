@@ -5,12 +5,10 @@
  * (apiGet/apiPost, client.ts's Bearer-token convention — same pattern Phase 4
  * established in productDna.ts/cases.ts): list, detail, corrections, verify,
  * resolutions, flag-enforcement, retry-enrichment, single-record Needs
- * Review (§AF, 2026-09-25 — it had a real endpoint the whole time, just
- * never wired up). Archive and the bulk Needs-Review action still have no
- * real backend endpoint reachable from the frontend's constants (bulk's
- * real route exists — POST /records/bulk/review-flag — but hasn't been
- * verified/wired yet) and deliberately stay on the old mock route handlers
- * rather than being pointed at something that would 404.
+ * Review, archive, bulk Needs Review (§AF, 2026-09-25 — a systemic gap
+ * found by auditing every backend route against this file: three real
+ * endpoints existed with nothing ever calling them, each one silently
+ * 404ing whenever an officer used the corresponding button).
  *
  * Phase 7: `fetchRecords()` now sends every RecordFilters field as a real
  * server-side query param and passes page/pageSize straight through — no
@@ -169,8 +167,21 @@ export async function fetchRecords(
   return { ok: true, data: { ...result.data, rows } };
 }
 
-/** No real backend endpoint yet — archiving stays on the mock route (outside Phase 5's demo path). */
-export function archiveRecord(recordId: string, userId: string): Promise<ApiResult<ComplianceRecord>> {
+/**
+ * `POST /records/{id}/archive` (backend/app/api/v1/records.py) is real —
+ * this file's own header comment previously claimed otherwise. Same gap
+ * as single-record Needs Review: a real endpoint existed, nothing ever
+ * called it, so the officer-facing Archive button silently 404'd.
+ */
+export async function archiveRecord(
+  recordId: string,
+  userId: string
+): Promise<ApiResult<ComplianceRecord>> {
+  if (!isMockMode()) {
+    const result = await apiPost<ComplianceRecord>(API.records.archive(recordId), {});
+    if (!result.ok) return result;
+    return { ok: true, data: hydrateRecordImages(result.data) };
+  }
   return postJsonMock(`/api/records/${recordId}/archive`, { userId });
 }
 
@@ -179,12 +190,28 @@ export interface BulkNeedsReviewResponse {
   skipped: string[];
 }
 
-/** No real backend endpoint yet — stays on the mock route (outside Phase 5's demo path). */
-export function bulkSetNeedsReview(
+/**
+ * `POST /records/bulk/review-flag` (backend/app/api/v1/records.py) is
+ * real — `userId` is dropped in the real branch (the backend derives the
+ * actor from the auth token), matching every other real bulk/mutation
+ * call in this file.
+ */
+export async function bulkSetNeedsReview(
   recordIds: string[],
   userId: string,
   flag: boolean
 ): Promise<ApiResult<BulkNeedsReviewResponse>> {
+  if (!isMockMode()) {
+    const result = await apiPost<BulkNeedsReviewResponse>(API.records.bulkNeedsReview, {
+      recordIds,
+      flag,
+    });
+    if (!result.ok) return result;
+    return {
+      ok: true,
+      data: { ...result.data, updated: result.data.updated.map(hydrateRecordImages) },
+    };
+  }
   return postJsonMock("/api/records/bulk/needs-review", { recordIds, userId, flag });
 }
 

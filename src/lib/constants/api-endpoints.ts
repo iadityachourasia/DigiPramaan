@@ -64,7 +64,7 @@ export const API = {
     explainViolation: (recordId: string, ruleId: string) =>
       `/records/${recordId}/violations/${ruleId}/explain` as const,
     archive: (id: string) => `/records/${id}/archive` as const,
-    bulkNeedsReview: "/records/bulk/needs-review",
+    bulkNeedsReview: "/records/bulk/review-flag",
   },
 
   analytics: {
