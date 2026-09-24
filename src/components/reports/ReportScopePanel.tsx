@@ -184,7 +184,17 @@ export function ReportScopePanel({
 
       {filters ? (
         <div className="lmcs-records-filters">
-          <h3 className="ux4g-label-l-default">{labels.filtersHeading}</h3>
+          {/*
+            A real <h3> — part of the document outline — so it takes a
+            Heading/* style, not Label/*. It previously used
+            ux4g-label-l-default (14px), which put a document-outline
+            heading visually *below* the 16px body text naming the scope
+            just above it (DESIGN_SYSTEM.md §4's own Heading-vs-Title/Label
+            rule exists for exactly this: screen readers announce it as an
+            h3 regardless of how small it looks, so the visual weight has to
+            agree with that or sighted and non-sighted hierarchy diverge).
+          */}
+          <h3 className="ux4g-heading-xs-strong">{labels.filtersHeading}</h3>
 
           <div className="lmcs-records-filters-row">
             <Select
