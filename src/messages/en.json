@@ -1355,8 +1355,8 @@
     "security": {
       "heading": "Password",
       "changePassword": "Change password",
-      "unavailableTitle": "Password change is not available in this build",
-      "unavailableBody": "This build has no live authentication directory, so a password cannot actually be changed. The control is shown disabled rather than reporting a success that did not happen."
+      "unavailableTitle": "Password change is not available here yet",
+      "unavailableBody": "Self-service password change hasn't been built yet. The control is shown disabled rather than reporting a success that did not happen — contact your department administrator if you need your password reset."
     },
     "notifications": {
       "heading": "Notifications",
