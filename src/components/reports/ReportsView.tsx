@@ -167,7 +167,7 @@ export function ReportsView({ locale }: { locale: string }) {
       ) : null}
       {builder.requestError ? (
         <Alert severity="error" title={t("generationError.title")}>
-          {t("generationError.body")}
+          {builder.requestError}
         </Alert>
       ) : null}
 

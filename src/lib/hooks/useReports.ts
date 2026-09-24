@@ -142,7 +142,10 @@ export interface UseReportBuilderResult {
   run: ReportRun | null;
   detail: ReportDetailResponse | null;
   blocked: ReportBlockReason | null;
-  requestError: boolean;
+  /** The backend's own reason (e.g. "A report can only be generated for a
+   * Verified record") when generation fails outright — not a validation
+   * block, an actual request failure. `null` when nothing has failed. */
+  requestError: string | null;
   generating: boolean;
   generate: (userId: string, userName: string) => Promise<void>;
   retryStage: (stageId: ReportStageId) => Promise<void>;
@@ -180,7 +183,7 @@ export function useReportBuilder(): UseReportBuilderResult {
   const [run, setRun] = useState<ReportRun | null>(null);
   const [detail, setDetail] = useState<ReportDetailResponse | null>(null);
   const [blocked, setBlocked] = useState<ReportBlockReason | null>(null);
-  const [requestError, setRequestError] = useState(false);
+  const [requestError, setRequestError] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
 
   /*
@@ -243,7 +246,7 @@ export function useReportBuilder(): UseReportBuilderResult {
     fetchReport(completedReportId, user?.id, scope ?? undefined).then((result) => {
       if (cancelled) return;
       if (result.ok) setDetail(result.data);
-      else setRequestError(true);
+      else setRequestError(result.message);
     });
     return () => {
       cancelled = true;
@@ -278,7 +281,7 @@ export function useReportBuilder(): UseReportBuilderResult {
 
       setGenerating(true);
       setBlocked(null);
-      setRequestError(false);
+      setRequestError(null);
       setDetail(null);
 
       const forceFailStage = REPORT_STAGE_IDS.find(
@@ -295,7 +298,7 @@ export function useReportBuilder(): UseReportBuilderResult {
       setGenerating(false);
 
       if (!result.ok) {
-        setRequestError(true);
+        setRequestError(result.message);
         return;
       }
       if (result.data.blocked) {
@@ -317,7 +320,7 @@ export function useReportBuilder(): UseReportBuilderResult {
         user ? { userId: user.id, userName: user.fullName } : undefined
       );
       if (result.ok) setRun(result.data);
-      else setRequestError(true);
+      else setRequestError(result.message);
     },
     [run, user]
   );
@@ -326,7 +329,7 @@ export function useReportBuilder(): UseReportBuilderResult {
     setRun(null);
     setDetail(null);
     setBlocked(null);
-    setRequestError(false);
+    setRequestError(null);
   }, []);
 
   return {

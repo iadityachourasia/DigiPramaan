@@ -57,6 +57,22 @@ export function clearToken(): void {
   }
 }
 
+/**
+ * FastAPI's own error responses are `{"detail": "..."}` — every failure
+ * branch below previously discarded that body entirely and synthesized a
+ * generic "failed with status N" message, so a specific, actionable reason
+ * from the backend (e.g. "A report can only be generated for a Verified
+ * record") never reached the UI. Falls back to `fallback` when the body
+ * isn't JSON or has no `detail`/`error` string.
+ */
+async function errorMessage(response: Response, fallback: string): Promise<string> {
+  const body = (await response.json().catch(() => null)) as
+    | { detail?: unknown; error?: unknown }
+    | null;
+  const detail = body?.detail ?? body?.error;
+  return typeof detail === "string" && detail.length > 0 ? detail : fallback;
+}
+
 export async function apiGet<T>(path: string): Promise<ApiResult<T>> {
   try {
     const token = getToken();
@@ -71,7 +87,7 @@ export async function apiGet<T>(path: string): Promise<ApiResult<T>> {
       return {
         ok: false,
         status: response.status,
-        message: `GET ${path} failed with status ${response.status}`,
+        message: await errorMessage(response, `GET ${path} failed with status ${response.status}`),
       };
     }
 
@@ -104,7 +120,7 @@ export async function apiPost<T>(
       return {
         ok: false,
         status: response.status,
-        message: `POST ${path} failed with status ${response.status}`,
+        message: await errorMessage(response, `POST ${path} failed with status ${response.status}`),
       };
     }
 
@@ -137,7 +153,7 @@ export async function apiPut<T>(
       return {
         ok: false,
         status: response.status,
-        message: `PUT ${path} failed with status ${response.status}`,
+        message: await errorMessage(response, `PUT ${path} failed with status ${response.status}`),
       };
     }
 
@@ -167,7 +183,7 @@ export async function apiUpload<T>(
       return {
         ok: false,
         status: response.status,
-        message: `Upload to ${path} failed with status ${response.status}`,
+        message: await errorMessage(response, `Upload to ${path} failed with status ${response.status}`),
       };
     }
 
