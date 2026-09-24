@@ -1292,7 +1292,19 @@
   gap: var(--ux4g-gap-column-m);
 }
 
+/*
+ * The package's `.ux4g-input-container` (Select/TextField's own wrapper)
+ * ships `width: 100%`. As a flex item that resolves flex-basis to 100% of
+ * the row, so every field claimed the whole row width and wrapped onto its
+ * own line regardless of this row's intended 2-3-up composition (found on
+ * both this page and the Reports scope panel, which reuses this class) —
+ * confirmed live: three `Select`s meant to share a row rendered stacked at
+ * 1440px with acres of space unused beside each one. `flex-basis: 0` with
+ * `flex-grow` lets them share the row and grow evenly instead.
+ */
 .lmcs-records-filters-row > * {
+  flex: 1 1 0;
+  width: auto;
   min-width: 12rem;
 }
 
@@ -1736,6 +1748,28 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--ux4g-gap-column-m);
+}
+
+/*
+ * The Report Builder (scope, formats, actions, progress, preview) is a
+ * form/document-composition flow, not a data table — `PAGE_COMPOSITION.md`
+ * §4 is explicit that a form's content column stays single, ~3–8 of 12
+ * columns, specifically because a full-width form on a 1440px screen
+ * produces "an uncomfortably long input widths and a wandering eye". Before
+ * this, the builder had no measure at all: its own controls (checkboxes,
+ * buttons, short text) are naturally narrow, so on a wide viewport it read
+ * as an unfinished page with a huge dead void on the right rather than a
+ * deliberately narrow column. 52rem matches `.lmcs-report-preview`'s own
+ * already-established "reads like a printed document" width, so the
+ * builder and the preview it produces don't visually jump in measure.
+ * Download History stays outside this wrapper — a data table is the one
+ * thing this page type is allowed to run full width (§4/§9).
+ */
+.lmcs-report-builder {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-section-l);
+  max-width: 52rem;
 }
 
 .lmcs-report-scope-summary {
