@@ -59,6 +59,31 @@ export const ACTIVITY_EVENT_TYPES = [
   "record_archived",
   "case_reassigned",
   "rule_threshold_changed",
+  // The 16 types backend/app/services/audit/vocabulary.py's own
+  // ACTIVITY_EVENT_TYPES has carried for phases this file was never
+  // updated alongside (that file's header comment says this one is
+  // updated "in the same change that adds an entry" there — this batch
+  // wasn't). Found live: every one of these rendered a MISSING_MESSAGE
+  // console error in the real Activity Log (the "Who" name and every
+  // other field resolved fine — only the type label, both here and in
+  // ActivityFilters.tsx's Action dropdown, threw).
+  "mobile_handoff_created",
+  "mobile_handoff_revoked",
+  "mobile_handoff_finalized",
+  "mobile_image_uploaded",
+  "mobile_image_replaced",
+  "mobile_handoff_completed",
+  "intelligence_enrichment_failed",
+  "rule_resolved",
+  "calibration_submitted",
+  "case_status_changed",
+  "user_deactivated",
+  "user_created",
+  "evidence_image_uploaded",
+  "evidence_image_replaced",
+  "evidence_override_submitted",
+  "login_rate_limited",
+  "refresh_rate_limited",
 ] as const;
 export type ActivityEventType = (typeof ACTIVITY_EVENT_TYPES)[number];
 
@@ -129,6 +154,26 @@ export const ACTIVITY_TO_AUDIT_TYPE: Record<ActivityEventType, AuditEventType | 
   record_archived: null,
   case_reassigned: null,
   rule_threshold_changed: null,
+  // None of these 16 are part of the coarse, 7-value per-record audit
+  // trail either — matches backend/app/services/audit/vocabulary.py's own
+  // ACTIVITY_TO_AUDIT_TYPE, which maps every one of them to None too.
+  mobile_handoff_created: null,
+  mobile_handoff_revoked: null,
+  mobile_handoff_finalized: null,
+  mobile_image_uploaded: null,
+  mobile_image_replaced: null,
+  mobile_handoff_completed: null,
+  intelligence_enrichment_failed: null,
+  rule_resolved: null,
+  calibration_submitted: null,
+  case_status_changed: null,
+  user_deactivated: null,
+  user_created: null,
+  evidence_image_uploaded: null,
+  evidence_image_replaced: null,
+  evidence_override_submitted: null,
+  login_rate_limited: null,
+  refresh_rate_limited: null,
 };
 
 /* ------------------------------------------------------------------ *

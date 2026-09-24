@@ -1556,7 +1556,24 @@
       "report_downloaded": "Report downloaded",
       "record_archived": "Record archived",
       "case_reassigned": "Case reassigned",
-      "rule_threshold_changed": "Rule thresholds changed"
+      "rule_threshold_changed": "Rule thresholds changed",
+      "mobile_handoff_created": "Mobile handoff started",
+      "mobile_handoff_revoked": "Mobile handoff revoked",
+      "mobile_handoff_finalized": "Mobile handoff finalized",
+      "mobile_image_uploaded": "Photo uploaded via mobile",
+      "mobile_image_replaced": "Mobile photo replaced",
+      "mobile_handoff_completed": "Mobile handoff completed",
+      "intelligence_enrichment_failed": "Product intelligence enrichment failed",
+      "rule_resolved": "Rule violation resolved",
+      "calibration_submitted": "Rule 7 calibration submitted",
+      "case_status_changed": "Case status changed",
+      "user_deactivated": "User deactivated",
+      "user_created": "User created",
+      "evidence_image_uploaded": "Evidence photo uploaded",
+      "evidence_image_replaced": "Evidence photo replaced",
+      "evidence_override_submitted": "Manual override submitted",
+      "login_rate_limited": "Sign-in rate limited",
+      "refresh_rate_limited": "Session refresh rate limited"
     }
   },
   "admin": {
