@@ -250,6 +250,33 @@ export async function verifyRecord(recordId: string): Promise<ApiResult<VerifyRe
 }
 
 /**
+ * Officer resolution for a rule the automated engine legitimately could not
+ * decide (Rule 7 always; Rule 8/9 sometimes) — resolves a NEEDS_REVIEW/
+ * INSUFFICIENT_EVIDENCE checklist row (`passed: false`, no
+ * `violationCategoryId`) to a final PASS/FAIL, without which
+ * `POST /records/{id}/verify` refuses to proceed. Backend endpoint
+ * (`POST /records/{id}/resolutions`) has existed since Phase 3.1 with a
+ * constant already defined in api-endpoints.ts, but nothing ever called
+ * it — the same "endpoint exists, nothing wires it" gap found and fixed
+ * repeatedly this session, this time for Product Compliance Detail's
+ * checklist rows.
+ */
+export async function resolveReviewItem(
+  recordId: string,
+  ruleId: string,
+  resolvedStatus: "PASS" | "FAIL",
+  note: string
+): Promise<ApiResult<ComplianceRecord>> {
+  const result = await apiPost<ComplianceRecord>(API.records.resolutions(recordId), {
+    rule_id: ruleId,
+    resolved_status: resolvedStatus,
+    note,
+  });
+  if (!result.ok) return result;
+  return { ok: true, data: hydrateRecordImages(result.data) };
+}
+
+/**
  * `flag` defaults to `true` (existing callers on pages 4/5 never pass it).
  * `POST /records/{id}/review-flag` (backend/app/api/v1/records.py) is the
  * real backend for this — this file's own header comment previously

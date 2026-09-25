@@ -6,6 +6,7 @@ import {
   fetchRecord,
   flagForEnforcement as flagForEnforcementRequest,
   flagNeedsReview as flagNeedsReviewRequest,
+  resolveReviewItem as resolveReviewItemRequest,
 } from "@/lib/api/records";
 import type { ComplianceRecord } from "@/types";
 import { useAuth } from "./useAuth";
@@ -74,5 +75,26 @@ export function useRecordDetail(id: string) {
     [record]
   );
 
-  return { record, notFound, pending, mutationError, setNeedsReview, flagForEnforcement };
+  const resolveReviewItem = useCallback(
+    (ruleId: string, resolvedStatus: "PASS" | "FAIL", note: string) => {
+      if (!record) return;
+      setPending(true);
+      resolveReviewItemRequest(record.id, ruleId, resolvedStatus, note).then((result) => {
+        setPending(false);
+        if (result.ok) setRecord(result.data);
+        else setMutationError(true);
+      });
+    },
+    [record]
+  );
+
+  return {
+    record,
+    notFound,
+    pending,
+    mutationError,
+    setNeedsReview,
+    flagForEnforcement,
+    resolveReviewItem,
+  };
 }

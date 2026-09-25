@@ -46,8 +46,9 @@ export function RecordDetailView({ recordId, locale }: RecordDetailViewProps) {
   const canFlagNeedsReview = usePermission("record.flagNeedsReview");
   const canFlagForEnforcement = usePermission("record.flagForEnforcement");
 
-  const { record, notFound, pending, mutationError, setNeedsReview, flagForEnforcement } =
+  const { record, notFound, pending, mutationError, setNeedsReview, flagForEnforcement, resolveReviewItem } =
     useRecordDetail(recordId);
+  const canResolveReview = usePermission("verification.confirm");
 
   const [activeAngle, setActiveAngle] = useState<Angle>("front");
   const [highlightBbox, setHighlightBbox] = useState<[number, number, number, number] | undefined>(undefined);
@@ -272,6 +273,9 @@ export function RecordDetailView({ recordId, locale }: RecordDetailViewProps) {
                 passedLabel={t("passed")}
                 recordId={record.id}
                 onViewEvidence={handleViewEvidence}
+                canResolve={canResolveReview}
+                resolvePending={pending}
+                onResolve={resolveReviewItem}
                 {...(() => {
                   const check = record.extraction.fontSizeChecks?.find((f) => f.fieldId === line.fieldId);
                   return check ? { fontSizeCheck: check } : {};
@@ -293,6 +297,13 @@ export function RecordDetailView({ recordId, locale }: RecordDetailViewProps) {
                   confidenceLabel: t("fontMeasurement.confidence"),
                   resultLabel: t("fontMeasurement.result"),
                   viewEvidence: t("viewEvidence"),
+                  resolvePrompt: t("resolve.prompt"),
+                  resolvePass: t("resolve.pass"),
+                  resolveFail: t("resolve.fail"),
+                  resolveNotePlaceholder: t("resolve.notePlaceholder"),
+                  resolveSubmit: t("resolve.submit"),
+                  resolveCancel: t("resolve.cancel"),
+                  resolveError: t("resolve.error"),
                 }}
                 {...(!line.passed && line.violationCategoryId
                   ? { violationLabel: violationCategory(line.violationCategoryId).category }

@@ -50,6 +50,13 @@ export interface ChecklistRowLabels {
   confidenceLabel: string;
   resultLabel: string;
   viewEvidence: string;
+  resolvePrompt: string;
+  resolvePass: string;
+  resolveFail: string;
+  resolveNotePlaceholder: string;
+  resolveSubmit: string;
+  resolveCancel: string;
+  resolveError: string;
 }
 
 export interface ChecklistRowProps {
@@ -65,6 +72,17 @@ export interface ChecklistRowProps {
   labels?: ChecklistRowLabels;
   /** Phase 7 — called with the cited image id + natural-pixel bbox. */
   onViewEvidence?: (imageId: string, bbox: [number, number, number, number]) => void;
+  /**
+   * A `passed: false` row with no `violationCategoryId` is an unresolved
+   * NEEDS_REVIEW/INSUFFICIENT_EVIDENCE item (see backend/app/api/v1/
+   * records.py's verify_record docstring) — the automated engine couldn't
+   * decide, and `POST /records/{id}/verify` refuses to proceed until an
+   * officer resolves it via `onResolve`. Gated on the same
+   * `verification.confirm` permission as Complete Verification itself.
+   */
+  canResolve?: boolean;
+  resolvePending?: boolean;
+  onResolve?: (ruleId: string, resolvedStatus: "PASS" | "FAIL", note: string) => void;
 }
 
 export function ChecklistRow({
@@ -77,16 +95,31 @@ export function ChecklistRow({
   fontSizeCheck,
   labels,
   onViewEvidence,
+  canResolve,
+  resolvePending,
+  onResolve,
 }: ChecklistRowProps) {
   const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
   const [explanation, setExplanation] = useState<ExplanationOutput | null>(null);
+  const [resolveChoice, setResolveChoice] = useState<"PASS" | "FAIL" | null>(null);
+  const [resolveNote, setResolveNote] = useState("");
 
   const canExplain = !line.passed && Boolean(recordId) && Boolean(line.ruleId) && Boolean(labels);
   const evidenceImageId = line.evidence?.imageId;
   const evidenceBbox = line.evidence?.bbox;
   const canViewEvidence = Boolean(onViewEvidence) && Boolean(evidenceImageId) && Boolean(evidenceBbox) && Boolean(labels);
+  const isUnresolvedReviewItem = !line.passed && !line.violationCategoryId;
+  const canShowResolve =
+    isUnresolvedReviewItem && canResolve && Boolean(line.ruleId) && Boolean(onResolve) && Boolean(labels);
+
+  function handleResolveSubmit() {
+    if (!resolveChoice || !onResolve || !line.ruleId) return;
+    onResolve(line.ruleId, resolveChoice, resolveNote);
+    setResolveChoice(null);
+    setResolveNote("");
+  }
 
   async function handleExplain() {
     if (!recordId || !line.ruleId) return;
@@ -156,6 +189,68 @@ export function ChecklistRow({
               {loading ? labels!.explaining : labels!.explainWithAi}
             </button>
           ) : null}
+        </div>
+      ) : null}
+
+      {canShowResolve ? (
+        <div className="lmcs-checklist-row-resolve">
+          <p className="ux4g-body-s-default ux4g-text-neutral-secondary">{labels!.resolvePrompt}</p>
+          {resolveChoice === null ? (
+            <div className="lmcs-checklist-row-actions">
+              <button
+                type="button"
+                className="ux4g-btn ux4g-btn-outline-primary ux4g-btn-sm"
+                onClick={() => setResolveChoice("PASS")}
+                disabled={resolvePending}
+              >
+                {labels!.resolvePass}
+              </button>
+              <button
+                type="button"
+                className="ux4g-btn ux4g-btn-outline-primary ux4g-btn-sm"
+                onClick={() => setResolveChoice("FAIL")}
+                disabled={resolvePending}
+              >
+                {labels!.resolveFail}
+              </button>
+            </div>
+          ) : (
+            <div className="lmcs-checklist-row-resolve-form">
+              <label className="ux4g-label-s-default" htmlFor={`resolve-note-${line.fieldId}`}>
+                {resolveChoice === "PASS" ? labels!.resolvePass : labels!.resolveFail}
+              </label>
+              <textarea
+                id={`resolve-note-${line.fieldId}`}
+                aria-label={resolveChoice === "PASS" ? labels!.resolvePass : labels!.resolveFail}
+                className="ux4g-input"
+                value={resolveNote}
+                placeholder={labels!.resolveNotePlaceholder}
+                onChange={(event) => setResolveNote(event.target.value)}
+                rows={2}
+              />
+              <div className="lmcs-checklist-row-actions">
+                <button
+                  type="button"
+                  className="ux4g-btn ux4g-btn-primary ux4g-btn-sm"
+                  onClick={handleResolveSubmit}
+                  disabled={resolvePending || resolveNote.trim().length === 0}
+                >
+                  {labels!.resolveSubmit}
+                </button>
+                <button
+                  type="button"
+                  className="ux4g-btn ux4g-btn-text-primary ux4g-btn-sm"
+                  onClick={() => {
+                    setResolveChoice(null);
+                    setResolveNote("");
+                  }}
+                  disabled={resolvePending}
+                >
+                  {labels!.resolveCancel}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       ) : null}
 

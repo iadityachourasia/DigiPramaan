@@ -2,7 +2,7 @@
   "_meta": {
     "note": "Scaffolded locale. Values still identical to en.json are untranslated.",
     "generatedBy": "scripts/sync-locales.mjs",
-    "untranslatedCount": 1290,
+    "untranslatedCount": 1297,
     "untranslated": [
       "app.descriptor",
       "app.department",
@@ -598,6 +598,13 @@
       "recordDetail.fontMeasurement.confidence",
       "recordDetail.fontMeasurement.result",
       "recordDetail.viewEvidence",
+      "recordDetail.resolve.prompt",
+      "recordDetail.resolve.pass",
+      "recordDetail.resolve.fail",
+      "recordDetail.resolve.notePlaceholder",
+      "recordDetail.resolve.submit",
+      "recordDetail.resolve.cancel",
+      "recordDetail.resolve.error",
       "recordDetail.reportHistory.heading",
       "recordDetail.reportHistory.empty",
       "recordDetail.reportHistory.error",
@@ -2165,6 +2172,15 @@
       "result": "Result"
     },
     "viewEvidence": "View Evidence",
+    "resolve": {
+      "prompt": "This item needs an officer's in-person judgment before it can be verified.",
+      "pass": "Mark as Passed",
+      "fail": "Mark as Failed",
+      "notePlaceholder": "Note the basis for this decision",
+      "submit": "Submit",
+      "cancel": "Cancel",
+      "error": "Could not save this decision. Try again."
+    },
     "reportHistory": {
       "heading": "Report history",
       "empty": "No reports have been generated for this record yet.",

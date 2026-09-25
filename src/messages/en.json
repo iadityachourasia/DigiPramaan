@@ -868,6 +868,15 @@
       "result": "Result"
     },
     "viewEvidence": "View Evidence",
+    "resolve": {
+      "prompt": "This item needs an officer's in-person judgment before it can be verified.",
+      "pass": "Mark as Passed",
+      "fail": "Mark as Failed",
+      "notePlaceholder": "Note the basis for this decision",
+      "submit": "Submit",
+      "cancel": "Cancel",
+      "error": "Could not save this decision. Try again."
+    },
     "reportHistory": {
       "heading": "Report history",
       "empty": "No reports have been generated for this record yet.",
