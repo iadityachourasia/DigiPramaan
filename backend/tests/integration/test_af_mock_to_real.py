@@ -232,6 +232,67 @@ def test_put_thresholds_creates_a_new_version_row_and_get_reflects_it(client: Te
 
 
 # --------------------------------------------------------------------- #
+# Admin Console — create_user's Profile row and its "account_created"
+# Notification are new-inserted in the SAME transaction, the one trigger
+# site where that's true (every other notify() call site targets an
+# already-committed profile). Found live: this really did 500 in
+# production — Notification has no ORM relationship() to Profile, only a
+# plain FK column, so the unit of work has no dependency edge forcing
+# profiles to insert before notifications, and the fix (an explicit
+# db.flush() after db.add(profile), before notify()) needs a real Postgres
+# FK constraint to catch a regression; a MagicMock session can't.
+# --------------------------------------------------------------------- #
+
+
+def test_create_user_writes_profile_and_notification_in_one_transaction(
+    client: TestClient, db
+) -> None:
+    admin = _make_profile(db, role="Admin", jurisdiction_level="National", region=None, tag="create-user-admin")
+    db.commit()
+
+    new_user_id = uuid.uuid4()
+    db.execute(auth_users.insert().values(id=new_user_id))
+    db.commit()
+
+    try:
+        with patch(
+            "app.api.v1.admin.create_user_as_admin",
+            return_value={"id": str(new_user_id)},
+        ):
+            response = client.post(
+                "/api/v1/admin/users",
+                json={
+                    "email": f"create-user-{RUN_ID}@example.invalid",
+                    "username": f"create-user-{RUN_ID}",
+                    "fullName": "Create User Integration Test",
+                    "password": "irrelevant-mocked-out",
+                    "role": "Enforcement Officer",
+                    "region": "Delhi",
+                    "jurisdictionLevel": "State",
+                    "jurisdictionName": "Delhi",
+                },
+                headers=_auth_headers(admin),
+            )
+        assert response.status_code == 201, response.text
+
+        db.expire_all()
+        profile_row = db.get(Profile, new_user_id)
+        assert profile_row is not None
+
+        notification = db.execute(
+            text("SELECT type, recipient_id FROM notifications WHERE recipient_id = :id"),
+            {"id": new_user_id},
+        ).first()
+        assert notification is not None
+        assert notification.type == "account_created"
+    finally:
+        db.rollback()
+        db.execute(text("DELETE FROM notifications WHERE recipient_id = :id"), {"id": new_user_id})
+        _cleanup_profiles(db, [admin, new_user_id])
+        db.commit()
+
+
+# --------------------------------------------------------------------- #
 # Citizen Grievance Portal — a real submission produces a real, linked
 # ScanSession + EvidenceImage + Grievance row and is publicly lookupable.
 # Object storage (B2) is patched out — this proves the DB-side contract,

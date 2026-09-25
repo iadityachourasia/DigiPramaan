@@ -291,6 +291,14 @@ def create_user(
         active=True,
     )
     db.add(profile)
+    # Flush the new profile row before notify() references it as a
+    # recipient_id — Notification has no ORM relationship() to Profile
+    # (only a plain FK column), so unlike every other notify() call site
+    # (which always targets an already-committed profile), the unit of
+    # work has no dependency edge telling it profiles must insert before
+    # notifications here. Without this flush, the two pending INSERTs can
+    # be ordered either way, and notifications first violates the FK.
+    db.flush()
     emit(
         db, "user_created", viewer=current_user, entity_type="Profile", entity_id=user_id,
         detail={"email": payload.email, "role": payload.role},
