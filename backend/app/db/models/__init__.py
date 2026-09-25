@@ -12,6 +12,7 @@ from app.db.models.compliance_record import ComplianceRecord
 from app.db.models.grievance import Grievance
 from app.db.models.legal_entity import LegalEntity
 from app.db.models.mobile_handoff import MobileUploadSession
+from app.db.models.notification import Notification
 from app.db.models.ocr_provider_job import OcrProviderJob
 from app.db.models.product import Product, ProductInspectionLink
 from app.db.models.product_identifier import ProductIdentifier
@@ -32,6 +33,7 @@ __all__ = [
     "Grievance",
     "LegalEntity",
     "MobileUploadSession",
+    "Notification",
     "OcrProviderJob",
     "Product",
     "ProductInspectionLink",

@@ -29,6 +29,7 @@ from app.services.admin.thresholds import get_effective_thresholds, set_threshol
 from app.services.audit import emit
 from app.services.auth.supabase_auth import SupabaseAuthError, create_user_as_admin
 from app.services.authz.viewer import VALID_ROLES, InvalidViewerProfile, ViewerScope
+from app.services.notifications import jurisdiction_recipients, notify, notify_many
 
 router = APIRouter(tags=["admin"], prefix="/admin")
 
@@ -123,6 +124,8 @@ def put_thresholds(
     }
     set_thresholds(db, values=values, created_by=current_user.id)
     emit(db, "rule_threshold_changed", viewer=current_user, detail=values)
+    recipients = jurisdiction_recipients(db, region=None, roles=["Enforcement Officer"]) - {current_user.id}
+    notify_many(db, recipients, "rule_thresholds_changed", detail=values)
     db.commit()
     return get_effective_thresholds(db)
 
@@ -217,6 +220,11 @@ def reassign_case(
         db, "case_reassigned", viewer=current_user, record=record,
         detail={"fromOfficerId": str(old_officer_id) if old_officer_id else None, "toOfficerId": str(new_officer.id)},
     )
+    if new_officer.id != current_user.id:
+        notify(
+            db, new_officer.id, "case_reassigned_to_you", record=record,
+            detail={"fromOfficerId": str(old_officer_id) if old_officer_id else None},
+        )
     db.commit()
     return {"status": "ok"}
 
@@ -287,6 +295,7 @@ def create_user(
         db, "user_created", viewer=current_user, entity_type="Profile", entity_id=user_id,
         detail={"email": payload.email, "role": payload.role},
     )
+    notify(db, user_id, "account_created", detail={"role": payload.role})
     db.commit()
     db.refresh(profile)
 

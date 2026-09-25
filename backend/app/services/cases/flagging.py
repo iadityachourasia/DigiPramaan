@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session as DbSession
 from app.db.models import CaseStatusHistory, ComplianceRecord, Profile, ViolationCase
 from app.services.audit import emit
 from app.services.intelligence_loop import recompute_risk_for_record_subjects
+from app.services.notifications import jurisdiction_recipients, notify_many
 
 
 def flag_record_for_enforcement(
@@ -67,6 +68,8 @@ def flag_record_for_enforcement(
         changed_by=actor.id, note="Flagged for enforcement.",
     ))
     emit(db, "flagged_for_enforcement", viewer=actor, record=record, detail={"caseId": str(case.id)})
+    recipients = jurisdiction_recipients(db, region=record.region, roles=["Admin", "Reviewer"]) - {actor.id}
+    notify_many(db, recipients, "record_flagged_for_enforcement", record=record, detail={"caseId": str(case.id)})
     db.commit()
     db.refresh(case)
 

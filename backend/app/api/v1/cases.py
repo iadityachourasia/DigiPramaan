@@ -17,9 +17,11 @@ from sqlalchemy.orm import Session as DbSession
 from app.api.deps.permissions import require_permission
 from app.db.models import CaseStatusHistory, ComplianceRecord, Profile, ProductInspectionLink, ViolationCase
 from app.db.session import get_db
+from app.services.audit import emit
 from app.services.authz.repositories import get_visible_case
 from app.services.cases.workflow import CASE_STATUSES, validate_transition
 from app.services.intelligence_loop import recompute_risk_for_record_subjects
+from app.services.notifications import notify
 from app.services.scope import apply_officer_scope
 
 router = APIRouter(tags=["cases"], prefix="/cases")
@@ -130,12 +132,28 @@ def transition_case(
         case_id=case.id, from_status=from_status, to_status=body.to_status,
         changed_by=current_user.id, note=body.note,
     ))
+
+    # No AuditEvent was ever emitted for this — the "case_status_changed"
+    # vocabulary entry has existed since Phase 1.2 with nothing writing it
+    # (confirmed by grep before this fix).
+    record = db.get(ComplianceRecord, case.originating_record_id)
+    emit(
+        db, "case_status_changed", viewer=current_user, record=record,
+        entity_type="ViolationCase", entity_id=case.id,
+        detail={"fromStatus": from_status, "toStatus": body.to_status},
+    )
+    if case.assigned_officer_id and case.assigned_officer_id != current_user.id:
+        notify(
+            db, case.assigned_officer_id, "case_status_changed",
+            record=record, entity_type="ViolationCase", entity_id=case.id,
+            detail={"fromStatus": from_status, "toStatus": body.to_status},
+        )
+
     db.commit()
     db.refresh(case)
 
     # R4 (open enforcement case) depends on live case state — recompute
     # immediately rather than waiting for the next verification.
-    record = db.get(ComplianceRecord, case.originating_record_id)
     if record is not None:
         try:
             recompute_risk_for_record_subjects(record, db)

@@ -61,6 +61,7 @@ from app.db.session import get_db
 from app.services.audit import emit
 from app.services.authz.repositories import get_visible_record
 from app.services.cases.flagging import flag_record_for_enforcement
+from app.services.notifications import notify
 from app.services.extraction.schema import ComplianceEvidenceBundle, ExtractedField
 from app.services.intelligence_loop import (
     EnrichmentSkipped,
@@ -569,12 +570,19 @@ def _set_review_flag(
                 record_id=record.id, status="ACTIVE", note=note, flagged_by=current_user.id,
             ))
         emit(db, "flagged_needs_review", viewer=current_user, record=record, detail={"note": note})
+        if record.assigned_officer_id and record.assigned_officer_id != current_user.id:
+            notify(
+                db, record.assigned_officer_id, "record_flagged_needs_review",
+                record=record, detail={"note": note},
+            )
     else:
         if active is not None:
             active.status = "CLEARED"
             active.cleared_by = current_user.id
             active.cleared_at = datetime.now(timezone.utc)
         emit(db, "needs_review_cleared", viewer=current_user, record=record)
+        if record.assigned_officer_id and record.assigned_officer_id != current_user.id:
+            notify(db, record.assigned_officer_id, "record_needs_review_cleared", record=record)
 
 
 @router.post("/bulk/review-flag")
