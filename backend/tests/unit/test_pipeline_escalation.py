@@ -155,7 +155,7 @@ def test_escalation_recovers_silently_dropped_required_field() -> None:
 
     escalation_block = OcrBlock(
         image_id=str(IMAGES[0].id), text="MRP Rs 199 incl. of all taxes",
-        confidence=91.0, bbox=(0.0, 0.0, 1.0, 1.0), provider="openparser", model="azure-di-read",
+        confidence=91.0, bbox=(0.0, 0.0, 1.0, 1.0), provider="openparser", model="mistral-ocr-4",
     )
 
     with patch("app.jobs.pipeline.escalation_budget_ok", return_value=True), \
@@ -175,7 +175,7 @@ def test_escalation_recovers_silently_dropped_required_field() -> None:
 
     mock_escalate.assert_called_once()
     call_kwargs = mock_escalate.call_args.kwargs
-    assert call_kwargs["model_id"] == "azure-di-read"
+    assert call_kwargs["model_id"] == "mistral-ocr-4"
     assert call_kwargs["target_image_ids"] == {str(IMAGES[0].id)}  # mrp -> "front"
     assert call_kwargs["retry_reason"] == "post_structuring_field_miss"
 
@@ -189,11 +189,15 @@ def test_escalation_recovers_silently_dropped_required_field() -> None:
     mock_emit.assert_called_once()
     assert mock_emit.call_args.args[1] == "ocr_retried"
     assert mock_emit.call_args.kwargs["detail"]["missingFields"] == ["mrp"]
-    assert mock_emit.call_args.kwargs["detail"]["escalationModel"] == "azure-di-read"
+    assert mock_emit.call_args.kwargs["detail"]["escalationModel"] == "mistral-ocr-4"
     db.commit.assert_called()
 
 
-def test_escalation_tier2_fires_only_for_fields_tier1_still_missed() -> None:
+def test_escalation_tiers_fire_in_mistral_google_azure_order() -> None:
+    """Escalation order is a fixed product decision: Mistral OCR 4, then
+    Google Enterprise Document OCR, then Azure DI Read as the last resort
+    — each tier only attempting the fields the previous tier(s) still
+    left not_detected."""
     db = MagicMock()
     settings = _settings()
     primary_extraction = _extraction(mrp=_field(None, True), address=_field(None, True))
@@ -202,11 +206,11 @@ def test_escalation_tier2_fires_only_for_fields_tier1_still_missed() -> None:
 
     tier1_block = OcrBlock(
         image_id=str(IMAGES[0].id), text="Rs 199", confidence=88.0,
-        bbox=(0.0, 0.0, 1.0, 1.0), provider="openparser", model="azure-di-read",
+        bbox=(0.0, 0.0, 1.0, 1.0), provider="openparser", model="mistral-ocr-4",
     )
     tier2_block = OcrBlock(
         image_id=str(IMAGES[1].id), text="123 Main St", confidence=85.0,
-        bbox=(0.0, 0.0, 1.0, 1.0), provider="openparser", model="mistral-ocr-4",
+        bbox=(0.0, 0.0, 1.0, 1.0), provider="openparser", model="google-docai-ocr",
     )
 
     with patch("app.jobs.pipeline.escalation_budget_ok", return_value=True), \
@@ -225,10 +229,13 @@ def test_escalation_tier2_fires_only_for_fields_tier1_still_missed() -> None:
             db, settings, _fake_session(), IMAGES, [], {}, primary_extraction,
         )
 
+    # Only 2 calls — tier2 (google) already recovered everything, so tier3
+    # (azure) is never attempted despite being configured by default.
     assert mock_escalate.call_count == 2
     tier1_kwargs, tier2_kwargs = (c.kwargs for c in mock_escalate.call_args_list)
-    assert tier1_kwargs["model_id"] == "azure-di-read"
-    assert tier2_kwargs["model_id"] == "mistral-ocr-4"
+    assert tier1_kwargs["model_id"] == "mistral-ocr-4"
+    assert tier1_kwargs["retry_reason"] == "post_structuring_field_miss"
+    assert tier2_kwargs["model_id"] == "google-docai-ocr"
     assert tier2_kwargs["retry_reason"] == "post_structuring_field_miss_tier2"
 
     assert result_extraction.mrp.not_detected is False
@@ -236,15 +243,57 @@ def test_escalation_tier2_fires_only_for_fields_tier1_still_missed() -> None:
     assert result_blocks == [tier1_block, tier2_block]
 
 
-def test_tier2_skipped_when_not_configured() -> None:
+def test_escalation_falls_through_to_tier3_azure_as_last_resort() -> None:
     db = MagicMock()
-    settings = _settings(openparser_fallback_tier2_ocr_model=None)
+    settings = _settings()
+    primary_extraction = _extraction(address=_field(None, True))
+    still_missing_extraction = _extraction(address=_field(None, True))  # tiers 1 & 2 also fail
+    recovered_extraction = _extraction(address=_field("123 Main St", False))
+
+    tier1_block = OcrBlock(
+        image_id=str(IMAGES[1].id), text="unrelated", confidence=40.0,
+        bbox=(0.0, 0.0, 1.0, 1.0), provider="openparser", model="mistral-ocr-4",
+    )
+    tier2_block = OcrBlock(
+        image_id=str(IMAGES[1].id), text="also unrelated", confidence=45.0,
+        bbox=(0.0, 0.0, 1.0, 1.0), provider="openparser", model="google-docai-ocr",
+    )
+    tier3_block = OcrBlock(
+        image_id=str(IMAGES[1].id), text="123 Main St", confidence=90.0,
+        bbox=(0.0, 0.0, 1.0, 1.0), provider="openparser", model="azure-di-read",
+    )
+
+    with patch("app.jobs.pipeline.escalation_budget_ok", return_value=True), \
+         patch("app.jobs.pipeline.OpenParserKeyPool"), \
+         patch("app.jobs.pipeline.get_s3_client"), \
+         patch(
+             "app.jobs.pipeline.run_openparser_escalation_extraction",
+             side_effect=[([tier1_block], {}), ([tier2_block], {}), ([tier3_block], {})],
+         ) as mock_escalate, \
+         patch(
+             "app.jobs.pipeline.structure_with_coverage_retry",
+             side_effect=[still_missing_extraction, still_missing_extraction, recovered_extraction],
+         ), \
+         patch("app.jobs.pipeline.emit"):
+        result_extraction, _ = _escalate_missing_fields(
+            db, settings, _fake_session(), IMAGES, [], {}, primary_extraction,
+        )
+
+    assert mock_escalate.call_count == 3
+    model_ids = [c.kwargs["model_id"] for c in mock_escalate.call_args_list]
+    assert model_ids == ["mistral-ocr-4", "google-docai-ocr", "azure-di-read"]
+    assert result_extraction.address.not_detected is False
+
+
+def test_later_tiers_skipped_when_not_configured() -> None:
+    db = MagicMock()
+    settings = _settings(openparser_fallback_tier2_ocr_model=None, openparser_fallback_tier3_ocr_model=None)
     primary_extraction = _extraction(address=_field(None, True))
     tier1_extraction = _extraction(address=_field(None, True))  # tier 1 also fails to find it
 
     tier1_block = OcrBlock(
         image_id=str(IMAGES[1].id), text="unrelated text", confidence=60.0,
-        bbox=(0.0, 0.0, 1.0, 1.0), provider="openparser", model="azure-di-read",
+        bbox=(0.0, 0.0, 1.0, 1.0), provider="openparser", model="mistral-ocr-4",
     )
 
     with patch("app.jobs.pipeline.escalation_budget_ok", return_value=True), \
@@ -260,5 +309,5 @@ def test_tier2_skipped_when_not_configured() -> None:
             db, settings, _fake_session(), IMAGES, [], {}, primary_extraction,
         )
 
-    mock_escalate.assert_called_once()  # tier 1 only — tier 2 never attempted
+    mock_escalate.assert_called_once()  # tier 1 only — tiers 2 & 3 never attempted
     assert result_extraction.address.not_detected is True

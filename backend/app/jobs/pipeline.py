@@ -284,26 +284,32 @@ def _escalate_missing_fields(
         return structured_extraction, all_blocks
 
     missing = _missing_required_fields(structured_extraction, REQUIRED_FIELD_IDS)
-    if not missing or not escalation_budget_ok(db, settings):
+    if not missing:
         return structured_extraction, all_blocks
 
-    retried, merged_blocks = _try_ocr_escalation_tier(
-        db, settings, session, images, angle_by_image_id, all_blocks, missing,
-        model_id=settings.openparser_fallback_ocr_model, retry_reason="post_structuring_field_miss",
+    # Fixed product-decided order: Mistral OCR 4 -> Google Enterprise
+    # Document OCR -> Azure DI Read (last resort). Each tier only attempts
+    # the fields the previous tier(s) still left not_detected.
+    tiers = (
+        (settings.openparser_fallback_ocr_model, "post_structuring_field_miss"),
+        (settings.openparser_fallback_tier2_ocr_model, "post_structuring_field_miss_tier2"),
+        (settings.openparser_fallback_tier3_ocr_model, "post_structuring_field_miss_tier3"),
     )
-    if retried is None:
-        return structured_extraction, all_blocks
-    structured_extraction, all_blocks = retried, merged_blocks
 
-    still_missing = _missing_required_fields(structured_extraction, missing)
-    if still_missing and settings.openparser_fallback_tier2_ocr_model and escalation_budget_ok(db, settings):
-        retried2, merged_blocks2 = _try_ocr_escalation_tier(
+    still_missing = missing
+    for model_id, retry_reason in tiers:
+        if not still_missing or not model_id:
+            continue
+        if not escalation_budget_ok(db, settings):
+            break
+
+        retried, merged_blocks = _try_ocr_escalation_tier(
             db, settings, session, images, angle_by_image_id, all_blocks, still_missing,
-            model_id=settings.openparser_fallback_tier2_ocr_model,
-            retry_reason="post_structuring_field_miss_tier2",
+            model_id=model_id, retry_reason=retry_reason,
         )
-        if retried2 is not None:
-            structured_extraction, all_blocks = retried2, merged_blocks2
+        if retried is not None:
+            structured_extraction, all_blocks = retried, merged_blocks
+            still_missing = _missing_required_fields(structured_extraction, still_missing)
 
     return structured_extraction, all_blocks
 

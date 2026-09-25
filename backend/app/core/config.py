@@ -218,17 +218,22 @@ class Settings(BaseSettings):
     # changes real production behavior (extra vendor spend, extra latency
     # on some scans) — enable deliberately, ideally after running
     # scripts/ocr_benchmark.py against real scans first.
+    #
+    # Escalation order is a product decision, not a technical one — fixed
+    # as: 1) PaddleOCR-VL 1.6 (primary, not listed here), 2) Mistral OCR 4,
+    # 3) Google Enterprise Document OCR, 4) Azure DI Read (last resort).
+    # Each tier is tried only for fields the previous tier still left
+    # not_detected; None on a tierN field disables that tier.
     openparser_fallback_enabled: bool = False
-    openparser_fallback_ocr_model: str = "azure-di-read"
-    # Last-resort second opinion, tried only when the tier-1 escalation
-    # model ALSO leaves a field not_detected. None disables tier 2.
-    openparser_fallback_tier2_ocr_model: str | None = "mistral-ocr-4"
+    openparser_fallback_ocr_model: str = "mistral-ocr-4"
+    openparser_fallback_tier2_ocr_model: str | None = "google-docai-ocr"
+    openparser_fallback_tier3_ocr_model: str | None = "azure-di-read"
     openparser_fallback_max_escalations_per_hour: int = 50
     openparser_fallback_max_escalations_per_day: int = 300
     # Comma-separated, same raw-field-plus-parsed-property convention as
     # openparser_api_key/openparser_api_keys above — read only by
     # scripts/ocr_benchmark.py, never by the live pipeline.
-    openparser_comparison_models: str = "paddleocr-vl-1.6,azure-di-read,mistral-ocr-4"
+    openparser_comparison_models: str = "paddleocr-vl-1.6,mistral-ocr-4,google-docai-ocr,azure-di-read"
 
     @model_validator(mode="after")
     def _validate_openparser_in_production(self) -> "Settings":
