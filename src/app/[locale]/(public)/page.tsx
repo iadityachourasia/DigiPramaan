@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import {
   HomeCapabilities,
   HomeCitizens,
+  HomeCredit,
   HomeFinalCta,
   HomeHero,
   HomePipeline,
@@ -28,6 +29,7 @@ import {
  *   Taxonomy      Section/XL   default
  *   Citizens      Section/XL   elevated
  *   Final CTA     Section/L    default
+ *   Credit strip  (no section background of its own — see HomeCredit.tsx)
  *
  * Backgrounds alternate Default and Elevated — never Soft, which collides with
  * Subtle in dark mode (DESIGN_SYSTEM.md §7). Capabilities/Final CTA are new
@@ -77,6 +79,7 @@ export default async function LandingPage({
         <HomeTaxonomy />
         <HomeCitizens />
         <HomeFinalCta />
+        <HomeCredit />
       </main>
     </>
   );

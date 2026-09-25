@@ -2,7 +2,7 @@
   "_meta": {
     "note": "Scaffolded locale. Values still identical to en.json are untranslated.",
     "generatedBy": "scripts/sync-locales.mjs",
-    "untranslatedCount": 1308,
+    "untranslatedCount": 1312,
     "untranslated": [
       "app.descriptor",
       "app.department",
@@ -207,6 +207,7 @@
       "home.nav.searchPlaceholder",
       "home.nav.noResults",
       "home.nav.signIn",
+      "home.nav.github",
       "home.hero.promiseFairTrade",
       "home.hero.promiseTrustedMarkets",
       "home.hero.promiseConsumerProtection",
@@ -284,6 +285,9 @@
       "home.finalCta.heading",
       "home.finalCta.body",
       "home.finalCta.cta",
+      "home.credit.text",
+      "home.credit.team",
+      "home.credit.leader",
       "dashboard.meta.title",
       "dashboard.kpis.heading",
       "dashboard.kpis.productsScanned",
@@ -1601,7 +1605,8 @@
       "searchLabel": "Search site sections",
       "searchPlaceholder": "Search pages and sections",
       "noResults": "No matching sections found.",
-      "signIn": "Officer sign in"
+      "signIn": "Officer sign in",
+      "github": "View source on GitHub"
     },
     "hero": {
       "promiseFairTrade": "Ensuring fair trade",
@@ -1758,6 +1763,11 @@
       "heading": "Ready to verify a label?",
       "body": "Sign in to start an inspection.",
       "cta": "Start inspection"
+    },
+    "credit": {
+      "text": "Crafted with pride by",
+      "team": "Team Metrology",
+      "leader": "Team Leader — Aditya Chourasia"
     }
   },
   "dashboard": {

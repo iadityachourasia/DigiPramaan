@@ -942,3 +942,23 @@ html[data-display-size="larger"] body {
   max-width: 56ch;
   margin-inline: auto;
 }
+
+/* ─── Credit strip ─── */
+
+.lmcs-home-credit {
+  border-top: var(--ux4g-border-thin) solid var(--ux4g-border-color-neutral-subtle);
+  padding-block: var(--ux4g-padding-m);
+}
+
+.lmcs-home-credit-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ux4g-gap-column-2xs);
+  text-align: center;
+  color: var(--ux4g-text-neutral-secondary);
+}
+
+.lmcs-home-credit-sep {
+  margin-inline: var(--ux4g-gap-column-2xs);
+}

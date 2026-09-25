@@ -286,7 +286,8 @@
       "searchLabel": "Search site sections",
       "searchPlaceholder": "Search pages and sections",
       "noResults": "No matching sections found.",
-      "signIn": "Officer sign in"
+      "signIn": "Officer sign in",
+      "github": "View source on GitHub"
     },
     "hero": {
       "promiseFairTrade": "Ensuring fair trade",
@@ -443,6 +444,11 @@
       "heading": "Ready to verify a label?",
       "body": "Sign in to start an inspection.",
       "cta": "Start inspection"
+    },
+    "credit": {
+      "text": "Crafted with pride by",
+      "team": "Team Metrology",
+      "leader": "Team Leader — Aditya Chourasia"
     }
   },
   "dashboard": {

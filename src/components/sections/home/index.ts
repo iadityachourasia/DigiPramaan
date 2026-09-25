@@ -11,3 +11,4 @@ export { HomeStats } from "./HomeStats";
 export { HomeTaxonomy } from "./HomeTaxonomy";
 export { HomeCitizens } from "./HomeCitizens";
 export { HomeFinalCta } from "./HomeFinalCta";
+export { HomeCredit } from "./HomeCredit";
