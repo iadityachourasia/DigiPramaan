@@ -217,6 +217,12 @@ export interface PipelineStage {
   summary?: string;
   /** Present only when state is "failed". */
   failureReason?: string;
+  /** ISO 8601, real (not estimated) — set once the stage transitions to
+   * in_progress. Absent for a still-pending stage; cleared back to
+   * undefined by a retry until the stage starts again. */
+  startedAt?: string;
+  /** ISO 8601, real — set once the stage reaches completed/skipped/failed. */
+  completedAt?: string;
 }
 
 /**
@@ -232,6 +238,15 @@ export interface PipelineRun {
    *  before it's populated, so the tracker can link to it once ready. */
   recordId: string;
   stages: PipelineStage[];
+  /** Session metadata for the progress page's summary band — additive,
+   * nullable exactly where the backend's own ScanSession columns are
+   * nullable (region/category), real, never fabricated. */
+  region: string | null;
+  category: string | null;
+  source: SourceTag;
+  /** ISO 8601 — when this scan session was created. Real, drives the
+   * page's elapsed-time clock. Null only for a malformed/legacy session. */
+  createdAt: string | null;
 }
 
 /** Product categories route to the right declaration checklist (03 §2). */

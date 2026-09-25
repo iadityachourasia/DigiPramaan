@@ -28,6 +28,10 @@ class EvidenceRef(BaseModel):
     ocr_block_text: str | None = None
     bbox: tuple[float, float, float, float] | None = None
     provider: str
+    # Additive, defaults to "" — old persisted evidence_bundle/extraction
+    # JSON blobs deserialize unchanged. The specific OCR model that produced
+    # this citation (mirrors OcrBlock.model in ocr/provider.py).
+    model: str = ""
     ocr_confidence: float | None = None  # None when the provider gave no per-block score
 
 

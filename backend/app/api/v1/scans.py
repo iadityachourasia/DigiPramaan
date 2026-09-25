@@ -471,6 +471,10 @@ def get_pipeline(
         "scanId": str(scan_session.id),
         "recordId": str(record_id),
         "stages": scan_session.stages,
+        "region": scan_session.region,
+        "category": scan_session.category,
+        "source": scan_session.source,
+        "createdAt": scan_session.created_at.isoformat() if scan_session.created_at else None,
     }
 
 
@@ -505,6 +509,10 @@ def retry_pipeline_stage(
         "scanId": str(scan_session.id),
         "recordId": str(record_id),
         "stages": scan_session.stages,
+        "region": scan_session.region,
+        "category": scan_session.category,
+        "source": scan_session.source,
+        "createdAt": scan_session.created_at.isoformat() if scan_session.created_at else None,
     }
 
 

@@ -22,6 +22,13 @@ class OcrBlock(BaseModel):
     confidence: float
     bbox: tuple[float, float, float, float]  # x0, y0, x1, y1
     provider: str
+    # The specific OCR model that produced this block (e.g. "paddleocr-vl-1.6",
+    # "azure-di-read") — additive, defaults to "" for call sites that don't
+    # set it yet. Lets a multi-provider escalation pass (see openparser/
+    # pipeline_bridge.py's run_openparser_escalation_extraction) distinguish
+    # its own blocks from the primary pass's once both land in the same
+    # all_blocks list.
+    model: str = ""
 
 
 class OcrResult(BaseModel):

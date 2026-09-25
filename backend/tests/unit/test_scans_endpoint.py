@@ -226,6 +226,9 @@ def test_retry_schedules_background_task_and_returns_immediately(client_as) -> N
     session.stages = [{"id": "textExtraction", "state": "pending"}]
     session.created_by = TEST_USER_ID
     session.region = None
+    session.category = "Packaged Food"
+    session.source = "Officer-Scanned"
+    session.created_at = None
 
     def _override_get_db():
         db = MagicMock()
@@ -245,6 +248,11 @@ def test_retry_schedules_background_task_and_returns_immediately(client_as) -> N
     assert response.status_code == 200
     mock_retry_stage.assert_called_once_with(scan_id, "textExtraction")
     mock_run_pipeline.assert_called_once_with(scan_id)
+    body = response.json()
+    assert body["category"] == "Packaged Food"
+    assert body["source"] == "Officer-Scanned"
+    assert body["region"] is None
+    assert body["createdAt"] is None
 
 
 def _post_quality_check(client: TestClient, angle: str, image: bytes, headers: dict | None = None):

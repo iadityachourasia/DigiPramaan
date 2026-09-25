@@ -167,6 +167,7 @@ def _to_extracted_field(
                 ocr_block_text=block.text,
                 bbox=block.bbox,
                 provider=block.provider,
+                model=block.model,
                 ocr_confidence=block.confidence,
             )
         )
@@ -340,7 +341,10 @@ class GeminiOcrProvider:
         # one block per non-empty line, bbox honestly spans the whole image
         # rather than a fabricated precise region.
         blocks = [
-            OcrBlock(image_id=image_id, text=line.strip(), confidence=0.0, bbox=(0, 0, 1, 1), provider=self.name)
+            OcrBlock(
+                image_id=image_id, text=line.strip(), confidence=0.0, bbox=(0, 0, 1, 1),
+                provider=self.name, model=self.name,
+            )
             for line in text.splitlines()
             if line.strip()
         ]

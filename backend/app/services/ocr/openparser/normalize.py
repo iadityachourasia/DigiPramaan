@@ -172,4 +172,5 @@ def to_legacy_ocr_block(element: OcrElement) -> OcrBlock | None:
         confidence=element.confidence.score * 100.0,  # OcrBlock's 0-100 scale
         bbox=element.bbox_original_px,
         provider=element.provider,
+        model=element.model,
     )

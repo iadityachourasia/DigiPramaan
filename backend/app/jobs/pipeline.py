@@ -36,6 +36,7 @@ compliance for the first time.
 from __future__ import annotations
 
 import uuid
+from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
@@ -50,19 +51,35 @@ from app.services.barcode import (
     detect_barcodes,
     resolve_barcode_analysis,
 )
+from app.services.audit.emit import emit
 from app.services.extraction.adapter import to_extraction_result
 from app.services.extraction.schema import ComplianceEvidenceBundle, ImageQualitySummary
-from app.services.ocr.gemini import GeminiOcrProvider, GeminiUnavailableError, structure
+from app.services.ocr.gemini import (
+    GeminiOcrProvider,
+    GeminiUnavailableError,
+    _missing_required_fields,
+    structure,
+    structure_with_coverage_retry,
+)
+from app.services.ocr.openparser.budget import escalation_budget_ok
 from app.services.ocr.openparser.pipeline_bridge import (
     resume_openparser_text_extraction,
+    run_openparser_escalation_extraction,
     run_openparser_text_extraction,
 )
 from app.services.ocr.openparser.pool import OpenParserKeyPool
 from app.services.ocr.paddle import PaddleOcrProvider
 from app.services.ocr.provider import OcrBlock
 from app.services.rules.aggregate import compute_compliance_score, compute_legal_status
-from app.services.rules.checks import _side_pdp_evidence, run_all_rule_checks
+from app.services.rules.checks import _FIELD_EXPECTED_ANGLE, _side_pdp_evidence, run_all_rule_checks
 from app.services.rules.frontend_adapter import to_checklist_and_violations
+
+# The legally-required declaration fields a genuine OCR miss can turn into
+# a false compliance FAIL (see the escalation branch in the structuring
+# section below) — pulled directly from rules/checks.py's own
+# _FIELD_EXPECTED_ANGLE map (the set of fields that map has an angle for)
+# rather than hand-duplicated here, so the two never drift apart.
+REQUIRED_FIELD_IDS = list(_FIELD_EXPECTED_ANGLE.keys())
 
 # A field is "insufficient" enough to justify a Gemini fallback pass on
 # whichever image angle it's normally read from — deliberately not just
@@ -91,12 +108,19 @@ def initial_stages(quality_summary: str) -> list[dict]:
     was even created, the same "quality check is already resolved before
     this route is reached... created already completed here, for
     continuity" convention already documented for PIPELINE_STAGE_IDS."""
+    now = datetime.now(timezone.utc).isoformat()
     stages = []
     for stage_id in PIPELINE_STAGE_IDS:
         if stage_id == "uploading":
-            stages.append({"id": stage_id, "state": "completed", "summary": "Evidence stored."})
+            stages.append({
+                "id": stage_id, "state": "completed", "summary": "Evidence stored.",
+                "startedAt": now, "completedAt": now,
+            })
         elif stage_id == "qualityCheck":
-            stages.append({"id": stage_id, "state": "completed", "summary": quality_summary})
+            stages.append({
+                "id": stage_id, "state": "completed", "summary": quality_summary,
+                "startedAt": now, "completedAt": now,
+            })
         else:
             stages.append({"id": stage_id, "state": "pending"})
     return stages
@@ -120,8 +144,15 @@ def mark_capture_stages_completed(stages: list[dict], quality_summary: str) -> l
     before `run_pipeline` is scheduled. Reuses `_with_stage_update` (the
     same stage-transition primitive every other stage change in this file
     goes through) rather than re-deriving the stage-list shape by hand."""
-    stages = _with_stage_update(stages, "uploading", state="completed", summary="Evidence stored.")
-    stages = _with_stage_update(stages, "qualityCheck", state="completed", summary=quality_summary)
+    now = datetime.now(timezone.utc).isoformat()
+    stages = _with_stage_update(
+        stages, "uploading", state="completed", summary="Evidence stored.",
+        startedAt=now, completedAt=now,
+    )
+    stages = _with_stage_update(
+        stages, "qualityCheck", state="completed", summary=quality_summary,
+        startedAt=now, completedAt=now,
+    )
     return stages
 
 
@@ -135,7 +166,21 @@ def _find_stage(stages: list[dict], stage_id: str) -> dict:
 def _with_stage_update(stages: list[dict], stage_id: str, **updates) -> list[dict]:
     """Returns a NEW list with one stage updated — reassigning
     `session.stages` to this return value (never mutating the existing list
-    in place) is what makes SQLAlchemy detect and persist the change."""
+    in place) is what makes SQLAlchemy detect and persist the change.
+
+    Also auto-stamps `startedAt`/`completedAt` (ISO 8601, UTC) off
+    `updates["state"]`, real timestamps for real transitions — this is the
+    single choke point every one of this file's ~20 stage-transition call
+    sites already goes through, so every one of them gets honest per-stage
+    timing for free rather than needing each call site to pass its own
+    timestamp explicitly. `setdefault` so an explicit caller-supplied value
+    (e.g. `retry_stage()` clearing both back to `None`) is never
+    overwritten."""
+    if updates.get("state") == "in_progress":
+        updates.setdefault("startedAt", datetime.now(timezone.utc).isoformat())
+    elif updates.get("state") in ("completed", "skipped", "failed"):
+        updates.setdefault("completedAt", datetime.now(timezone.utc).isoformat())
+
     new_stages = []
     for stage in stages:
         if stage["id"] == stage_id:
@@ -173,6 +218,94 @@ def _run_paddle_ocr(images: list[EvidenceImage], settings) -> tuple[list[OcrBloc
         all_blocks.extend(result.blocks)
         angle_by_image_id[str(image.id)] = image.angle
     return all_blocks, angle_by_image_id
+
+
+def _try_ocr_escalation_tier(
+    db: Session, settings, session, images: list[EvidenceImage], angle_by_image_id: dict[str, str],
+    blocks_so_far: list[OcrBlock], missing_fields: list[str], *, model_id: str, retry_reason: str,
+):
+    """Runs one escalation tier: OCRs the image(s) the missing fields are
+    expected on with `model_id`, merges the result into `blocks_so_far`,
+    and re-runs structuring restricted to those fields via the existing
+    (previously unwired) `structure_with_coverage_retry`. Returns
+    `(None, blocks_so_far)` unchanged whenever nothing could be attempted
+    or the escalation itself failed — an escalation is a quality
+    improvement, never a hard requirement, so it must never fail the scan.
+    """
+    target_angles = {_FIELD_EXPECTED_ANGLE[f] for f in missing_fields if f in _FIELD_EXPECTED_ANGLE}
+    target_image_ids = {str(img.id) for img in images if img.angle in target_angles}
+    if not target_image_ids:
+        return None, blocks_so_far
+
+    pool = OpenParserKeyPool(settings)
+    s3_client = get_s3_client(settings)
+    try:
+        try:
+            escalation_blocks, _ = run_openparser_escalation_extraction(
+                db, settings, pool, session, images, s3_client,
+                model_id=model_id, target_image_ids=target_image_ids, retry_reason=retry_reason,
+            )
+        finally:
+            pool.close()
+    except Exception as exc:  # noqa: BLE001 - an escalation failure must never fail the scan
+        print(f"[OCR-ESCALATION] scan={session.id} model={model_id} failed: {exc}", flush=True)
+        return None, blocks_so_far
+
+    if not escalation_blocks:
+        return None, blocks_so_far
+
+    merged_blocks = blocks_so_far + escalation_blocks
+    retried = structure_with_coverage_retry(
+        merged_blocks, angle_by_image_id, settings,
+        required_field_ids=missing_fields, max_retries=1,
+    )
+    emit(
+        db, "ocr_retried", entity_type="ScanSession", entity_id=session.id,
+        detail={"missingFields": missing_fields, "escalationModel": model_id},
+    )
+    db.commit()
+    return retried, merged_blocks
+
+
+def _escalate_missing_fields(
+    db: Session, settings, session, images: list[EvidenceImage],
+    all_blocks: list[OcrBlock], angle_by_image_id: dict[str, str], structured_extraction,
+):
+    """The post-structuring, per-required-field OCR escalation. Fires only
+    when a legally required declaration is still `not_detected` after the
+    primary OCR+structuring pass — never on a routine scan, never as a
+    blanket re-OCR. Only meaningful under `ocr_provider="openparser"` (the
+    only mode with real `OcrProviderJob` primary rows an escalation
+    attempt can attach to as a later attempt_number); a no-op everywhere
+    else. Gated by `openparser_fallback_enabled` and the escalation
+    circuit breaker (`escalation_budget_ok`) so a bug that always trips
+    this can never run up an unbounded vendor bill."""
+    if not settings.openparser_fallback_enabled or settings.ocr_provider != "openparser":
+        return structured_extraction, all_blocks
+
+    missing = _missing_required_fields(structured_extraction, REQUIRED_FIELD_IDS)
+    if not missing or not escalation_budget_ok(db, settings):
+        return structured_extraction, all_blocks
+
+    retried, merged_blocks = _try_ocr_escalation_tier(
+        db, settings, session, images, angle_by_image_id, all_blocks, missing,
+        model_id=settings.openparser_fallback_ocr_model, retry_reason="post_structuring_field_miss",
+    )
+    if retried is None:
+        return structured_extraction, all_blocks
+    structured_extraction, all_blocks = retried, merged_blocks
+
+    still_missing = _missing_required_fields(structured_extraction, missing)
+    if still_missing and settings.openparser_fallback_tier2_ocr_model and escalation_budget_ok(db, settings):
+        retried2, merged_blocks2 = _try_ocr_escalation_tier(
+            db, settings, session, images, angle_by_image_id, all_blocks, still_missing,
+            model_id=settings.openparser_fallback_tier2_ocr_model,
+            retry_reason="post_structuring_field_miss_tier2",
+        )
+        if retried2 is not None:
+            structured_extraction, all_blocks = retried2, merged_blocks2
+
+    return structured_extraction, all_blocks
 
 
 def run_pipeline(scan_session_id: uuid.UUID) -> None:
@@ -310,6 +443,10 @@ def run_pipeline(scan_session_id: uuid.UUID) -> None:
                         stages, "fallbackExtraction", state="completed",
                         summary=f"Gemini fallback added {len(fb_result.blocks)} more blocks.",
                     )
+                    emit(
+                        db, "ocr_fallback_used", entity_type="ScanSession", entity_id=session.id,
+                        detail={"totalBlocksBeforeFallback": len(all_blocks) - len(fb_result.blocks)},
+                    )
                     _persist(db, session, stages)
                 except GeminiUnavailableError as exc:
                     stages = _with_stage_update(
@@ -390,6 +527,9 @@ def run_pipeline(scan_session_id: uuid.UUID) -> None:
 
         try:
             structured_extraction = structure(all_blocks, angle_by_image_id, settings)
+            structured_extraction, all_blocks = _escalate_missing_fields(
+                db, settings, session, images, all_blocks, angle_by_image_id, structured_extraction,
+            )
         except GeminiUnavailableError as exc:
             stages = _with_stage_update(
                 stages, "structuring", state="failed", failureReason=str(exc)
@@ -577,7 +717,9 @@ def retry_stage(scan_session_id: uuid.UUID, stage_id: str) -> bool:
         if stage["state"] != "failed":
             return False
 
-        stages = _with_stage_update(stages, stage_id, state="pending", failureReason=None)
+        stages = _with_stage_update(
+            stages, stage_id, state="pending", failureReason=None, startedAt=None, completedAt=None,
+        )
         _persist(db, session, stages, status="pending", error=None)
 
     return True

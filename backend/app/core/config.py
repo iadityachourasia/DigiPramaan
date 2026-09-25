@@ -205,6 +205,31 @@ class Settings(BaseSettings):
     # a hard cost cap) — this flag alone never authorizes a live call.
     openparser_live_tests: bool = False
 
+    # --- Multi-provider OCR escalation ---------------------------------
+    # A silent OCR miss (the primary model drops one line while everything
+    # else on the label reads fine) previously produced a false compliance
+    # FAIL, since the only existing fallback (FALLBACK_MIN_BLOCKS,
+    # jobs/pipeline.py) only ever fires on a near-total scan-wide read
+    # failure. This escalates to a second OpenParser-routed model, but
+    # ONLY for the specific image(s) behind a still-`not_detected` legally
+    # required field after the primary structuring pass — never routinely.
+    # Off by default: unlike the rest of this feature (additive, reuses
+    # already-hardened job/worker infrastructure), flipping this on
+    # changes real production behavior (extra vendor spend, extra latency
+    # on some scans) — enable deliberately, ideally after running
+    # scripts/ocr_benchmark.py against real scans first.
+    openparser_fallback_enabled: bool = False
+    openparser_fallback_ocr_model: str = "azure-di-read"
+    # Last-resort second opinion, tried only when the tier-1 escalation
+    # model ALSO leaves a field not_detected. None disables tier 2.
+    openparser_fallback_tier2_ocr_model: str | None = "mistral-ocr-4"
+    openparser_fallback_max_escalations_per_hour: int = 50
+    openparser_fallback_max_escalations_per_day: int = 300
+    # Comma-separated, same raw-field-plus-parsed-property convention as
+    # openparser_api_key/openparser_api_keys above — read only by
+    # scripts/ocr_benchmark.py, never by the live pipeline.
+    openparser_comparison_models: str = "paddleocr-vl-1.6,azure-di-read,mistral-ocr-4"
+
     @model_validator(mode="after")
     def _validate_openparser_in_production(self) -> "Settings":
         """Spec §14's production-validation list. Only enforced in
@@ -330,6 +355,12 @@ class Settings(BaseSettings):
             return []
         raw = self.openparser_api_key.get_secret_value()
         return [key.strip() for key in raw.split(",") if key.strip()]
+
+    @property
+    def openparser_comparison_model_list(self) -> list[str]:
+        """`openparser_comparison_models`'s value split on commas — read
+        only by scripts/ocr_benchmark.py, never by the live pipeline."""
+        return [m.strip() for m in self.openparser_comparison_models.split(",") if m.strip()]
 
     @property
     def resolved_supabase_url(self) -> str:

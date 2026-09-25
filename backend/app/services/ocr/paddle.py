@@ -183,6 +183,7 @@ class PaddleOcrProvider:
                         confidence=float(score) * 100,
                         bbox=(x0, y0, x1, y1),
                         provider=self.name,
+                        model=self.name,
                     )
                 )
 

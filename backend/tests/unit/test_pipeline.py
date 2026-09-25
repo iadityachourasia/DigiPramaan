@@ -22,6 +22,7 @@ tests in `tests/integration/test_openparser_pipeline.py`.
 from __future__ import annotations
 
 import uuid
+from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -79,7 +80,7 @@ def _fake_scan_session(stages):
     s.source = "Officer-Scanned"
     s.ecommerce_listing_url = None
     s.created_by = uuid.uuid4()
-    s.created_at = None
+    s.created_at = datetime(2026, 1, 1, tzinfo=timezone.utc)
     s.record_id = None
     return s
 
@@ -234,6 +235,58 @@ def test_retry_stage_returns_false_for_a_stage_that_is_not_failed(mock_db_sessio
     db, session = mock_db_session  # freshly initial_stages() -> textExtraction is "pending"
     ok = retry_stage(SCAN_ID, "textExtraction")
     assert ok is False
+
+
+def test_completed_and_failed_stages_carry_real_timestamps(mock_db_session) -> None:
+    """_with_stage_update() auto-stamps startedAt/completedAt off `state` —
+    the mechanism every one of this file's ~20 transition call sites relies
+    on for the scan progress page's real elapsed-time display."""
+    db, session = mock_db_session
+
+    ocr_result = OcrResult(
+        blocks=[
+            OcrBlock(image_id="img-1", text="Sample Product", confidence=98.0,
+                     bbox=(0.0, 0.0, 1.0, 1.0), provider="paddleocr")
+            for _ in range(4)
+        ],
+        provider="paddleocr",
+        duration_ms=10,
+    )
+
+    with patch("app.jobs.pipeline.PaddleOcrProvider") as mock_provider_cls, \
+         patch("app.jobs.pipeline._fetch_image_bytes", return_value=b"fake-bytes"), \
+         patch("app.jobs.pipeline.structure", return_value=_empty_extraction()):
+        mock_provider_cls.return_value.extract.return_value = ocr_result
+        run_pipeline(SCAN_ID)
+
+    text_extraction = next(s for s in session.stages if s["id"] == "textExtraction")
+    assert text_extraction["state"] == "completed"
+    assert text_extraction["startedAt"] is not None
+    assert text_extraction["completedAt"] is not None
+    # uploading/qualityCheck are synthetically pre-completed by initial_stages()
+    # — both timestamps present, not just completedAt.
+    uploading = next(s for s in session.stages if s["id"] == "uploading")
+    assert uploading["startedAt"] is not None
+    assert uploading["completedAt"] is not None
+
+
+def test_retry_clears_prior_attempts_timestamps(mock_db_session) -> None:
+    db, session = mock_db_session
+    stages = list(session.stages)
+    for s in stages:
+        if s["id"] == "textExtraction":
+            s["state"] = "failed"
+            s["failureReason"] = "previous crash"
+            s["startedAt"] = "2026-01-01T00:00:00+00:00"
+            s["completedAt"] = "2026-01-01T00:00:05+00:00"
+    session.stages = stages
+
+    retry_stage(SCAN_ID, "textExtraction")
+
+    stage = next(s for s in session.stages if s["id"] == "textExtraction")
+    assert stage["state"] == "pending"
+    assert stage["startedAt"] is None
+    assert stage["completedAt"] is None
 
 
 def test_retry_stage_returns_false_for_unknown_scan() -> None:

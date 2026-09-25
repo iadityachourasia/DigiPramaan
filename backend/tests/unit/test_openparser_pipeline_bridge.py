@@ -16,6 +16,7 @@ from app.services.ocr.openparser.pipeline_bridge import (
     OpenParserPipelineTimeout,
     _canonical_request_sha256,
     _drive_to_terminal,
+    _get_or_create_escalation_job_intent,
     _get_or_create_job_intent,
     _media_type_for,
 )
@@ -129,6 +130,82 @@ def test_creates_a_new_intent_when_none_exists(monkeypatch: pytest.MonkeyPatch) 
     assert kwargs["operation"] == "parse_single"
     assert kwargs["attempt_number"] == 1
     db.commit.assert_called_once()
+
+
+# --- _get_or_create_escalation_job_intent: attempt lineage -------------------
+
+
+def test_escalation_returns_the_existing_row_without_creating_a_new_one() -> None:
+    settings = _settings()
+    db = MagicMock()
+    existing_job = SimpleNamespace(id=uuid.uuid4())
+    db.query.return_value.filter.return_value.first.return_value = existing_job
+
+    parent_job = SimpleNamespace(id=uuid.uuid4(), attempt_number=1)
+    s3_client = MagicMock()
+    result = _get_or_create_escalation_job_intent(
+        db, settings, _fake_session(), _fake_evidence_image(), s3_client,
+        model_id="azure-di-read", retry_reason="post_structuring_field_miss", parent_job=parent_job,
+    )
+
+    assert result is existing_job
+    s3_client.head_object.assert_not_called()
+    db.commit.assert_not_called()
+
+
+def test_escalation_creates_attempt_two_with_lineage_and_the_escalation_model(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    settings = _settings()
+    db = MagicMock()
+    db.query.return_value.filter.return_value.first.return_value = None
+
+    s3_client = MagicMock()
+    s3_client.head_object.return_value = {"ContentLength": 12345}
+
+    created = SimpleNamespace(id=uuid.uuid4())
+    create_mock = MagicMock(return_value=created)
+    monkeypatch.setattr("app.services.ocr.openparser.pipeline_bridge.create_job_intent", create_mock)
+
+    parent_job = SimpleNamespace(id=uuid.uuid4(), attempt_number=1)
+    result = _get_or_create_escalation_job_intent(
+        db, settings, _fake_session(), _fake_evidence_image(), s3_client,
+        model_id="azure-di-read", retry_reason="post_structuring_field_miss", parent_job=parent_job,
+    )
+
+    assert result is created
+    kwargs = create_mock.call_args.kwargs
+    assert kwargs["attempt_number"] == 2  # parent's attempt_number (1) + 1, never a hardcoded 2
+    assert kwargs["retry_reason"] == "post_structuring_field_miss"
+    assert kwargs["parent_attempt_id"] == parent_job.id
+    assert kwargs["model_id"] == "azure-di-read"  # NOT settings.openparser_ocr_model
+    db.commit.assert_called_once()
+
+
+def test_escalation_attempt_number_chains_off_the_parents_own_attempt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A tier-2 escalation building on a tier-1 escalation's own miss must
+    land at attempt_number=3, not collide with a hardcoded 2 — this is
+    exactly what uq_ocr_provider_jobs_attempt's unique index requires."""
+    settings = _settings()
+    db = MagicMock()
+    db.query.return_value.filter.return_value.first.return_value = None
+
+    s3_client = MagicMock()
+    s3_client.head_object.return_value = {"ContentLength": 12345}
+
+    created = SimpleNamespace(id=uuid.uuid4())
+    create_mock = MagicMock(return_value=created)
+    monkeypatch.setattr("app.services.ocr.openparser.pipeline_bridge.create_job_intent", create_mock)
+
+    tier1_job = SimpleNamespace(id=uuid.uuid4(), attempt_number=2)
+    _get_or_create_escalation_job_intent(
+        db, settings, _fake_session(), _fake_evidence_image(), s3_client,
+        model_id="mistral-ocr-4", retry_reason="post_structuring_field_miss_tier2", parent_job=tier1_job,
+    )
+
+    assert create_mock.call_args.kwargs["attempt_number"] == 3
 
 
 # --- _drive_to_terminal: timeout ---------------------------------------------
