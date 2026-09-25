@@ -36,6 +36,7 @@ from app.db.models import ComplianceRecord, Profile, Report
 from app.db.session import get_db
 from app.jobs.reports import generate_report_job, retry_report
 from app.services.authz.repositories import get_visible_record
+from app.services.reports.schema import REPORT_TEMPLATE_VERSION
 from app.services.scope import apply_officer_scope
 from app.services.tickets.download_ticket import issue_download_ticket
 
@@ -113,7 +114,7 @@ def generate_report(
         frozen_snapshot={"referenceCode": reference_code},
         generated_by=current_user.id,
         status="PENDING",
-        report_format_version="2.0",
+        report_format_version=REPORT_TEMPLATE_VERSION,
     )
     db.add(report)
     db.commit()

@@ -35,13 +35,13 @@ import type { RenderReportInputV2 } from "@/types/report-v2";
  */
 
 const LOGO_PATH = path.join(process.cwd(), "public", "images", "digi-pramaan-logo-report.jpg");
+const EMBLEM_PATH = path.join(process.cwd(), "public", "images", "national-emblem-report.png");
+const LOCKUP_PATH = path.join(process.cwd(), "public", "images", "consumer-affairs-lockup.png");
 
 interface RenderReportBody {
   snapshot: unknown;
   images: {
-    front: string | null;
-    back: string | null;
-    side_pdp: string | null;
+    byImageId: Record<string, string>;
     violationCrops: Record<string, string>;
     dimensions: Record<string, [number, number]>;
   };
@@ -73,18 +73,27 @@ export async function POST(request: Request): Promise<Response> {
       })
     );
 
+    const byImageIdEntries = await Promise.all(
+      Object.entries(body.images.byImageId ?? {}).map(async ([imageId, base64], index) => {
+        const filePath = await writeTempImage(workDir, `img-${index}.jpg`, base64);
+        return [imageId, filePath] as const;
+      })
+    );
+
     const input: RenderReportInputV2 = {
       snapshot: body.snapshot as RenderReportInputV2["snapshot"],
       images: {
-        front: await writeTempImage(workDir, "front.jpg", body.images.front),
-        back: await writeTempImage(workDir, "back.jpg", body.images.back),
-        side_pdp: await writeTempImage(workDir, "side_pdp.jpg", body.images.side_pdp),
+        byImageId: Object.fromEntries(
+          byImageIdEntries.filter(([, filePath]) => filePath !== null) as [string, string][]
+        ),
         violationCrops: Object.fromEntries(
           violationCropEntries.filter(([, filePath]) => filePath !== null) as [string, string][]
         ),
         dimensions: body.images.dimensions ?? {},
       },
       logoPath: LOGO_PATH,
+      emblemPath: EMBLEM_PATH,
+      lockupPath: LOCKUP_PATH,
     };
 
     const [pdf, docx] = await Promise.all([renderPdfV2(input), renderDocxV2(input)]);

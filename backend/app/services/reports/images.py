@@ -47,21 +47,24 @@ CROP_MAX_DIMENSION_PX = 1000
 JPEG_QUALITY = 85
 CROP_PADDING_RATIO = 0.15
 
-_ANGLE_ATTRS = ("front", "back", "side_pdp")
-
 
 @dataclass
 class ReportImagePaths:
-    front: Path | None = None
-    back: Path | None = None
-    side_pdp: Path | None = None
+    # image_id -> local JPEG path (post-resize). One entry per
+    # EvidenceImage actually fetched for this record's scan session — ALL
+    # angles (front/back/side_pdp/additional) and ALL recaptures, never
+    # overwritten. Previously this was three singleton front/back/side_pdp
+    # fields that a same-angle recapture silently overwrote and that an
+    # "additional"-angle image could never populate at all — this map is
+    # the fix for both.
+    by_image_id: dict[str, Path] = field(default_factory=dict)
     violation_crops: dict[str, Path] = field(default_factory=dict)
     # image_id -> (width, height) of the ORIGINAL, pre-resize image — used
     # by the orchestrator to patch ImageReference.image_width_px/height_px
     # so the renderer can scale a pixel-space bbox onto the resized,
     # placed image it actually draws.
     original_dimensions: dict[str, tuple[int, int]] = field(default_factory=dict)
-    # angle / crop_image_ref -> (width, height) of the file ACTUALLY
+    # image_id / crop_image_ref -> (width, height) of the file ACTUALLY
     # WRITTEN to disk (post-resize) — passed through to the Node renderer
     # so it can size a DOCX ImageRun correctly without needing its own
     # image-dimension-reading dependency (jsPDF's own getImageProperties()
@@ -123,9 +126,8 @@ def report_image_workspace(record: ComplianceRecord, snapshot: ReportSnapshotV2,
             resized.thumbnail((ORIGINAL_MAX_DIMENSION_PX, ORIGINAL_MAX_DIMENSION_PX), Image.LANCZOS)
             out_path = tempdir / f"{ref.image_id}.jpg"
             resized.convert("RGB").save(out_path, "JPEG", quality=JPEG_QUALITY)
-            if ref.angle in _ANGLE_ATTRS:
-                setattr(paths, ref.angle, out_path)
-                paths.embedded_dimensions[ref.angle] = resized.size
+            paths.by_image_id[ref.image_id] = out_path
+            paths.embedded_dimensions[ref.image_id] = resized.size
 
         for violation in snapshot.violations:
             if not violation.bbox or not violation.crop_image_ref or violation.original_image is None:

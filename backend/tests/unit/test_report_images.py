@@ -91,15 +91,16 @@ def test_resize_preserves_aspect_ratio_and_caps_long_edge():
 
     with patch("app.services.reports.images._fetch_bytes", return_value=_jpeg_bytes(3200, 1600)):
         with report_image_workspace(record, snapshot, db, _FakeSettings()) as paths:
-            assert paths.front is not None
-            assert paths.front.exists()
-            with Image.open(paths.front) as out:
+            image_path = paths.by_image_id[str(image_id)]
+            assert image_path is not None
+            assert image_path.exists()
+            with Image.open(image_path) as out:
                 assert max(out.size) <= ORIGINAL_MAX_DIMENSION_PX
                 # 2:1 aspect ratio preserved within integer-rounding tolerance
                 assert abs(out.size[0] / out.size[1] - 2.0) < 0.02
             assert paths.original_dimensions[str(image_id)] == (3200, 1600)
         # cleaned up after the `with` block exits successfully
-        assert not paths.front.exists()
+        assert not image_path.exists()
 
 
 def test_temp_dir_removed_on_exception():
@@ -113,7 +114,7 @@ def test_temp_dir_removed_on_exception():
     with pytest.raises(RuntimeError):
         with patch("app.services.reports.images._fetch_bytes", return_value=_jpeg_bytes(800, 600)):
             with report_image_workspace(record, snapshot, db, _FakeSettings()) as paths:
-                captured_dir["path"] = paths.front.parent
+                captured_dir["path"] = paths.by_image_id[str(image_id)].parent
                 raise RuntimeError("simulated renderer failure")
     assert not captured_dir["path"].exists()
 
@@ -127,7 +128,7 @@ def test_missing_b2_object_degrades_to_omission_not_failure():
 
     with patch("app.services.reports.images._fetch_bytes", side_effect=Exception("404 Not Found")):
         with report_image_workspace(record, snapshot, db, _FakeSettings()) as paths:
-            assert paths.front is None
+            assert paths.by_image_id == {}
             assert paths.original_dimensions == {}
 
 

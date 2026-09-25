@@ -57,6 +57,7 @@ from app.services.reports.schema import (
     ProductInfo,
     ReadabilityEvidence,
     ReadabilityFieldSignal,
+    REPORT_TEMPLATE_VERSION,
     ReportMetadata,
     ReportSnapshotV2,
     ResponsibleEntity,
@@ -468,7 +469,7 @@ def _build_integrity(
         inspection_id=inspection_id,
         generated_at=datetime.now(timezone.utc).isoformat(),
         generated_by_name=current_user.full_name,
-        report_format_version="2.0",
+        report_format_version=REPORT_TEMPLATE_VERSION,
         rule_set_version="legal-metrology-2011-v1",
         verify_url=f"{settings.frontend_base_url.rstrip('/')}/en/verify/report/{report_id}",
     )

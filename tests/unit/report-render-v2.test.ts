@@ -36,6 +36,18 @@ function writeTestJpeg(dir: string, name: string, hex: string): string {
 const TINY_JPEG_BASE64 =
   "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgICAgMCAgIDAwMDBAYEBAQEBAgGBgUGCQgKCgkICQkKDA8MCgsOCwkJDRENDg8QEBEQCgwSExIQEw8QEBD/2wBDAQMDAwQDBAgEBAgQCwkLEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBD/wAARCAAIAAgDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD3+iiigD//2Q==";
 
+// A minimal valid 1x1 PNG, used for the emblem/lockup cover assets —
+// both renderers require real raster bytes (getImageProperties()/
+// ImageRun's "png" type), not a placeholder string.
+const TINY_PNG_BASE64 =
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
+
+function writeTestPng(dir: string, name: string, hex: string): string {
+  const filePath = path.join(dir, name);
+  fs.writeFileSync(filePath, Buffer.from(hex, "base64"));
+  return filePath;
+}
+
 function makeSnapshot(overrides: Partial<ReportSnapshotV2> = {}): ReportSnapshotV2 {
   return {
     schemaVersion: "2.0",
@@ -106,17 +118,26 @@ function makeSnapshot(overrides: Partial<ReportSnapshotV2> = {}): ReportSnapshot
   };
 }
 
-function makeInput(snapshot: ReportSnapshotV2, logoPath: string): RenderReportInputV2 {
+function makeInput(
+  snapshot: ReportSnapshotV2,
+  logoPath: string,
+  emblemPath: string,
+  lockupPath: string
+): RenderReportInputV2 {
   return {
     snapshot,
-    images: { front: null, back: null, side_pdp: null, violationCrops: {}, dimensions: {} },
+    images: { byImageId: {}, violationCrops: {}, dimensions: {} },
     logoPath,
+    emblemPath,
+    lockupPath,
   };
 }
 
 describe("report-render-v2", () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "dp-report-render-test-"));
   const logoPath = writeTestJpeg(tmpDir, "logo.jpg", TINY_JPEG_BASE64);
+  const emblemPath = writeTestPng(tmpDir, "emblem.png", TINY_PNG_BASE64);
+  const lockupPath = writeTestPng(tmpDir, "lockup.png", TINY_PNG_BASE64);
 
   it("PDF generates, contains selectable text, and never states an unvalidated Rule 7 threshold", async () => {
     const snapshot = makeSnapshot({
@@ -141,7 +162,7 @@ describe("report-render-v2", () => {
       ],
     });
 
-    const pdfBuffer = await renderPdfV2(makeInput(snapshot, logoPath));
+    const pdfBuffer = await renderPdfV2(makeInput(snapshot, logoPath, emblemPath, lockupPath));
     expect(pdfBuffer.length).toBeGreaterThan(0);
 
     const parsed = await new PDFParse({ data: pdfBuffer }).getText();
@@ -169,7 +190,7 @@ describe("report-render-v2", () => {
       cropImageRef: null,
     }));
     const snapshot = makeSnapshot({ violations: manyViolations });
-    const pdfBuffer = await renderPdfV2(makeInput(snapshot, logoPath));
+    const pdfBuffer = await renderPdfV2(makeInput(snapshot, logoPath, emblemPath, lockupPath));
     const parsed = await new PDFParse({ data: pdfBuffer }).getText();
     // The task's own requirement this guards: the document is NOT capped
     // at the old renderer's ~2-page ceiling — 15 substantial violations
@@ -192,7 +213,7 @@ describe("report-render-v2", () => {
         },
       ],
     });
-    const docxBuffer = await renderDocxV2(makeInput(snapshot, logoPath));
+    const docxBuffer = await renderDocxV2(makeInput(snapshot, logoPath, emblemPath, lockupPath));
     expect(docxBuffer.length).toBeGreaterThan(0);
 
     // A .docx is a zip of OOXML parts — read document.xml directly rather
@@ -210,10 +231,102 @@ describe("report-render-v2", () => {
 
   it("conditional sections are omitted cleanly when there is no data", async () => {
     const snapshot = makeSnapshot(); // no barcode, no violations, no Rule 7/8/9 evidence
-    const pdfBuffer = await renderPdfV2(makeInput(snapshot, logoPath));
+    const pdfBuffer = await renderPdfV2(makeInput(snapshot, logoPath, emblemPath, lockupPath));
     const parsed = await new PDFParse({ data: pdfBuffer }).getText();
     expect(parsed.text).not.toContain("PRODUCT IDENTIFIER / BARCODE EVIDENCE");
     expect(parsed.text).toContain("No confirmed violations.");
+  });
+
+  it("includes a table of contents in both formats", async () => {
+    const snapshot = makeSnapshot();
+    const input = makeInput(snapshot, logoPath, emblemPath, lockupPath);
+
+    const pdfBuffer = await renderPdfV2(input);
+    const parsed = await new PDFParse({ data: pdfBuffer }).getText();
+    expect(parsed.text).toContain("Table of Contents");
+    expect(parsed.text).toContain("Executive Summary");
+
+    const docxBuffer = await renderDocxV2(input);
+    const xml = readZipEntries(docxBuffer).get("word/document.xml")!.toString("utf-8");
+    expect(xml).toContain("TOC \\h");
+  });
+
+  it("renders the Declared Particulars section when declarations are present", async () => {
+    const snapshot = makeSnapshot({
+      declarations: [
+        {
+          fieldId: "retailSalePrice",
+          label: "Retail sale price (MRP)",
+          observedValue: "Rs 199",
+          notDetected: false,
+          corrected: true,
+          evidenceImageId: null,
+          evidenceAngle: null,
+        },
+      ],
+    });
+    const input = makeInput(snapshot, logoPath, emblemPath, lockupPath);
+
+    const pdfBuffer = await renderPdfV2(input);
+    const parsed = await new PDFParse({ data: pdfBuffer }).getText();
+    expect(parsed.text).toContain("Declared Particulars");
+    expect(parsed.text).toContain("Officer-Corrected");
+
+    const docxBuffer = await renderDocxV2(input);
+    const xml = readZipEntries(docxBuffer).get("word/document.xml")!.toString("utf-8");
+    expect(xml).toContain("Declared Particulars");
+    expect(xml).toContain("Officer-Corrected");
+  });
+
+  it("the packaging gallery includes every recapture of an angle, not just the last one — the direct regression test for the old front/back/side_pdp image ceiling", async () => {
+    const img1 = writeTestJpeg(tmpDir, "front-1.jpg", TINY_JPEG_BASE64);
+    const img2 = writeTestJpeg(tmpDir, "front-2.jpg", TINY_JPEG_BASE64);
+    const snapshot = makeSnapshot({
+      originalImages: [
+        {
+          imageId: "11111111-aaaa-bbbb-cccc-111111111111",
+          angle: "front",
+          contentHash: null,
+          uploadedAt: "2026-01-01T08:00:00Z",
+          qualityVerdict: "blurry — recaptured",
+          imageWidthPx: 8,
+          imageHeightPx: 8,
+        },
+        {
+          imageId: "22222222-aaaa-bbbb-cccc-222222222222",
+          angle: "front",
+          contentHash: null,
+          uploadedAt: "2026-01-01T08:05:00Z",
+          qualityVerdict: "sharp",
+          imageWidthPx: 8,
+          imageHeightPx: 8,
+        },
+      ],
+    });
+    const input: RenderReportInputV2 = {
+      snapshot,
+      images: {
+        byImageId: {
+          "11111111-aaaa-bbbb-cccc-111111111111": img1,
+          "22222222-aaaa-bbbb-cccc-222222222222": img2,
+        },
+        violationCrops: {},
+        dimensions: {},
+      },
+      logoPath,
+      emblemPath,
+      lockupPath,
+    };
+
+    const pdfBuffer = await renderPdfV2(input);
+    const parsed = await new PDFParse({ data: pdfBuffer }).getText();
+    expect(parsed.text).toContain("ID 11111111");
+    expect(parsed.text).toContain("ID 22222222");
+
+    const docxBuffer = await renderDocxV2(input);
+    const xml = readZipEntries(docxBuffer).get("word/document.xml")!.toString("utf-8");
+    expect(xml).toContain("ID 11111111");
+    expect(xml).toContain("ID 22222222");
   });
 });
 

@@ -36,6 +36,14 @@ from pydantic.alias_generators import to_camel
 
 REPORT_SCHEMA_VERSION = "2.0"
 
+# Separate from REPORT_SCHEMA_VERSION on purpose: that constant versions the
+# JSON *shape* of ReportSnapshotV2 (field names/nesting), which this report
+# redesign does not change. This one versions the rendered PDF/DOCX
+# *template* (typography, layout, image gallery, table of contents) — bump
+# it whenever the visual output changes materially, independent of whether
+# the snapshot's own field shape moved.
+REPORT_TEMPLATE_VERSION = "2.1"
+
 # Recorded, not derived — a static label identifying the rule-engine
 # version this report reflects. Bumped only on a deliberate, documented
 # rule-engine version change, never automatically inferred from code.
@@ -69,7 +77,7 @@ class ReportMetadata(_CamelModel):
     generated_by_name: str
     generated_by_role: str
     generated_by_region: str | None
-    report_format_version: str = REPORT_SCHEMA_VERSION
+    report_format_version: str = REPORT_TEMPLATE_VERSION
     rule_set_version: str = RULE_SET_VERSION
 
 

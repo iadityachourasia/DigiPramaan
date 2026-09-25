@@ -237,16 +237,25 @@ export interface ReportSnapshotV2 {
 export interface RenderReportInputV2 {
   snapshot: ReportSnapshotV2;
   images: {
-    front: string | null;
-    back: string | null;
-    side_pdp: string | null;
+    /** Every original/recaptured evidence image actually fetched for this
+     * record's scan session, keyed by imageId — one entry per
+     * ImageReferenceV2 in snapshot.originalImages that resolved to real
+     * bytes. Supersedes the old fixed front/back/side_pdp slots, which
+     * silently dropped every recapture but the last and never carried
+     * "additional"-angle images at all. */
+    byImageId: Record<string, string>;
     violationCrops: Record<string, string>;
     /** (width, height) in pixels of each file actually written to disk
-     * (post-resize), keyed the same way as the paths above ("front" /
-     * "back" / "side_pdp" / a crop's own ref) — lets the DOCX renderer
-     * size an ImageRun without its own image-dimension-reading
-     * dependency. */
+     * (post-resize), keyed the same way as byImageId (imageId / a crop's
+     * own ref) — lets the DOCX renderer size an ImageRun without its own
+     * image-dimension-reading dependency. */
     dimensions: Record<string, [number, number]>;
   };
   logoPath: string;
+  /** Government of India emblem — pre-rasterized PNG (jsPDF/docx both need
+   * raster bytes; the source SVG under public/images/ isn't embeddable
+   * directly). See public/images/national-emblem-report.png. */
+  emblemPath: string;
+  /** Department of Consumer Affairs lockup graphic, already a raster PNG. */
+  lockupPath: string;
 }

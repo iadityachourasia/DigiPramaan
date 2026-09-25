@@ -83,9 +83,11 @@ def render_via_http(
     payload = {
         "snapshot": snapshot.model_dump(by_alias=True),
         "images": {
-            "front": _b64_or_none(images.front),
-            "back": _b64_or_none(images.back),
-            "side_pdp": _b64_or_none(images.side_pdp),
+            # image_id -> base64 bytes. Every captured/recaptured evidence
+            # image for the record's scan session, not just one per angle
+            # — see ReportImagePaths' own docstring for why this replaced
+            # the old front/back/side_pdp singleton fields.
+            "byImageId": {k: _b64_or_none(v) for k, v in images.by_image_id.items()},
             "violationCrops": {k: _b64_or_none(v) for k, v in images.violation_crops.items()},
             # Dimensions of the files actually resized, keyed the same way
             # as the image bytes above — lets the DOCX renderer size an

@@ -21,11 +21,9 @@ class _FakeImagePaths:
     def __init__(self, tmp_path):
         front = tmp_path / "front.jpg"
         front.write_bytes(b"front-bytes")
-        self.front = front
-        self.back = None
-        self.side_pdp = None
+        self.by_image_id = {"img-1": front}
         self.violation_crops = {}
-        self.embedded_dimensions = {"front": (100, 200)}
+        self.embedded_dimensions = {"img-1": (100, 200)}
 
 
 class _FakeSnapshot:
@@ -64,9 +62,8 @@ def test_sends_base64_images_and_bearer_auth_and_parses_response(tmp_path) -> No
     assert call.args[0] == "http://localhost:3000/api/internal/render-report"
     assert call.kwargs["headers"]["Authorization"] == "Bearer shared-secret"
     sent_images = call.kwargs["json"]["images"]
-    assert sent_images["front"] == base64.b64encode(b"front-bytes").decode("ascii")
-    assert sent_images["back"] is None
-    assert sent_images["dimensions"] == {"front": [100, 200]}
+    assert sent_images["byImageId"] == {"img-1": base64.b64encode(b"front-bytes").decode("ascii")}
+    assert sent_images["dimensions"] == {"img-1": [100, 200]}
     # logoPath is no longer sent -- the route resolves it locally now.
     assert "logoPath" not in call.kwargs["json"]
 
