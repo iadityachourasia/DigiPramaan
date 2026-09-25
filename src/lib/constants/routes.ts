@@ -68,6 +68,11 @@ export const ROUTES = {
    */
   activity: "/activity",
 
+  /** Notifications & Alerts — a per-officer inbox, distinct from the
+   * system-wide Activity Log above (that's "what everyone did"; this is
+   * "what YOU need to know"). Every authenticated role sees their own. */
+  notifications: "/notifications",
+
   /** Administration — team scope and operational thresholds. */
   admin: "/admin",
 
@@ -139,9 +144,10 @@ export interface NavItem {
 /**
  * Sidebar navigation, gated per the Role Permission Matrix.
  *
- * Resulting visibility — Enforcement Officer 7, Admin 8, Reviewer 6:
+ * Resulting visibility — Enforcement Officer 8, Admin 9, Reviewer 7:
  *
  *   Dashboard              everyone      not a matrix row; the landing surface
+ *   Notifications & Alerts everyone      a personal inbox — nothing to gate
  *   Scan / Upload          scan.create   Reviewer cannot create scans
  *   Compliance Records     everyone      Reviewer has full read access
  *   Analytics              analytics.view
@@ -171,6 +177,7 @@ export interface NavItem {
  */
 export const SIDEBAR_NAV: readonly NavItem[] = [
   { labelKey: "navigation.dashboard", href: ROUTES.dashboard, icon: "dashboard" },
+  { labelKey: "navigation.notifications", href: ROUTES.notifications, icon: "notifications" },
   {
     labelKey: "navigation.scanUpload",
     href: ROUTES.scan,

@@ -1965,3 +1965,117 @@
   flex-wrap: wrap;
   word-break: break-all;
 }
+
+/* ─── Notifications & Alerts (src/components/notifications/*.tsx) ─── */
+
+.lmcs-notification-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-s);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lmcs-notification-row {
+  border: var(--ux4g-border-thin) solid var(--ux4g-border-color-neutral-subtle);
+  border-radius: var(--ux4g-radius-md);
+  background-color: var(--ux4g-bg-neutral-elevated);
+}
+
+/* Never colour alone (A-10) — the bold message text and the dot below both
+   carry the same "unread" fact independently of this border. */
+.lmcs-notification-row-unread {
+  border-left: var(--ux4g-border-thick) solid var(--ux4g-border-color-primary-strong);
+}
+
+.lmcs-notification-link {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ux4g-gap-column-s);
+  width: 100%;
+  padding: var(--ux4g-padding-m);
+  text-align: left;
+  text-decoration: none;
+  color: inherit;
+}
+
+.lmcs-notification-link-button {
+  border: none;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+
+.lmcs-notification-icon {
+  flex-shrink: 0;
+  color: var(--ux4g-text-neutral-secondary);
+}
+
+.lmcs-notification-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-2xs);
+  flex: 1;
+}
+
+.lmcs-notification-unread-dot {
+  flex-shrink: 0;
+  width: 0.5rem;
+  height: 0.5rem;
+  margin-top: 0.4rem;
+  border-radius: var(--ux4g-radius-full);
+  background-color: var(--ux4g-bg-primary-strong);
+}
+
+/* ─── Header notification bell (src/components/layout/NotificationsBell.tsx) ─── */
+
+.lmcs-notification-bell {
+  position: relative;
+}
+
+.lmcs-notification-bell-badge {
+  position: absolute;
+  top: 0.1rem;
+  right: 0.1rem;
+}
+
+.lmcs-notification-bell-menu {
+  position: absolute;
+  top: calc(100% + var(--ux4g-gap-row-2xs));
+  right: 0;
+  z-index: var(--ux4g-z-index-30);
+  width: min(24rem, calc(100vw - var(--ux4g-padding-2xl)));
+  max-height: 28rem;
+  overflow-y: auto;
+  background-color: var(--ux4g-bg-neutral-elevated);
+  border: var(--ux4g-border-thin) solid var(--ux4g-border-color-neutral-subtle);
+  border-radius: var(--ux4g-radius-md);
+  box-shadow: var(--ux4g-shadow-l3);
+  padding: var(--ux4g-padding-s);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-2xs);
+}
+
+.lmcs-notification-bell-menu-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--ux4g-padding-2xs) var(--ux4g-padding-2xs) var(--ux4g-padding-xs);
+}
+
+.lmcs-notification-bell-menu-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-2xs);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lmcs-notification-bell-menu-footer {
+  padding-top: var(--ux4g-padding-2xs);
+  border-top: var(--ux4g-border-thin) solid var(--ux4g-border-color-neutral-subtle);
+  text-align: center;
+}

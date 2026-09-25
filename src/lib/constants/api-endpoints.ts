@@ -75,6 +75,15 @@ export const API = {
 
   activity: "/activity",
 
+  /** Real FastAPI backend only, no mock equivalent — a brand-new feature,
+   * same precedent as `products`/`cases` below. */
+  notifications: {
+    list: "/notifications",
+    unreadCount: "/notifications/unread-count",
+    markRead: (id: string) => `/notifications/${id}/read` as const,
+    markAllRead: "/notifications/read-all",
+  },
+
   manufacturers: {
     list: "/manufacturers",
     scorecard: (id: string) => `/manufacturers/${id}/scorecard` as const,

@@ -2,7 +2,7 @@
   "_meta": {
     "note": "Scaffolded locale. Values still identical to en.json are untranslated.",
     "generatedBy": "scripts/sync-locales.mjs",
-    "untranslatedCount": 1245,
+    "untranslatedCount": 1290,
     "untranslated": [
       "app.descriptor",
       "app.department",
@@ -125,13 +125,12 @@
       "navigation.manufacturerScorecard",
       "navigation.reportsProfile",
       "navigation.activityLog",
+      "navigation.notifications",
       "navigation.adminConsole",
       "navigation.primaryLandmark",
       "navigation.userMenu",
       "navigation.accountMenuFor",
       "navigation.viewProfile",
-      "navigation.notifications",
-      "navigation.notificationsUnread",
       "navigation.logout",
       "accessibility.skipToMain",
       "accessibility.screenReaderAccess",
@@ -1121,6 +1120,52 @@
       "activity.eventType.evidence_override_submitted",
       "activity.eventType.login_rate_limited",
       "activity.eventType.refresh_rate_limited",
+      "notifications.meta.title",
+      "notifications.heading",
+      "notifications.description",
+      "notifications.errorTitle",
+      "notifications.errorBody",
+      "notifications.retry",
+      "notifications.emptyTitle",
+      "notifications.emptyBody",
+      "notifications.emptyFilteredTitle",
+      "notifications.emptyFilteredBody",
+      "notifications.recordPrefix",
+      "notifications.showing",
+      "notifications.markAllRead",
+      "notifications.filters.heading",
+      "notifications.filters.readLabel",
+      "notifications.filters.all",
+      "notifications.filters.unread",
+      "notifications.filters.read",
+      "notifications.filters.typeLabel",
+      "notifications.filters.addValue",
+      "notifications.filters.clearAll",
+      "notifications.filters.removeFilter",
+      "notifications.filters.chip.type",
+      "notifications.pagination.navLabel",
+      "notifications.pagination.previous",
+      "notifications.pagination.next",
+      "notifications.pagination.pageLabel",
+      "notifications.bell.label",
+      "notifications.bell.unreadLabel",
+      "notifications.bell.viewAll",
+      "notifications.bell.markAllRead",
+      "notifications.bell.empty",
+      "notifications.type.case_reassigned_to_you.label",
+      "notifications.type.case_reassigned_to_you.message",
+      "notifications.type.record_flagged_needs_review.label",
+      "notifications.type.record_flagged_needs_review.message",
+      "notifications.type.record_needs_review_cleared.label",
+      "notifications.type.record_needs_review_cleared.message",
+      "notifications.type.case_status_changed.label",
+      "notifications.type.case_status_changed.message",
+      "notifications.type.account_created.label",
+      "notifications.type.account_created.message",
+      "notifications.type.rule_thresholds_changed.label",
+      "notifications.type.rule_thresholds_changed.message",
+      "notifications.type.record_flagged_for_enforcement.label",
+      "notifications.type.record_flagged_for_enforcement.message",
       "admin.title",
       "admin.description",
       "admin.noAccessTitle",
@@ -1428,13 +1473,12 @@
     "manufacturerScorecard": "Manufacturer Scorecard",
     "reportsProfile": "Reports & Profile",
     "activityLog": "Activity Log",
+    "notifications": "Notifications",
     "adminConsole": "Admin Console",
     "primaryLandmark": "Main navigation",
     "userMenu": "Account menu",
     "accountMenuFor": "{fullName}, {role} — account menu",
     "viewProfile": "View Profile",
-    "notifications": "Notifications",
-    "notificationsUnread": "{count} unread notifications",
     "logout": "Log out"
   },
   "theme": {
@@ -2826,6 +2870,80 @@
       "evidence_override_submitted": "Manual override submitted",
       "login_rate_limited": "Sign-in rate limited",
       "refresh_rate_limited": "Session refresh rate limited"
+    }
+  },
+  "notifications": {
+    "meta": {
+      "title": "Notifications"
+    },
+    "heading": "Notifications & Alerts",
+    "description": "Things that need your attention — case reassignments, flags on your records, and system announcements.",
+    "errorTitle": "Could not load notifications",
+    "errorBody": "The request failed. Check your connection and try again.",
+    "retry": "Try again",
+    "emptyTitle": "No notifications yet",
+    "emptyBody": "You'll see case reassignments, flags on your records, and other alerts here.",
+    "emptyFilteredTitle": "No notifications match these filters",
+    "emptyFilteredBody": "Try removing a filter or clearing them all.",
+    "recordPrefix": "Record: {scanId}",
+    "showing": "Showing {from}-{to} of {total}",
+    "markAllRead": "Mark all as read ({count})",
+    "filters": {
+      "heading": "Filter notifications",
+      "readLabel": "Read status",
+      "all": "All",
+      "unread": "Unread",
+      "read": "Read",
+      "typeLabel": "Type",
+      "addValue": "Add a value",
+      "clearAll": "Clear all filters",
+      "removeFilter": "Remove filter: {label}",
+      "chip": {
+        "type": "Type: {value}"
+      }
+    },
+    "pagination": {
+      "navLabel": "Notifications pages",
+      "previous": "Previous",
+      "next": "Next",
+      "pageLabel": "Page {page}"
+    },
+    "bell": {
+      "label": "Notifications",
+      "unreadLabel": "{count} unread notifications",
+      "viewAll": "View all notifications",
+      "markAllRead": "Mark all as read",
+      "empty": "You're all caught up"
+    },
+    "type": {
+      "case_reassigned_to_you": {
+        "label": "Case reassigned to you",
+        "message": "A case was reassigned to you."
+      },
+      "record_flagged_needs_review": {
+        "label": "Record flagged for review",
+        "message": "One of your records was flagged for review."
+      },
+      "record_needs_review_cleared": {
+        "label": "Needs Review cleared",
+        "message": "The Needs Review flag on one of your records was cleared."
+      },
+      "case_status_changed": {
+        "label": "Case status changed",
+        "message": "A case assigned to you changed status: {fromStatus} → {toStatus}."
+      },
+      "account_created": {
+        "label": "Account created",
+        "message": "Your account was created with the {role} role. Welcome to Digi-Pramaan."
+      },
+      "rule_thresholds_changed": {
+        "label": "Rule thresholds changed",
+        "message": "Compliance rule thresholds were updated."
+      },
+      "record_flagged_for_enforcement": {
+        "label": "Record flagged for enforcement",
+        "message": "A record in your jurisdiction was flagged for enforcement."
+      }
     }
   },
   "admin": {

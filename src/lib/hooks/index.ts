@@ -24,6 +24,8 @@ export { useManufacturers, useManufacturerScorecard } from "./useManufacturers";
 export { useProductDna } from "./useProductDna";
 export { useCase } from "./useCase";
 export { useMobileHandoffSession } from "./useMobileHandoffSession";
+export { useNotifications } from "./useNotifications";
+export { useUnreadNotificationCount } from "./useUnreadNotificationCount";
 export { useRecordDetail } from "./useRecordDetail";
 export {
   useReportBuilder,
