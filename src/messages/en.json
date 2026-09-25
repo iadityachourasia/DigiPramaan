@@ -652,7 +652,18 @@
       "srFailed": "Failed — needs attention",
       "readyTitle": "Ready for verification",
       "readyBody": "Taking you to Declaration Extraction & Verification.",
-      "reviewNow": "Review now"
+      "reviewNow": "Review now",
+      "sessionId": "Session ID",
+      "category": "Category",
+      "region": "Region",
+      "source": "Source",
+      "elapsedLabel": "Elapsed time",
+      "progressLabel": "Overall progress",
+      "estimatedRemaining": "~{seconds}s remaining (estimated)",
+      "estimatedHint": "A typical-case estimate based on how long each stage usually takes — not a live measurement.",
+      "historyHeading": "Stage history",
+      "showFullHistory": "Show full history",
+      "stageDuration": "Completed in {seconds}s"
     }
   },
   "extraction": {

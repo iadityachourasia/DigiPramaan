@@ -7,10 +7,13 @@ import { useEffect, useState } from "react";
 import { EmptyState } from "@/components/shared";
 import { useRouter } from "@/i18n/navigation";
 import { ROUTES } from "@/lib/constants";
-import { useScanPipeline } from "@/lib/hooks";
-import { PIPELINE_STAGE_IDS, type PipelineStageId } from "@/types";
+import { isPaused, useScanPipeline } from "@/lib/hooks";
+import { PIPELINE_STAGE_IDS, type PipelineStageId, type SourceTag } from "@/types";
 
-import { PipelineTracker } from "./PipelineTracker";
+import { ScanPipelineTracker } from "./ScanPipelineTracker";
+import { ScanProgressIndicator } from "./ScanProgressIndicator";
+import { ScanSessionSummary } from "./ScanSessionSummary";
+import { ScanStageHistory } from "./ScanStageHistory";
 
 /** How long the terminal "Ready for verification" state waits before auto-navigating. */
 const AUTO_NAVIGATE_DELAY_MS = 2500;
@@ -28,6 +31,7 @@ export interface ScanStatusViewProps {
  */
 export function ScanStatusView({ scanId }: ScanStatusViewProps) {
   const t = useTranslations("scan.pipeline");
+  const tSource = useTranslations("vocabulary.sourceTag");
   const router = useRouter();
   const searchParams = useSearchParams();
   const [navigated, setNavigated] = useState(false);
@@ -76,18 +80,57 @@ export function ScanStatusView({ scanId }: ScanStatusViewProps) {
     );
   }
 
+  const paused = isPaused(run);
+  const stageLabel = (stageId: PipelineStageId) => t(`stages.${stageId}`);
+
   return (
     <div className="lmcs-page-section">
-      <PipelineTracker
-        stages={run.stages}
-        onRetry={(stageId: PipelineStageId) => retry(stageId)}
+      <ScanSessionSummary
+        run={run}
+        paused={paused}
         labels={{
-          stageLabel: (stageId) => t(`stages.${stageId}`),
-          skipped: t("skipped"),
-          retry: t("retry"),
-          pending: t("srPending"),
-          inProgress: t("srInProgress"),
-          completed: t("srCompleted"),
+          sessionId: t("sessionId"),
+          category: t("category"),
+          region: t("region"),
+          source: t("source"),
+          elapsedLabel: t("elapsedLabel"),
+          sourceValue: (source: SourceTag) => tSource(source),
+        }}
+      />
+
+      <div className="lmcs-scan-status-main">
+        <ScanPipelineTracker
+          stages={run.stages}
+          onRetry={(stageId: PipelineStageId) => retry(stageId)}
+          labels={{
+            stageLabel,
+            skipped: t("skipped"),
+            retry: t("retry"),
+            pending: t("srPending"),
+            inProgress: t("srInProgress"),
+            completed: t("srCompleted"),
+            failed: t("srFailed"),
+          }}
+        />
+
+        <ScanProgressIndicator
+          stages={run.stages}
+          terminal={paused}
+          labels={{
+            progressLabel: t("progressLabel"),
+            estimatedRemaining: (seconds) => t("estimatedRemaining", { seconds }),
+            estimatedHint: t("estimatedHint"),
+          }}
+        />
+      </div>
+
+      <ScanStageHistory
+        stages={run.stages}
+        labels={{
+          historyHeading: t("historyHeading"),
+          showFullHistory: t("showFullHistory"),
+          stageLabel,
+          stageDuration: (seconds) => t("stageDuration", { seconds }),
           failed: t("srFailed"),
         }}
       />

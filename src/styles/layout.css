@@ -1128,6 +1128,76 @@
   padding-bottom: var(--ux4g-padding-m);
 }
 
+/* ─── Scan progress page redesign (src/components/scan/Scan{PipelineTracker,SessionSummary,ProgressIndicator,StageHistory}.tsx) ─── */
+
+/*
+ * Unlike `.lmcs-pipeline-tracker`'s 640px cap (that component stays
+ * vertical-only, narrow by design), the horizontal orientation here needs
+ * the full width of its column to lay 9 steps out left-to-right.
+ */
+.lmcs-scan-pipeline-tracker {
+  width: 100%;
+}
+
+/* Pending-stage icon: present (unlike the plain empty dot it replaces) but
+ * visually muted relative to the done/in-progress/failed states, so the
+ * current stage still reads as the loudest element on the page. */
+.lmcs-pipeline-stage-pending-icon {
+  color: var(--ux4g-text-neutral-tertiary);
+}
+
+.lmcs-scan-status-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-l);
+}
+
+@media (min-width: 1440px) {
+  .lmcs-scan-status-main {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+
+  .lmcs-scan-status-main > .lmcs-scan-pipeline-tracker,
+  .lmcs-scan-status-main > :first-child {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .lmcs-scan-status-main > :last-child {
+    flex: 0 0 320px;
+  }
+}
+
+.lmcs-scan-session-summary {
+  padding: var(--ux4g-padding-l);
+}
+
+.lmcs-scan-session-summary-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ux4g-gap-row-m) var(--ux4g-gap-column-l);
+}
+
+.lmcs-scan-session-summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-2xs);
+}
+
+.lmcs-scan-session-summary-item dd {
+  display: flex;
+  align-items: center;
+  gap: var(--ux4g-gap-column-2xs);
+}
+
+.lmcs-scan-stage-history {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ux4g-gap-row-m);
+  max-width: 640px;
+}
+
 /* ─── Declaration Extraction & Verification (src/components/scan/Extraction*.tsx) ─── */
 
 .lmcs-extraction-status-row {

@@ -75,6 +75,7 @@ import {
   type DeclarationFieldId,
   type ExtractedDeclaration,
   type ManufacturerScorecard,
+  type PipelineRun,
   type PipelineStage,
   type PipelineStageId,
   type RecordFilters,
@@ -293,6 +294,8 @@ export function resetPipelineStoreForTests(): void {
  * treatment `fallbackExtraction` already gets when it isn't needed.
  */
 function initialStages(source: SourceTag, qualityNote?: string): PipelineStage[] {
+  const now = new Date().toISOString();
+
   return PIPELINE_STAGE_IDS.map((id) => {
     if (id !== "qualityCheck") return { id, state: "pending" as const };
 
@@ -306,6 +309,8 @@ function initialStages(source: SourceTag, qualityNote?: string): PipelineStage[]
         id,
         state: "skipped" as const,
         summary: "Not applicable — listing images are not field photographs.",
+        startedAt: now,
+        completedAt: now,
       };
     }
 
@@ -316,6 +321,8 @@ function initialStages(source: SourceTag, qualityNote?: string): PipelineStage[]
         summary:
           qualityNote ??
           "Submitted from the public portal — photo accepted without a blocking quality gate.",
+        startedAt: now,
+        completedAt: now,
       };
     }
 
@@ -323,6 +330,8 @@ function initialStages(source: SourceTag, qualityNote?: string): PipelineStage[]
       id,
       state: "completed" as const,
       summary: "All images passed the quality gate before this screen.",
+      startedAt: now,
+      completedAt: now,
     };
   });
 }
@@ -594,6 +603,7 @@ function withAdvancedStages(run: StoredPipelineRun): StoredPipelineRun {
     if (stage.state === "pending") {
       stage.state = "in_progress";
       run.currentStageStartedAt = new Date().toISOString();
+      stage.startedAt = run.currentStageStartedAt;
       progressed = true;
       continue;
     }
@@ -604,6 +614,7 @@ function withAdvancedStages(run: StoredPipelineRun): StoredPipelineRun {
     if (run.forceFailStage === stage.id) {
       stage.state = "failed";
       stage.failureReason = FAILURE_REASON[stage.id];
+      stage.completedAt = new Date().toISOString();
       delete run.forceFailStage;
       emitStageEvent(run, stage.id, "failed");
       break;
@@ -612,9 +623,11 @@ function withAdvancedStages(run: StoredPipelineRun): StoredPipelineRun {
     if (stage.id === "fallbackExtraction" && !run.seeded.fallbackNeeded) {
       stage.state = "skipped";
       stage.summary = "Not needed — all fields extracted with high confidence.";
+      stage.completedAt = new Date().toISOString();
     } else {
       stage.state = "completed";
       stage.summary = stageSummary(run, stage.id);
+      stage.completedAt = new Date().toISOString();
       if (stage.id === "readyForVerification") {
         run.record = buildFinalRecord(run);
         emitBackloggedStageEvents(run);
@@ -627,8 +640,16 @@ function withAdvancedStages(run: StoredPipelineRun): StoredPipelineRun {
   return run;
 }
 
-function toPublicRun(run: StoredPipelineRun): { scanId: string; recordId: string; stages: PipelineStage[] } {
-  return { scanId: run.scanId, recordId: run.recordId, stages: run.stages };
+function toPublicRun(run: StoredPipelineRun): PipelineRun {
+  return {
+    scanId: run.scanId,
+    recordId: run.recordId,
+    stages: run.stages,
+    region: run.metadata.region,
+    category: run.metadata.category,
+    source: run.source,
+    createdAt: run.createdAt,
+  };
 }
 
 export function createPipelineRun(input: CreatePipelineRunInput) {

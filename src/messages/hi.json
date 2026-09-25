@@ -2,7 +2,7 @@
   "_meta": {
     "note": "Scaffolded locale. Values still identical to en.json are untranslated.",
     "generatedBy": "scripts/sync-locales.mjs",
-    "untranslatedCount": 1297,
+    "untranslatedCount": 1308,
     "untranslated": [
       "app.descriptor",
       "app.department",
@@ -440,6 +440,17 @@
       "scan.pipeline.readyTitle",
       "scan.pipeline.readyBody",
       "scan.pipeline.reviewNow",
+      "scan.pipeline.sessionId",
+      "scan.pipeline.category",
+      "scan.pipeline.region",
+      "scan.pipeline.source",
+      "scan.pipeline.elapsedLabel",
+      "scan.pipeline.progressLabel",
+      "scan.pipeline.estimatedRemaining",
+      "scan.pipeline.estimatedHint",
+      "scan.pipeline.historyHeading",
+      "scan.pipeline.showFullHistory",
+      "scan.pipeline.stageDuration",
       "extraction.meta.title",
       "extraction.heading",
       "extraction.description",
@@ -1956,7 +1967,18 @@
       "srFailed": "Failed — needs attention",
       "readyTitle": "Ready for verification",
       "readyBody": "Taking you to Declaration Extraction & Verification.",
-      "reviewNow": "Review now"
+      "reviewNow": "Review now",
+      "sessionId": "Session ID",
+      "category": "Category",
+      "region": "Region",
+      "source": "Source",
+      "elapsedLabel": "Elapsed time",
+      "progressLabel": "Overall progress",
+      "estimatedRemaining": "~{seconds}s remaining (estimated)",
+      "estimatedHint": "A typical-case estimate based on how long each stage usually takes — not a live measurement.",
+      "historyHeading": "Stage history",
+      "showFullHistory": "Show full history",
+      "stageDuration": "Completed in {seconds}s"
     }
   },
   "extraction": {

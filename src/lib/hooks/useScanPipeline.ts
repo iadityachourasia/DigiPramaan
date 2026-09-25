@@ -17,7 +17,7 @@ import { useAuth } from "./useAuth";
  */
 const POLL_INTERVAL_MS = 600;
 
-function isPaused(run: PipelineRun): boolean {
+export function isPaused(run: PipelineRun): boolean {
   const ready = run.stages.find((s) => s.id === "readyForVerification");
   if (ready?.state === "completed") return true;
   return run.stages.some((s) => s.state === "failed");

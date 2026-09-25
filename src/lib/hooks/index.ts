@@ -34,7 +34,8 @@ export {
   type UseReportBuilderResult,
 } from "./useReports";
 export { MULTI_FILTER_KEYS, useRecordsList, type MultiFilterKey } from "./useRecordsList";
-export { useScanPipeline } from "./useScanPipeline";
+export { useScanPipeline, isPaused } from "./useScanPipeline";
+export { useElapsedTime } from "./useElapsedTime";
 export {
   useMediaQuery,
   useIsTabletOrAbove,
